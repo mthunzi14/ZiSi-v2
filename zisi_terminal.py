@@ -845,8 +845,8 @@ def main():
     
     last_file_sync = time.time()
     
-    # High frequency loop (10 updates per second for smooth countdowns and live WS ticks)
-    with Live(layout, refresh_per_second=10, screen=True) as live:
+    # Optimized 4Hz rendering loop (4 updates per second) to prevent SSH socket buffering lag
+    with Live(layout, refresh_per_second=4, screen=True) as live:
         while True:
             now = time.time()
             # Throttle local file I/O to once every 1.5 seconds to keep CPU/disk usage minimal
@@ -863,7 +863,14 @@ def main():
             layout["closed_panel"].update(build_closed_positions_panel())
             layout["logs_panel"].update(build_logs_panel())
             
-            time.sleep(0.1)
+            # Write a heartbeat file to confirm the process loop is running without freezing
+            try:
+                with open("/tmp/zisi_dash_tick.log", "w") as tf:
+                    tf.write(f"HEARTBEAT: {datetime.now().isoformat()}\n")
+            except Exception:
+                pass
+                
+            time.sleep(0.25)
 
 
 if __name__ == "__main__":
