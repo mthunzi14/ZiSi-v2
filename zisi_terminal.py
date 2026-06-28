@@ -12,6 +12,7 @@ import json
 import time
 import asyncio
 import threading
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -70,6 +71,9 @@ class GlobalDashboardState:
         self.clob_prices = {}  # market_id -> {"yes_price": float, "last_update": float}
         self.clob_spreads = {}  # market_id -> float
         
+        # Resolved active 5m markets
+        self.asset_market_ids = {}  # asset -> market_id
+        
         # File-based state
         self.account_state = {}
         self.positions_state = {}
@@ -86,10 +90,57 @@ class GlobalDashboardState:
 g_state = GlobalDashboardState()
 
 
-# ── WebSocket Listeners ────────────────────────────────────────────────────────
+# ── WebSocket & API Resolvers ──────────────────────────────────────────────────
+
+def update_active_market_ids():
+    """Query Polymarket Gamma API to resolve the active 5m market IDs for all assets."""
+    assets = ["BTC", "ETH", "SOL", "XRP", "DOGE"]
+    now = time.time()
+    ts_current = int(now // 300) * 300
+    
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    new_ids = {}
+    
+    for asset in assets:
+        coin_lower = asset.lower()
+        m_id = None
+        # Try current boundary first, then next boundary as fallback
+        for ts in [ts_current, ts_current + 300]:
+            slug = f"{coin_lower}-updown-5m-{ts}"
+            url = f"https://gamma-api.polymarket.com/events?slug={slug}"
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=3) as r:
+                    data = json.loads(r.read())
+                    if data and isinstance(data, list) and len(data) > 0:
+                        markets = data[0].get("markets", [])
+                        if markets:
+                            m_id = markets[0].get("id")
+                            if m_id:
+                                break
+            except Exception:
+                pass
+        if m_id:
+            new_ids[asset] = m_id
+            
+    if new_ids:
+        with g_state.lock:
+            g_state.asset_market_ids.update(new_ids)
+            g_state.active_market_ids.update(new_ids.values())
+
+
+def run_market_resolver_loop():
+    """Background loop to query Gamma API for active markets every 3 minutes."""
+    while True:
+        try:
+            update_active_market_ids()
+        except Exception:
+            pass
+        time.sleep(180)
+
 
 async def binance_spot_listener():
-    """Connect to Binance Spot WebSocket for sub-second price updates (including DOGE)."""
+    """Connect to Binance Spot WebSocket for sub-second price updates."""
     url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/dogeusdt@ticker"
     while True:
         try:
@@ -167,7 +218,10 @@ def run_ws_event_loop():
     loop.run_forever()
 
 
-# Start WebSocket threads
+# Start background tasks
+resolver_thread = threading.Thread(target=run_market_resolver_loop, daemon=True)
+resolver_thread.start()
+
 ws_thread = threading.Thread(target=run_ws_event_loop, daemon=True)
 ws_thread.start()
 
@@ -204,30 +258,36 @@ def sync_file_states():
         g_state.chainlink_prices = chainlink
         g_state.pyth_prices = pyth
         
-        # Update list of active market IDs to track on CLOB WS
+        # Merge active position market IDs with our background resolved active market IDs
         active_list = positions.get("active", [])
-        g_state.active_market_ids = {pos["market_id"] for pos in active_list if pos.get("market_id")}
+        active_ids = {pos["market_id"] for pos in active_list if pos.get("market_id")}
+        g_state.active_market_ids = active_ids.union(g_state.asset_market_ids.values())
 
 
 def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
-    """Tail the log file safely."""
+    """Tail the log file safely without reading the whole file to prevent I/O blocking."""
     if not file_path.exists():
         return [f"[{COLOR_LABEL}]Waiting for log file to generate...[/{COLOR_LABEL}]"]
     try:
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(file_path, "rb") as f:
             f.seek(0, os.SEEK_END)
             file_size = f.tell()
-            buffer_size = 4096
-            if file_size > 0:
-                seek_offset = min(file_size, buffer_size)
+            if file_size == 0:
+                return []
+                
+            chunk_size = 1024
+            lines = []
+            # Exponentially increase chunk search size up to 64KB until we have enough lines
+            while chunk_size <= 65536 and len(lines) <= num_lines:
+                seek_offset = min(file_size, chunk_size)
                 f.seek(file_size - seek_offset)
-                chunk = f.read(seek_offset)
+                chunk = f.read(seek_offset).decode("utf-8", errors="ignore")
                 lines = chunk.splitlines()
-                if len(lines) < num_lines:
-                    f.seek(0)
-                    lines = f.read().splitlines()
-                return lines[-num_lines:]
-            return []
+                if seek_offset == file_size:
+                    break
+                chunk_size *= 2
+                
+            return lines[-num_lines:]
     except Exception as e:
         return [f"[red]Error reading logs: {e}[/red]"]
 
@@ -258,7 +318,7 @@ def colorize_log_line(line: str) -> Text:
 
 
 def format_iso_timestamp(iso_str: str) -> str:
-    """Convert ISO timestamp to YYYY-MM-DD YYYY-MM-DD HH:MM:SS SAST."""
+    """Convert ISO timestamp to YYYY-MM-DD HH:MM:SS SAST."""
     if not iso_str:
         return "-"
     try:
@@ -288,7 +348,7 @@ def build_header_panel() -> Panel:
     now = time.time()
     now_utc = datetime.now(timezone.utc)
     
-    # SAST Clock
+    # SAST & UTC clocks in Yellow
     sast_hour = (now_utc.hour + 2) % 24
     sast_str = f"{sast_hour:02d}:{now_utc.minute:02d}:{now_utc.second:02d} SAST"
     utc_str = now_utc.strftime("%H:%M:%S UTC")
@@ -316,16 +376,16 @@ def build_header_panel() -> Panel:
             liveness_status = "[yellow]● STANDBY[/yellow]"
 
     header_text = Text.assemble(
-        ("ZiSi-v2 Terminal ", "bold cyan"),
+        ("ZCV2 ", f"bold {COLOR_LABEL}"),  # Titanium Gray "ZCV2"
         ("│ ", "bright_black"),
         ("Status: ", f"bold {COLOR_LABEL}"),
         Text.from_markup(liveness_status),
         (" │ ", "bright_black"),
         ("UTC: ", f"bold {COLOR_LABEL}"),
-        (utc_str, "magenta"),
+        (utc_str, "yellow"),            # Yellow UTC Clock
         (" │ ", "bright_black"),
         ("SAST: ", f"bold {COLOR_LABEL}"),
-        (sast_str, "yellow"),
+        (sast_str, "yellow"),           # Yellow SAST Clock
         (" │ ", "bright_black"),
         ("5m Candle: ", f"bold {COLOR_LABEL}"),
         (cd_5m_str, style_5m),
@@ -400,7 +460,7 @@ def build_metrics_panel() -> Panel:
 
 
 def build_spot_prices_panel() -> Panel:
-    """Build pricing layout displaying spot, Pyth, and Chainlink prices (added DOGE)."""
+    """Build pricing layout displaying spot, Pyth, and Chainlink prices alongside live CLOB YES prices."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
     table.add_column("Asset", style=f"bold {COLOR_ASSET}")
     table.add_column("Binance Spot", justify="right", style=COLOR_VAL)
@@ -413,6 +473,7 @@ def build_spot_prices_panel() -> Panel:
         spot_copy = dict(g_state.spot_prices)
         cl_copy = dict(g_state.chainlink_prices)
         pyth_copy = dict(g_state.pyth_prices)
+        clob_market_ids = dict(g_state.asset_market_ids)
         positions = list(g_state.positions_state.get("active", []))
 
     # Compile table rows for all assets (BTC, ETH, SOL, XRP, DOGE)
@@ -440,22 +501,26 @@ def build_spot_prices_panel() -> Panel:
         else:
             pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
         
-        # Try to find an active trade matching this asset to get live contract spread
-        token_price_str = "-"
-        spread_str = "-"
+        # Resolve the active market ID for this asset (check open position first, then resolved active 5m market)
+        m_id = None
         for pos in positions:
             title = pos.get("event_title", "")
             if f"[{asset}]" in title.upper() or asset in title.upper():
                 m_id = pos.get("market_id")
-                live_entry = g_state.clob_prices.get(m_id)
-                spread = g_state.clob_spreads.get(m_id)
-                if live_entry:
-                    token_price_str = f"${live_entry['yes_price']:.3f}"
-                else:
-                    token_price_str = f"${pos.get('current_price', 0.0):.3f}"
-                if spread is not None:
-                    spread_str = f"{spread * 100:.1f}¢"
                 break
+        if not m_id:
+            m_id = clob_market_ids.get(asset)
+        
+        token_price_str = "-"
+        spread_str = "-"
+        if m_id:
+            # Query in-memory live WebSocket cache for the active market ID
+            live_entry = g_state.clob_prices.get(m_id)
+            spread = g_state.clob_spreads.get(m_id)
+            if live_entry:
+                token_price_str = f"${live_entry['yes_price']:.3f}"
+            if spread is not None:
+                spread_str = f"{spread * 100:.1f}¢"
 
         table.add_row(asset, spot_str, pyth_str, cl_str, token_price_str, spread_str)
 
@@ -614,7 +679,7 @@ def build_closed_positions_panel() -> Panel:
     for pos in closed_positions[:5]:
         title = pos.get("event_title", "Unknown")
         
-        # Asset parse (added DOGE)
+        # Asset parse
         asset = "UNKNOWN"
         for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
             if f"[{possible}]" in title.upper() or possible in title.upper():
