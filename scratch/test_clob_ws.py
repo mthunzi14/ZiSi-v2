@@ -8,7 +8,7 @@ async def test_ws():
     
     print(f"Connecting to {url}...")
     try:
-        async with websockets.connect(url, extra_headers=headers, ping_interval=20, ping_timeout=10) as ws:
+        async with websockets.connect(url, additional_headers=headers, ping_interval=20, ping_timeout=10) as ws:
             print("Connected! Sending subscription for a test token ID...")
             
             # Let's subscribe to a known active token ID
