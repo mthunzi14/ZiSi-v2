@@ -80,6 +80,17 @@ class GlobalDashboardState:
 g_state = GlobalDashboardState()
 
 
+def get_uptime_str(start_time: float) -> str:
+    """Format duration into a readable uptime string."""
+    diff = int(time.time() - start_time)
+    days, remain = divmod(diff, 86400)
+    hours, remain = divmod(remain, 3600)
+    minutes, seconds = divmod(remain, 60)
+    if days > 0:
+        return f"{days}d {hours}h {minutes}m"
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
 # ── WebSocket Listeners ────────────────────────────────────────────────────────
 
 async def binance_spot_listener():
