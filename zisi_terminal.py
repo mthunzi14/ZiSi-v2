@@ -68,11 +68,11 @@ class GlobalDashboardState:
         self.lock = threading.Lock()
         # Live WebSocket data (added DOGE)
         self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0}
-        self.clob_prices = {}  # market_id -> {"yes_price": float, "last_update": float}
-        self.clob_spreads = {}  # market_id -> float
+        self.clob_prices = {}  # token_id -> {"yes_price": float, "last_update": float}
+        self.clob_spreads = {}  # token_id -> float
         
-        # Resolved active 5m markets
-        self.asset_market_ids = {}  # asset -> market_id
+        # Resolved active 5m market token IDs
+        self.asset_token_ids = {}  # asset -> {"yes": token_id, "no": token_id}
         
         # File-based state
         self.account_state = {}
@@ -84,7 +84,7 @@ class GlobalDashboardState:
         
         # Timing
         self.start_time = time.time()
-        self.active_market_ids = set()
+        self.active_market_ids = set()  # set of token IDs to subscribe to
 
 
 g_state = GlobalDashboardState()
@@ -93,17 +93,17 @@ g_state = GlobalDashboardState()
 # ── WebSocket & API Resolvers ──────────────────────────────────────────────────
 
 def update_active_market_ids():
-    """Query Polymarket Gamma API to resolve the active 5m market IDs for all assets."""
+    """Query Polymarket Gamma API to resolve the active 5m market YES/NO token IDs for all assets."""
     assets = ["BTC", "ETH", "SOL", "XRP", "DOGE"]
     now = time.time()
     ts_current = int(now // 300) * 300
     
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    new_ids = {}
+    new_tokens = {}
     
     for asset in assets:
         coin_lower = asset.lower()
-        m_id = None
+        yes_tk, no_tk = None, None
         # Try current boundary first, then next boundary as fallback
         for ts in [ts_current, ts_current + 300]:
             slug = f"{coin_lower}-updown-5m-{ts}"
@@ -115,18 +115,25 @@ def update_active_market_ids():
                     if data and isinstance(data, list) and len(data) > 0:
                         markets = data[0].get("markets", [])
                         if markets:
-                            m_id = markets[0].get("id")
-                            if m_id:
+                            clob_token_ids = markets[0].get("clobTokenIds")
+                            if isinstance(clob_token_ids, str):
+                                clob_token_ids = json.loads(clob_token_ids)
+                            if clob_token_ids and len(clob_token_ids) >= 2:
+                                yes_tk = clob_token_ids[0]
+                                no_tk = clob_token_ids[1]
                                 break
             except Exception:
                 pass
-        if m_id:
-            new_ids[asset] = m_id
+        if yes_tk and no_tk:
+            new_tokens[asset] = {"yes": yes_tk, "no": no_tk}
             
-    if new_ids:
+    if new_tokens:
         with g_state.lock:
-            g_state.asset_market_ids.update(new_ids)
-            g_state.active_market_ids.update(new_ids.values())
+            g_state.asset_token_ids.update(new_tokens)
+            # Add yes and no token IDs to active subscription set
+            for t_dict in new_tokens.values():
+                g_state.active_market_ids.add(t_dict["yes"])
+                g_state.active_market_ids.add(t_dict["no"])
 
 
 def run_market_resolver_loop():
@@ -160,7 +167,7 @@ async def binance_spot_listener():
 
 
 async def polymarket_clob_listener():
-    """Connect to Polymarket CLOB WebSocket to stream order book midpoints for active markets."""
+    """Connect to Polymarket CLOB WebSocket using the correct 'market' subscription structure."""
     url = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
     while True:
         try:
@@ -169,40 +176,61 @@ async def polymarket_clob_listener():
                 
                 while True:
                     with g_state.lock:
-                        current_active_markets = set(g_state.active_market_ids)
+                        current_active_tokens = set(g_state.active_market_ids)
                     
-                    # Unsubscribe from old
-                    to_unsub = subscribed_markets - current_active_markets
-                    if to_unsub:
-                        unsub_msg = {"type": "unsubscribe", "market_ids": list(to_unsub), "channel": "book"}
-                        await ws.send(json.dumps(unsub_msg))
-                        subscribed_markets -= to_unsub
-                    
-                    # Subscribe to new
-                    to_sub = current_active_markets - subscribed_markets
-                    if to_sub:
-                        sub_msg = {"type": "subscribe", "market_ids": list(to_sub), "channel": "book"}
+                    # Replace subscription list if it changed
+                    if current_active_tokens != subscribed_markets:
+                        sub_msg = {
+                            "type": "market",
+                            "assets_ids": list(current_active_tokens),
+                            "custom_feature_enabled": True
+                        }
                         await ws.send(json.dumps(sub_msg))
-                        subscribed_markets.update(to_sub)
+                        subscribed_markets = set(current_active_tokens)
                     
                     try:
-                        msg = await asyncio.wait_for(ws.recv(), timeout=1.0)
+                        msg = await asyncio.wait_for(ws.recv(), timeout=0.1)
                         data = json.loads(msg)
-                        if data.get("event_type") == "book":
-                            m_id = data.get("market_id")
+                        event_type = data.get("event_type", "")
+                        
+                        # Handle price_change
+                        if event_type == "price_change":
+                            for change in data.get("price_changes", []):
+                                aid = change.get("asset_id")
+                                best_bid = change.get("best_bid")
+                                best_ask = change.get("best_ask")
+                                if aid and best_bid is not None and best_ask is not None:
+                                    mid = (float(best_bid) + float(best_ask)) / 2
+                                    spread = float(best_ask) - float(best_bid)
+                                    with g_state.lock:
+                                        g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
+                                        g_state.clob_spreads[aid] = spread
+                                        
+                        # Handle best_bid_ask
+                        elif event_type == "best_bid_ask":
+                            aid = data.get("asset_id") or data.get("token_id")
+                            best_bid = data.get("best_bid")
+                            best_ask = data.get("best_ask")
+                            if aid and best_bid is not None and best_ask is not None:
+                                mid = (float(best_bid) + float(best_ask)) / 2
+                                spread = float(best_ask) - float(best_bid)
+                                with g_state.lock:
+                                    g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
+                                    g_state.clob_spreads[aid] = spread
+                                    
+                        # Handle book snapshots
+                        else:
                             bids = data.get("bids", [])
                             asks = data.get("asks", [])
-                            if bids and asks:
-                                best_bid = float(bids[0].get("price", 0.0))
-                                best_ask = float(asks[0].get("price", 0.0))
-                                midpoint = (best_bid + best_ask) / 2
+                            aid = data.get("asset_id") or data.get("token_id")
+                            if aid and bids and asks:
+                                best_bid = float(bids[-1].get("price", 0))
+                                best_ask = float(asks[0].get("price", 0))
+                                mid = (best_bid + best_ask) / 2
                                 spread = best_ask - best_bid
                                 with g_state.lock:
-                                    g_state.clob_prices[m_id] = {
-                                        "yes_price": midpoint,
-                                        "last_update": time.time()
-                                    }
-                                    g_state.clob_spreads[m_id] = spread
+                                    g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
+                                    g_state.clob_spreads[aid] = spread
                     except asyncio.TimeoutError:
                         pass
         except Exception:
@@ -258,10 +286,10 @@ def sync_file_states():
         g_state.chainlink_prices = chainlink
         g_state.pyth_prices = pyth
         
-        # Merge active position market IDs with our background resolved active market IDs
+        # Merge active position token IDs directly with resolved token IDs
         active_list = positions.get("active", [])
         active_ids = {pos["market_id"] for pos in active_list if pos.get("market_id")}
-        g_state.active_market_ids = active_ids.union(g_state.asset_market_ids.values())
+        g_state.active_market_ids = active_ids.union(g_state.asset_token_ids.values())
 
 
 def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
@@ -277,7 +305,6 @@ def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
                 
             chunk_size = 1024
             lines = []
-            # Exponentially increase chunk search size up to 64KB until we have enough lines
             while chunk_size <= 65536 and len(lines) <= num_lines:
                 seek_offset = min(file_size, chunk_size)
                 f.seek(file_size - seek_offset)
@@ -376,7 +403,7 @@ def build_header_panel() -> Panel:
             liveness_status = "[yellow]● STANDBY[/yellow]"
 
     header_text = Text.assemble(
-        ("ZCV2 ", f"bold {COLOR_LABEL}"),  # Titanium Gray "ZCV2"
+        ("ZiSi-v2 ", f"bold {COLOR_LABEL}"),  # Naming alignment: ZiSi-v2 in Titanium Gray
         ("│ ", "bright_black"),
         ("Status: ", f"bold {COLOR_LABEL}"),
         Text.from_markup(liveness_status),
@@ -473,7 +500,7 @@ def build_spot_prices_panel() -> Panel:
         spot_copy = dict(g_state.spot_prices)
         cl_copy = dict(g_state.chainlink_prices)
         pyth_copy = dict(g_state.pyth_prices)
-        clob_market_ids = dict(g_state.asset_market_ids)
+        clob_token_ids = dict(g_state.asset_token_ids)
         positions = list(g_state.positions_state.get("active", []))
 
     # Compile table rows for all assets (BTC, ETH, SOL, XRP, DOGE)
@@ -501,22 +528,23 @@ def build_spot_prices_panel() -> Panel:
         else:
             pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
         
-        # Resolve the active market ID for this asset (check open position first, then resolved active 5m market)
-        m_id = None
+        # Resolve YES token ID for this asset (check open position first, then resolved active 5m market token)
+        yes_tk = None
         for pos in positions:
             title = pos.get("event_title", "")
             if f"[{asset}]" in title.upper() or asset in title.upper():
-                m_id = pos.get("market_id")
+                yes_tk = pos.get("market_id")  # market_id is already the token ID
                 break
-        if not m_id:
-            m_id = clob_market_ids.get(asset)
+        if not yes_tk:
+            token_info = clob_token_ids.get(asset, {})
+            yes_tk = token_info.get("yes")
         
         token_price_str = "-"
         spread_str = "-"
-        if m_id:
-            # Query in-memory live WebSocket cache for the active market ID
-            live_entry = g_state.clob_prices.get(m_id)
-            spread = g_state.clob_spreads.get(m_id)
+        if yes_tk:
+            # Query in-memory live WebSocket cache for the active YES token ID
+            live_entry = g_state.clob_prices.get(yes_tk)
+            spread = g_state.clob_spreads.get(yes_tk)
             if live_entry:
                 token_price_str = f"${live_entry['yes_price']:.3f}"
             if spread is not None:
@@ -618,11 +646,10 @@ def build_active_positions_panel() -> Panel:
             entry_token = float(pos.get("entry_price", 0.0))
             live_spot = spot_copy.get(asset, 0.0)
             
-            # Fetch WebSocket token price
+            # Fetch WebSocket token price (market_id is the token ID)
             live_entry = g_state.clob_prices.get(market_id)
             if live_entry:
-                yes_price = live_entry["yes_price"]
-                mark_token = yes_price if direction == "YES" else (1.0 - yes_price)
+                mark_token = live_entry["yes_price"]
                 unreal = (float(pos.get("shares", 0.0)) * mark_token) - size
             else:
                 mark_token = float(pos.get("current_price", entry_token))
@@ -766,17 +793,26 @@ def make_layout() -> Layout:
 
 
 def main():
-    """Main dashboard rendering loop."""
+    """Main rendering loop optimized for high-refresh with throttled disk I/O."""
     layout = make_layout()
     console.clear()
     console.set_window_title("ZiSi-v2 Terminal Dashboard")
     
-    with Live(layout, refresh_per_second=2, screen=True) as live:
+    # Load initial states
+    sync_file_states()
+    
+    last_file_sync = time.time()
+    
+    # High frequency loop (10 updates per second for smooth countdowns and live WS ticks)
+    with Live(layout, refresh_per_second=10, screen=True) as live:
         while True:
-            # Sync states from files
-            sync_file_states()
-            
-            # Update layout pieces
+            now = time.time()
+            # Throttle local file I/O to once every 1.5 seconds to keep CPU/disk usage minimal
+            if now - last_file_sync >= 1.5:
+                sync_file_states()
+                last_file_sync = now
+                
+            # Update layout panels instantly
             layout["header"].update(build_header_panel())
             layout["metrics"].update(build_metrics_panel())
             layout["prices"].update(build_spot_prices_panel())
@@ -785,7 +821,7 @@ def main():
             layout["closed_panel"].update(build_closed_positions_panel())
             layout["logs_panel"].update(build_logs_panel())
             
-            time.sleep(0.5)
+            time.sleep(0.1)
 
 
 if __name__ == "__main__":
