@@ -166,12 +166,60 @@ async def binance_spot_listener():
             await asyncio.sleep(2)  # Reconnect
 
 
+def process_clob_message(data: dict):
+    """Parse incoming event data from the Polymarket CLOB WebSocket stream."""
+    if not isinstance(data, dict):
+        return
+    event_type = data.get("event_type", "")
+    
+    # Handle price_change
+    if event_type == "price_change":
+        for change in data.get("price_changes", []):
+            aid = change.get("asset_id")
+            best_bid = change.get("best_bid")
+            best_ask = change.get("best_ask")
+            if aid and best_bid is not None and best_ask is not None:
+                mid = (float(best_bid) + float(best_ask)) / 2
+                spread = float(best_ask) - float(best_bid)
+                with g_state.lock:
+                    g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
+                    g_state.clob_spreads[aid] = spread
+                    
+    # Handle best_bid_ask
+    elif event_type == "best_bid_ask":
+        aid = data.get("asset_id") or data.get("token_id")
+        best_bid = data.get("best_bid")
+        best_ask = data.get("best_ask")
+        if aid and best_bid is not None and best_ask is not None:
+            mid = (float(best_bid) + float(best_ask)) / 2
+            spread = float(best_ask) - float(best_bid)
+            with g_state.lock:
+                g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
+                g_state.clob_spreads[aid] = spread
+                
+    # Handle book snapshots
+    elif event_type == "book":
+        bids = data.get("bids", [])
+        asks = data.get("asks", [])
+        aid = data.get("asset_id") or data.get("token_id")
+        if aid and bids and asks:
+            best_bid = float(bids[-1].get("price", 0))
+            best_ask = float(asks[0].get("price", 0))
+            mid = (best_bid + best_ask) / 2
+            spread = best_ask - best_bid
+            with g_state.lock:
+                g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
+                g_state.clob_spreads[aid] = spread
+
+
 async def polymarket_clob_listener():
-    """Connect to Polymarket CLOB WebSocket using the correct 'market' subscription structure."""
+    """Connect to Polymarket CLOB WebSocket using the correct user agent and list-unpacking."""
     url = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    
     while True:
         try:
-            async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
+            async with websockets.connect(url, additional_headers=headers, ping_interval=20, ping_timeout=10) as ws:
                 subscribed_markets = set()
                 
                 while True:
@@ -190,47 +238,12 @@ async def polymarket_clob_listener():
                     
                     try:
                         msg = await asyncio.wait_for(ws.recv(), timeout=0.1)
-                        data = json.loads(msg)
-                        event_type = data.get("event_type", "")
-                        
-                        # Handle price_change
-                        if event_type == "price_change":
-                            for change in data.get("price_changes", []):
-                                aid = change.get("asset_id")
-                                best_bid = change.get("best_bid")
-                                best_ask = change.get("best_ask")
-                                if aid and best_bid is not None and best_ask is not None:
-                                    mid = (float(best_bid) + float(best_ask)) / 2
-                                    spread = float(best_ask) - float(best_bid)
-                                    with g_state.lock:
-                                        g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
-                                        g_state.clob_spreads[aid] = spread
-                                        
-                        # Handle best_bid_ask
-                        elif event_type == "best_bid_ask":
-                            aid = data.get("asset_id") or data.get("token_id")
-                            best_bid = data.get("best_bid")
-                            best_ask = data.get("best_ask")
-                            if aid and best_bid is not None and best_ask is not None:
-                                mid = (float(best_bid) + float(best_ask)) / 2
-                                spread = float(best_ask) - float(best_bid)
-                                with g_state.lock:
-                                    g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
-                                    g_state.clob_spreads[aid] = spread
-                                    
-                        # Handle book snapshots
+                        payload = json.loads(msg)
+                        if isinstance(payload, list):
+                            for item in payload:
+                                process_clob_message(item)
                         else:
-                            bids = data.get("bids", [])
-                            asks = data.get("asks", [])
-                            aid = data.get("asset_id") or data.get("token_id")
-                            if aid and bids and asks:
-                                best_bid = float(bids[-1].get("price", 0))
-                                best_ask = float(asks[0].get("price", 0))
-                                mid = (best_bid + best_ask) / 2
-                                spread = best_ask - best_bid
-                                with g_state.lock:
-                                    g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
-                                    g_state.clob_spreads[aid] = spread
+                            process_clob_message(payload)
                     except asyncio.TimeoutError:
                         pass
         except Exception:
@@ -493,23 +506,22 @@ def build_metrics_panel() -> Panel:
 
 
 def build_spot_prices_panel() -> Panel:
-    """Build pricing layout displaying spot, Pyth, and Chainlink prices alongside live CLOB YES prices."""
+    """Build pricing layout displaying spot, Chainlink, YES, NO, and Spread values."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
     table.add_column("Asset", style=f"bold {COLOR_ASSET}")
     table.add_column("Binance Spot", justify="right", style=COLOR_VAL)
-    table.add_column("Pyth Oracle", justify="right", style=COLOR_LABEL)
     table.add_column("Chainlink Spot", justify="right", style=COLOR_LABEL)
-    table.add_column("YES price", justify="right", style=COLOR_VAL)
+    table.add_column("YES Price", justify="right", style=COLOR_VAL)
+    table.add_column("NO Price", justify="right", style=COLOR_VAL)
     table.add_column("Spread", justify="right", style=COLOR_LABEL)
 
     with g_state.lock:
         spot_copy = dict(g_state.spot_prices)
         cl_copy = dict(g_state.chainlink_prices)
-        pyth_copy = dict(g_state.pyth_prices)
         clob_token_ids = dict(g_state.asset_token_ids)
         positions = list(g_state.positions_state.get("active", []))
 
-    # Compile table rows for all assets (BTC, ETH, SOL, XRP, DOGE)
+    # Compile table rows for all 5 assets (BTC, ETH, SOL, XRP, DOGE)
     for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
         spot_price = spot_copy.get(asset, 0.0)
         
@@ -527,36 +539,49 @@ def build_spot_prices_panel() -> Panel:
         else:
             cl_str = f"${cl_price:,.2f}" if cl_price > 0 else "-"
         
-        pyth_entry = pyth_copy.get(asset, {})
-        pyth_price = float(pyth_entry.get("price", 0.0)) if isinstance(pyth_entry, dict) else float(pyth_entry or 0.0)
-        if asset == "DOGE":
-            pyth_str = f"${pyth_price:.5f}" if pyth_price > 0 else "-"
-        else:
-            pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
+        # Resolve YES and NO token IDs for this asset
+        token_info = clob_token_ids.get(asset, {})
+        yes_tk = token_info.get("yes")
+        no_tk = token_info.get("no")
         
-        # Resolve YES token ID for this asset (check open position first, then resolved active 5m market token)
-        yes_tk = None
+        # Open positions overwrite (to match active trade token ID)
         for pos in positions:
             title = pos.get("event_title", "")
             if f"[{asset}]" in title.upper() or asset in title.upper():
-                yes_tk = pos.get("market_id")  # market_id is already the token ID
+                p_tk = pos.get("market_id")
+                p_dir = pos.get("direction", "YES")
+                if p_dir == "YES":
+                    yes_tk = p_tk
+                else:
+                    no_tk = p_tk
                 break
-        if not yes_tk:
-            token_info = clob_token_ids.get(asset, {})
-            yes_tk = token_info.get("yes")
         
-        token_price_str = "-"
+        yes_price_str = "-"
+        no_price_str = "-"
         spread_str = "-"
+        
         if yes_tk:
             # Query in-memory live WebSocket cache for the active YES token ID
             live_entry = g_state.clob_prices.get(yes_tk)
             spread = g_state.clob_spreads.get(yes_tk)
             if live_entry:
-                token_price_str = f"${live_entry['yes_price']:.3f}"
-            if spread is not None:
-                spread_str = f"{spread * 100:.1f}¢"
+                yes_val = live_entry["yes_price"]
+                yes_price_str = f"${yes_val:.3f}"
+                if spread is not None:
+                    spread_str = f"{spread * 100:.1f}¢"
+                # Infer NO price mathematically if not yet directly populated
+                no_price_str = f"${(1.0 - yes_val):.3f}"
+                
+        if no_tk:
+            live_entry_no = g_state.clob_prices.get(no_tk)
+            if live_entry_no:
+                no_val = live_entry_no["yes_price"]
+                no_price_str = f"${no_val:.3f}"
+                # Infer YES price mathematically if not yet directly populated
+                if yes_price_str == "-":
+                    yes_price_str = f"${(1.0 - no_val):.3f}"
 
-        table.add_row(asset, spot_str, pyth_str, cl_str, token_price_str, spread_str)
+        table.add_row(asset, spot_str, cl_str, yes_price_str, no_price_str, spread_str)
 
     return Panel(table, title="[bold white]Spot & Oracle Price Matrix[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
@@ -783,7 +808,7 @@ def make_layout() -> Layout:
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="upper_body", size=8),
+        Layout(name="upper_body", size=11),  # Size increased from 8 to 11 to display all 5 assets completely!
         Layout(name="active_panel", ratio=1),
         Layout(name="closed_panel", ratio=1),
         Layout(name="logs_panel", size=12)
@@ -791,7 +816,7 @@ def make_layout() -> Layout:
     
     layout["upper_body"].split_row(
         Layout(name="metrics", ratio=2),
-        Layout(name="prices", ratio=3),
+        Layout(name="prices", ratio=4),  # Increased ratio for wider YES/NO price columns
         Layout(name="regime", ratio=2)
     )
     
