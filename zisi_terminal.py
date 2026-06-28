@@ -307,6 +307,14 @@ def sync_file_states():
         g_state.chainlink_prices = chainlink
         g_state.pyth_prices = pyth
         
+        # Pre-populate spot prices from Chainlink at startup to prevent "CONNECTING..."
+        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+            if g_state.spot_prices.get(asset, 0.0) == 0.0:
+                cl_entry = chainlink.get(asset, {})
+                cl_price = float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else float(cl_entry or 0.0)
+                if cl_price > 0.0:
+                    g_state.spot_prices[asset] = cl_price
+        
         # Merge active position token IDs directly with resolved token IDs
         active_list = positions.get("active", [])
         active_ids = {pos["market_id"] for pos in active_list if pos.get("market_id")}
@@ -843,14 +851,12 @@ def main():
     # Load initial states
     sync_file_states()
     
-    last_file_sync = time.time()
-    
-    # Optimized 4Hz rendering loop (4 updates per second) to prevent SSH socket buffering lag
-    with Live(layout, refresh_per_second=4, screen=True) as live:
+    # Optimized 1Hz rendering loop (1 update per second) to completely eliminate SSH socket buffering lag
+    with Live(layout, refresh_per_second=1, screen=True) as live:
         while True:
             now = time.time()
-            # Throttle local file I/O to once every 1.5 seconds to keep CPU/disk usage minimal
-            if now - last_file_sync >= 1.5:
+            # Throttle local file I/O to once every 2 seconds to keep CPU/disk usage minimal
+            if now - last_file_sync >= 2.0:
                 sync_file_states()
                 last_file_sync = now
                 
@@ -870,7 +876,7 @@ def main():
             except Exception:
                 pass
                 
-            time.sleep(0.25)
+            time.sleep(1.0)
 
 
 if __name__ == "__main__":
