@@ -415,10 +415,12 @@ def build_spot_prices_panel() -> Panel:
         spot_str = f"${spot_price:,.2f}" if spot_price > 0 else "CONNECTING..."
         
         # Load values from local oracle dumps
-        cl_price = float(cl_copy.get(asset, 0.0))
+        cl_entry = cl_copy.get(asset, {})
+        cl_price = float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else float(cl_entry or 0.0)
         cl_str = f"${cl_price:,.2f}" if cl_price > 0 else "-"
         
-        pyth_price = float(pyth_copy.get(asset, 0.0))
+        pyth_entry = pyth_copy.get(asset, {})
+        pyth_price = float(pyth_entry.get("price", 0.0)) if isinstance(pyth_entry, dict) else float(pyth_entry or 0.0)
         pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
         
         # Try to find an active trade matching this asset to get live contract spread
