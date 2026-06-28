@@ -406,8 +406,8 @@ def build_header_panel() -> Panel:
     cd_5m_str = f"{sec_5m // 60:02d}:{sec_5m % 60:02d}"
     cd_15m_str = f"{sec_15m // 60:02d}:{sec_15m % 60:02d}"
     
-    style_5m = "blink red bold" if sec_5m < 30 else "green bold"
-    style_15m = "blink red bold" if sec_15m < 60 else "green bold"
+    style_5m = COLOR_ASSET
+    style_15m = COLOR_ASSET
 
     # Uptime in Titanium Gray
     uptime = get_uptime_str(g_state.start_time)
@@ -825,6 +825,9 @@ def make_layout() -> Layout:
 
 def main():
     """Main rendering loop optimized for high-refresh with throttled disk I/O."""
+    # Force full screen size (stty cols 180 rows 45) automatically on startup
+    os.system("stty cols 180 rows 45 2>/dev/null")
+    
     layout = make_layout()
     console.clear()
     console.set_window_title("ZiSi-v2 Terminal Dashboard")
