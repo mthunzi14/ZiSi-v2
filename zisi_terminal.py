@@ -13,6 +13,7 @@ import time
 import asyncio
 import threading
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,41 +93,48 @@ g_state = GlobalDashboardState()
 
 # ── WebSocket & API Resolvers ──────────────────────────────────────────────────
 
+def fetch_asset_slug(asset: str, ts: int) -> tuple[str, dict]:
+    coin_lower = asset.lower()
+    slug = f"{coin_lower}-updown-5m-{ts}"
+    url = f"https://gamma-api.polymarket.com/events?slug={slug}"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=3) as r:
+            data = json.loads(r.read())
+            if data and isinstance(data, list) and len(data) > 0:
+                markets = data[0].get("markets", [])
+                if markets:
+                    clob_token_ids = markets[0].get("clobTokenIds")
+                    if isinstance(clob_token_ids, str):
+                        clob_token_ids = json.loads(clob_token_ids)
+                    if clob_token_ids and len(clob_token_ids) >= 2:
+                        return asset, {"yes": clob_token_ids[0], "no": clob_token_ids[1]}
+    except Exception:
+        pass
+    return asset, None
+
+
 def update_active_market_ids():
-    """Query Polymarket Gamma API to resolve the active 5m market YES/NO token IDs for all assets."""
+    """Query Polymarket Gamma API concurrently to resolve YES/NO token IDs for all assets."""
     assets = ["BTC", "ETH", "SOL", "XRP", "DOGE"]
     now = time.time()
     ts_current = int(now // 300) * 300
     
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    new_tokens = {}
-    
+    # Compile 10 tasks to run concurrently (5 assets * 2 boundaries)
+    tasks = []
     for asset in assets:
-        coin_lower = asset.lower()
-        yes_tk, no_tk = None, None
-        # Try current boundary first, then next boundary as fallback
         for ts in [ts_current, ts_current + 300]:
-            slug = f"{coin_lower}-updown-5m-{ts}"
-            url = f"https://gamma-api.polymarket.com/events?slug={slug}"
-            try:
-                req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=3) as r:
-                    data = json.loads(r.read())
-                    if data and isinstance(data, list) and len(data) > 0:
-                        markets = data[0].get("markets", [])
-                        if markets:
-                            clob_token_ids = markets[0].get("clobTokenIds")
-                            if isinstance(clob_token_ids, str):
-                                clob_token_ids = json.loads(clob_token_ids)
-                            if clob_token_ids and len(clob_token_ids) >= 2:
-                                yes_tk = clob_token_ids[0]
-                                no_tk = clob_token_ids[1]
-                                break
-            except Exception:
-                pass
-        if yes_tk and no_tk:
-            new_tokens[asset] = {"yes": yes_tk, "no": no_tk}
+            tasks.append((asset, ts))
             
+    new_tokens = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = executor.map(lambda t: fetch_asset_slug(t[0], t[1]), tasks)
+        for asset, token_dict in results:
+            if token_dict:
+                # If we get a valid dictionary, store it. The order ensures next boundary overwrites if present.
+                new_tokens[asset] = token_dict
+                
     if new_tokens:
         with g_state.lock:
             g_state.asset_token_ids.update(new_tokens)
