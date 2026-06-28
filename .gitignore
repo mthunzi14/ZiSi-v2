@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+dist/
+build/
+venv/
+env/
+.venv/
+.env
+.env.local
+.env.*
+!.env.example
+
+# Backtester runtime artifacts (keep the dirs via .gitkeep)
+tools/backtest/cache/*.json
+tools/backtest/results/*.json
+
+# ML artifacts
+*.pkl
+*.joblib
+*.h5
+*.onnx
+
+# Bot state files (runtime, sensitive, large)
+positions_state.json
+account_state.json
+system_alerts.json
+category_win_rates.json
+model_meta.json
+ml_progress.json
+edge_status.json
+regime_status.json
+runtime_tracking.json
+signal_queue.json
+
+# Trade logs (potentially large, contain PII/financials)
+*.jsonl
+*.log
+logs/
+
+# Google credentials (SECURITY CRITICAL - never commit)
+credentials.json
+token.json
+service_account.json
+
+# Node / frontend
+node_modules/
+dashboard/frontend/dist/
+dashboard/frontend/build/
+dashboard/backend/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code workspace
+.claude/
+# Sensitive documents
+*API KEY*.docx
+*api_key*.docx
+
+# ZiSi local runtime states & scratch
+.codex/
+scratch/
+taste-skill-beta-v2/
+pmxt/
+archive/
+calibration_state.json
+category_suspensions.json
+diagnostics_state.json
+macro_context.json
+markov_state.json
+pyth_prices.json
+chainlink_prices.json
+sentiment_state.json
+metrics_*.json
+trade_journal_export.csv
+zisi_bot_console.log
+
+# ML + runtime artifacts (never commit binaries / runtime state)
+core/ml/trained_model.pt
+core/ml/training_metrics.json
+oi_history.json
+
+# Fair-value demo trade log (runtime data)
+infrastructure/state/fair_value_trades.jsonl
