@@ -851,6 +851,8 @@ def main():
     # Load initial states
     sync_file_states()
     
+    last_file_sync = time.time()
+    
     # Optimized 1Hz rendering loop (1 update per second) to completely eliminate SSH socket buffering lag
     with Live(layout, refresh_per_second=1, screen=True) as live:
         while True:
