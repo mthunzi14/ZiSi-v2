@@ -583,7 +583,7 @@ def build_spot_prices_panel() -> Panel:
 
         table.add_row(asset, spot_str, cl_str, yes_price_str, no_price_str, spread_str)
 
-    return Panel(table, title="[bold white]Spot & Oracle Price Matrix[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
+    return Panel(table, title="[bold white]Spot & Oracle Price Matrix (5m Contracts)[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_regime_panel() -> Panel:
