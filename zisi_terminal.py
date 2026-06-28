@@ -3,7 +3,7 @@
 zisi_terminal.py — Rich Terminal Dashboard for ZiSi-v2.
 Features live-updating WebSockets for Binance Spot and Polymarket CLOB feeds,
 displays live Chainlink and Pyth oracle prices, calculates real-time unrealized P&L,
-and provides a clean, premium "Titanium Gray" design.
+and provides a clean, premium "Titanium Gray" design with light steel blue assets.
 """
 
 import os
@@ -54,13 +54,19 @@ PM2_LOG_PATH = Path("/root/.pm2/logs/ZiSi-Core-Engine-out.log")
 LOCAL_LOG_PATH = PROJECT_ROOT / "zisi_bot_console.log"
 LOG_FILE = PM2_LOG_PATH if PM2_LOG_PATH.exists() else LOCAL_LOG_PATH
 
+# Premium color codes
+COLOR_ASSET = "light_steel_blue"     # Muted premium steel color for assets
+COLOR_LABEL = "grey70"              # Titanium Gray for regular labels
+COLOR_VAL = "grey85"                # Premium soft white for regular values
+COLOR_BORDER = "grey37"             # Low-profile dark border gray
+
 
 # Global state thread-safe container
 class GlobalDashboardState:
     def __init__(self):
         self.lock = threading.Lock()
-        # Live WebSocket data
-        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0}
+        # Live WebSocket data (added DOGE)
+        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0}
         self.clob_prices = {}  # market_id -> {"yes_price": float, "last_update": float}
         self.clob_spreads = {}  # market_id -> float
         
@@ -80,22 +86,11 @@ class GlobalDashboardState:
 g_state = GlobalDashboardState()
 
 
-def get_uptime_str(start_time: float) -> str:
-    """Format duration into a readable uptime string."""
-    diff = int(time.time() - start_time)
-    days, remain = divmod(diff, 86400)
-    hours, remain = divmod(remain, 3600)
-    minutes, seconds = divmod(remain, 60)
-    if days > 0:
-        return f"{days}d {hours}h {minutes}m"
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-
 # ── WebSocket Listeners ────────────────────────────────────────────────────────
 
 async def binance_spot_listener():
-    """Connect to Binance Spot WebSocket for sub-second price updates."""
-    url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker"
+    """Connect to Binance Spot WebSocket for sub-second price updates (including DOGE)."""
+    url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/dogeusdt@ticker"
     while True:
         try:
             async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
@@ -217,7 +212,7 @@ def sync_file_states():
 def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
     """Tail the log file safely."""
     if not file_path.exists():
-        return ["[grey50]Waiting for log file to generate...[/grey50]"]
+        return [f"[{COLOR_LABEL}]Waiting for log file to generate...[/{COLOR_LABEL}]"]
     try:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             f.seek(0, os.SEEK_END)
@@ -258,12 +253,12 @@ def colorize_log_line(line: str) -> Text:
     elif "order" in lower_line or "fill" in lower_line:
         text.stylize("green")
     else:
-        text.stylize("grey70")  # Titanium Gray default
+        text.stylize(COLOR_LABEL)  # Titanium Gray default
     return text
 
 
 def format_iso_timestamp(iso_str: str) -> str:
-    """Convert ISO timestamp to YYYY-MM-DD HH:MM:SS SAST."""
+    """Convert ISO timestamp to YYYY-MM-DD YYYY-MM-DD HH:MM:SS SAST."""
     if not iso_str:
         return "-"
     try:
@@ -273,6 +268,17 @@ def format_iso_timestamp(iso_str: str) -> str:
         return f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d} {sast_hour:02d}:{dt.minute:02d}:{dt.second:02d}"
     except Exception:
         return iso_str[:19]
+
+
+def get_uptime_str(start_time: float) -> str:
+    """Format duration into a readable uptime string."""
+    diff = int(time.time() - start_time)
+    days, remain = divmod(diff, 86400)
+    hours, remain = divmod(remain, 3600)
+    minutes, seconds = divmod(remain, 60)
+    if days > 0:
+        return f"{days}d {hours}h {minutes}m"
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
 # ── Render Panels ─────────────────────────────────────────────────────────────
@@ -297,7 +303,7 @@ def build_header_panel() -> Panel:
     style_5m = "blink red bold" if sec_5m < 30 else "green bold"
     style_15m = "blink red bold" if sec_15m < 60 else "green bold"
 
-    # Uptime
+    # Uptime in Titanium Gray
     uptime = get_uptime_str(g_state.start_time)
     
     # Log liveness
@@ -312,23 +318,23 @@ def build_header_panel() -> Panel:
     header_text = Text.assemble(
         ("ZiSi-v2 Terminal ", "bold cyan"),
         ("│ ", "bright_black"),
-        ("Status: ", "bold grey70"),
+        ("Status: ", f"bold {COLOR_LABEL}"),
         Text.from_markup(liveness_status),
         (" │ ", "bright_black"),
-        ("UTC: ", "bold grey70"),
+        ("UTC: ", f"bold {COLOR_LABEL}"),
         (utc_str, "magenta"),
         (" │ ", "bright_black"),
-        ("SAST: ", "bold grey70"),
+        ("SAST: ", f"bold {COLOR_LABEL}"),
         (sast_str, "yellow"),
         (" │ ", "bright_black"),
-        ("5m Candle: ", "bold grey70"),
+        ("5m Candle: ", f"bold {COLOR_LABEL}"),
         (cd_5m_str, style_5m),
         (" │ ", "bright_black"),
-        ("15m Candle: ", "bold grey70"),
+        ("15m Candle: ", f"bold {COLOR_LABEL}"),
         (cd_15m_str, style_15m),
         (" │ ", "bright_black"),
-        ("Uptime: ", "bold grey70"),
-        (uptime, "green")
+        ("Uptime: ", f"bold {COLOR_LABEL}"),
+        (uptime, COLOR_LABEL)
     )
     
     return Panel(Align.center(header_text), box=ROUNDED, style="bright_black")
@@ -370,19 +376,19 @@ def build_metrics_panel() -> Panel:
     total_closed = wins + losses
     win_rate = (wins / total_closed) * 100 if total_closed > 0 else 0.0
 
-    pnl_color = "green" if net_pnl > 0.01 else ("red" if net_pnl < -0.01 else "grey70")
-    real_color = "green" if realized > 0.01 else ("red" if realized < -0.01 else "grey70")
-    unreal_color = "green" if total_live_unrealized > 0.01 else ("red" if total_live_unrealized < -0.01 else "grey70")
+    pnl_color = "green" if net_pnl > 0.01 else ("red" if net_pnl < -0.01 else COLOR_LABEL)
+    real_color = "green" if realized > 0.01 else ("red" if realized < -0.01 else COLOR_LABEL)
+    unreal_color = "green" if total_live_unrealized > 0.01 else ("red" if total_live_unrealized < -0.01 else COLOR_LABEL)
 
     metrics_table = Table.grid(expand=True, padding=(0, 1))
-    metrics_table.add_column("Metric", style="bold grey70", width=16)
-    metrics_table.add_column("Value", justify="right", style="grey85")
+    metrics_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=16)
+    metrics_table.add_column("Value", justify="right", style=COLOR_VAL)
 
     metrics_table.add_row("Start Capital:", f"${start_bal:,.2f} USDC")
     metrics_table.add_row("Live Capital:", f"${live_balance:,.2f} USDC")
     metrics_table.add_row("Session Net PnL:", f"[{pnl_color}]${net_pnl:+,.2f} ({roi:+.2f}%)[/{pnl_color}]")
     metrics_table.add_row("Realized P&L:", f"[{real_color}]${realized:+,.2f}[/{real_color}]")
-    metrics_table.add_row("Live Unrealized:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]")
+    metrics_table.add_row("Live Unreal:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]")
     metrics_table.add_row("Total Trades:", f"[green]{wins}W[/green] / [red]{losses}L[/red] ({win_rate:.1f}% WR)")
 
     # Render Win Rate Progress Bar
@@ -390,18 +396,18 @@ def build_metrics_panel() -> Panel:
     bar_str = "█" * bar_len + "░" * (10 - bar_len)
     metrics_table.add_row("Win Rate Bar:", f"[cyan][{bar_str}][/cyan]")
 
-    return Panel(metrics_table, title="[bold white]Performance Summary[/bold white]", box=ROUNDED, border_style="grey37")
+    return Panel(metrics_table, title="[bold white]Performance Summary[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_spot_prices_panel() -> Panel:
-    """Build pricing layout displaying spot, Pyth, and Chainlink prices alongside token spreads."""
+    """Build pricing layout displaying spot, Pyth, and Chainlink prices (added DOGE)."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Asset", style="bold cyan")
-    table.add_column("Binance Spot", justify="right", style="grey85")
-    table.add_column("Pyth Oracle", justify="right", style="grey85")
-    table.add_column("Chainlink Spot", justify="right", style="grey85")
-    table.add_column("YES price", justify="right", style="grey85")
-    table.add_column("Spread", justify="right", style="grey85")
+    table.add_column("Asset", style=f"bold {COLOR_ASSET}")
+    table.add_column("Binance Spot", justify="right", style=COLOR_VAL)
+    table.add_column("Pyth Oracle", justify="right", style=COLOR_LABEL)
+    table.add_column("Chainlink Spot", justify="right", style=COLOR_LABEL)
+    table.add_column("YES price", justify="right", style=COLOR_VAL)
+    table.add_column("Spread", justify="right", style=COLOR_LABEL)
 
     with g_state.lock:
         spot_copy = dict(g_state.spot_prices)
@@ -409,19 +415,30 @@ def build_spot_prices_panel() -> Panel:
         pyth_copy = dict(g_state.pyth_prices)
         positions = list(g_state.positions_state.get("active", []))
 
-    # Compile table rows
-    for asset in ["BTC", "ETH", "SOL", "XRP"]:
+    # Compile table rows for all assets (BTC, ETH, SOL, XRP, DOGE)
+    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
         spot_price = spot_copy.get(asset, 0.0)
-        spot_str = f"${spot_price:,.2f}" if spot_price > 0 else "CONNECTING..."
+        
+        # Decimal formatting based on asset price scale
+        if asset == "DOGE":
+            spot_str = f"${spot_price:.5f}" if spot_price > 0 else "CONNECTING..."
+        else:
+            spot_str = f"${spot_price:,.2f}" if spot_price > 0 else "CONNECTING..."
         
         # Load values from local oracle dumps
         cl_entry = cl_copy.get(asset, {})
         cl_price = float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else float(cl_entry or 0.0)
-        cl_str = f"${cl_price:,.2f}" if cl_price > 0 else "-"
+        if asset == "DOGE":
+            cl_str = f"${cl_price:.5f}" if cl_price > 0 else "-"
+        else:
+            cl_str = f"${cl_price:,.2f}" if cl_price > 0 else "-"
         
         pyth_entry = pyth_copy.get(asset, {})
         pyth_price = float(pyth_entry.get("price", 0.0)) if isinstance(pyth_entry, dict) else float(pyth_entry or 0.0)
-        pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
+        if asset == "DOGE":
+            pyth_str = f"${pyth_price:.5f}" if pyth_price > 0 else "-"
+        else:
+            pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
         
         # Try to find an active trade matching this asset to get live contract spread
         token_price_str = "-"
@@ -442,7 +459,7 @@ def build_spot_prices_panel() -> Panel:
 
         table.add_row(asset, spot_str, pyth_str, cl_str, token_price_str, spread_str)
 
-    return Panel(table, title="[bold white]Spot & Oracle Price Matrix[/bold white]", box=ROUNDED, border_style="grey37")
+    return Panel(table, title="[bold white]Spot & Oracle Price Matrix[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_regime_panel() -> Panel:
@@ -471,8 +488,8 @@ def build_regime_panel() -> Panel:
         regime_color = "red bold"
 
     regime_table = Table.grid(expand=True, padding=(0, 1))
-    regime_table.add_column("Metric", style="bold grey70", width=16)
-    regime_table.add_column("Value", justify="right", style="grey85")
+    regime_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=16)
+    regime_table.add_column("Value", justify="right", style=COLOR_VAL)
 
     regime_table.add_row("Market Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]")
     regime_table.add_row("ATR Percentile:", f"{atr_pct:.1f}%")
@@ -492,22 +509,22 @@ def build_regime_panel() -> Panel:
         mult = 0.30
     regime_table.add_row("Size Modifier:", f"{mult:.2f}x")
 
-    return Panel(regime_table, title="[bold white]Market Regime & Analytics[/bold white]", box=ROUNDED, border_style="grey37")
+    return Panel(regime_table, title="[bold white]Market Regime & Analytics[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_active_positions_panel() -> Panel:
     """Build the active open positions table with full attributes and live PnL."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Asset", style="bold cyan")
-    table.add_column("Strategy", justify="center", style="grey85")
+    table.add_column("Asset", style=f"bold {COLOR_ASSET}")
+    table.add_column("Strategy", justify="center", style=COLOR_LABEL)
     table.add_column("Dir", justify="center")
-    table.add_column("Size", justify="right", style="grey85")
-    table.add_column("Entry Spot", justify="right", style="grey85")
-    table.add_column("Mark Spot", justify="right", style="grey85")
-    table.add_column("Entry Token", justify="right", style="grey85")
-    table.add_column("Mark Token", justify="right", style="grey85")
-    table.add_column("Entry Time (SAST)", justify="center", style="grey85")
-    table.add_column("Hold", justify="right", style="grey85")
+    table.add_column("Size", justify="right", style=COLOR_LABEL)
+    table.add_column("Entry Spot", justify="right", style=COLOR_LABEL)
+    table.add_column("Mark Spot", justify="right", style=COLOR_LABEL)
+    table.add_column("Entry Token", justify="right", style=COLOR_LABEL)
+    table.add_column("Mark Token", justify="right", style=COLOR_LABEL)
+    table.add_column("Entry Time (SAST)", justify="center", style=COLOR_LABEL)
+    table.add_column("Hold", justify="right", style=COLOR_LABEL)
     table.add_column("Unrealized PnL", justify="right")
 
     with g_state.lock:
@@ -521,9 +538,9 @@ def build_active_positions_panel() -> Panel:
             title = pos.get("event_title", "Unknown")
             market_id = pos.get("market_id")
             
-            # Asset parse
+            # Asset parse (added DOGE)
             asset = "UNKNOWN"
-            for possible in ["BTC", "ETH", "SOL", "XRP"]:
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
@@ -546,11 +563,15 @@ def build_active_positions_panel() -> Panel:
                 mark_token = float(pos.get("current_price", entry_token))
                 unreal = float(pos.get("unrealized_pnl", 0.0))
             
-            # Formulate spot entry estimations (if recorded inside calibration metrics, or blank)
+            # Formulate spot entry estimations
             entry_spot_str = "-"
-            mark_spot_str = f"${live_spot:,.2f}" if live_spot > 0 else "-"
             
-            unreal_color = "green" if unreal > 0.01 else ("red" if unreal < -0.01 else "grey70")
+            if asset == "DOGE":
+                mark_spot_str = f"${live_spot:.5f}" if live_spot > 0 else "-"
+            else:
+                mark_spot_str = f"${live_spot:,.2f}" if live_spot > 0 else "-"
+            
+            unreal_color = "green" if unreal > 0.01 else ("red" if unreal < -0.01 else COLOR_LABEL)
             hold_min = float(pos.get("hold_minutes", 0.0))
             
             formatted_entry_ts = format_iso_timestamp(pos.get("entry_time", ""))
@@ -569,21 +590,21 @@ def build_active_positions_panel() -> Panel:
                 f"[{unreal_color}]${unreal:+.2f}[/{unreal_color}]"
             )
 
-    return Panel(table, title="[bold white]Active Open Positions[/bold white]", box=ROUNDED, border_style="grey37")
+    return Panel(table, title="[bold white]Active Open Positions[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_closed_positions_panel() -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Closed Time (SAST)", justify="center", style="grey85")
-    table.add_column("Asset", style="bold cyan")
-    table.add_column("Strategy", justify="center", style="grey85")
+    table.add_column("Closed Time (SAST)", justify="center", style=COLOR_LABEL)
+    table.add_column("Asset", style=f"bold {COLOR_ASSET}")
+    table.add_column("Strategy", justify="center", style=COLOR_LABEL)
     table.add_column("Dir", justify="center")
-    table.add_column("Size", justify="right", style="grey85")
-    table.add_column("Entry Token", justify="right", style="grey85")
-    table.add_column("Exit Token", justify="right", style="grey85")
-    table.add_column("Hold", justify="right", style="grey85")
-    table.add_column("Exit Reason", justify="left", style="grey85")
+    table.add_column("Size", justify="right", style=COLOR_LABEL)
+    table.add_column("Entry Token", justify="right", style=COLOR_LABEL)
+    table.add_column("Exit Token", justify="right", style=COLOR_LABEL)
+    table.add_column("Hold", justify="right", style=COLOR_LABEL)
+    table.add_column("Exit Reason", justify="left")
     table.add_column("PnL ($)", justify="right")
 
     with g_state.lock:
@@ -592,8 +613,10 @@ def build_closed_positions_panel() -> Panel:
     # Display last 5 closed trades
     for pos in closed_positions[:5]:
         title = pos.get("event_title", "Unknown")
+        
+        # Asset parse (added DOGE)
         asset = "UNKNOWN"
-        for possible in ["BTC", "ETH", "SOL", "XRP"]:
+        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
             if f"[{possible}]" in title.upper() or possible in title.upper():
                 asset = possible
                 break
@@ -605,10 +628,21 @@ def build_closed_positions_panel() -> Panel:
         entry = float(pos.get("entry_price", 0.0))
         exit_pr = float(pos.get("exit_price", 0.0))
         pnl = float(pos.get("realized_pnl", 0.0))
-        pnl_color = "green" if pnl > 0.01 else ("red" if pnl < -0.01 else "grey70")
+        pnl_color = "green" if pnl > 0.01 else ("red" if pnl < -0.01 else COLOR_LABEL)
         hold_hours = float(pos.get("hold_hours", 0.0))
         
         formatted_exit_ts = format_iso_timestamp(pos.get("exit_time", ""))
+        
+        # Format exit reason styles conditionally
+        raw_reason = pos.get("exit_reason", "RESOLVED")
+        if raw_reason == "MARKET_EXPIRED":
+            reason_str = f"[{COLOR_LABEL}]MARKET_EXPIRED[/{COLOR_LABEL}]"
+        elif "TARGET" in raw_reason:
+            reason_str = "[green]" + raw_reason + "[/green]"
+        elif "STOP" in raw_reason or "FAIL" in raw_reason:
+            reason_str = "[red]" + raw_reason + "[/red]"
+        else:
+            reason_str = f"[{COLOR_LABEL}]" + raw_reason + f"[/{COLOR_LABEL}]"
 
         table.add_row(
             formatted_exit_ts,
@@ -619,14 +653,14 @@ def build_closed_positions_panel() -> Panel:
             f"${entry:.3f}",
             f"${exit_pr:.3f}",
             f"{hold_hours * 60:.1f}m",
-            pos.get("exit_reason", "RESOLVED"),
+            reason_str,
             f"[{pnl_color}]${pnl:+.2f}[/{pnl_color}]"
         )
 
     if not closed_positions:
         table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-")
 
-    return Panel(table, title="[bold white]Recent Closed Trades (Trade History)[/bold white]", box=ROUNDED, border_style="grey37")
+    return Panel(table, title="[bold white]Recent Closed Trades (Trade History)[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_logs_panel() -> Panel:
@@ -642,7 +676,7 @@ def build_logs_panel() -> Panel:
         log_text,
         title=f"[bold white]Live Engine Logs ({LOG_FILE.name})[/bold white]",
         box=ROUNDED,
-        border_style="grey37"
+        border_style=COLOR_BORDER
     )
 
 
