@@ -289,7 +289,13 @@ def sync_file_states():
         # Merge active position token IDs directly with resolved token IDs
         active_list = positions.get("active", [])
         active_ids = {pos["market_id"] for pos in active_list if pos.get("market_id")}
-        g_state.active_market_ids = active_ids.union(g_state.asset_token_ids.values())
+        
+        resolved_token_ids = set()
+        for token_dict in g_state.asset_token_ids.values():
+            resolved_token_ids.add(token_dict["yes"])
+            resolved_token_ids.add(token_dict["no"])
+            
+        g_state.active_market_ids = active_ids.union(resolved_token_ids)
 
 
 def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
