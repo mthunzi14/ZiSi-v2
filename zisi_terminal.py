@@ -857,6 +857,11 @@ def main():
     with Live(layout, refresh_per_second=1, screen=True) as live:
         while True:
             now = time.time()
+            
+            # Periodically clear the console every 15 seconds to force-resync high-latency SSH terminal buffers
+            if int(now) % 15 == 0:
+                console.clear()
+                
             # Throttle local file I/O to once every 2 seconds to keep CPU/disk usage minimal
             if now - last_file_sync >= 2.0:
                 sync_file_states()
