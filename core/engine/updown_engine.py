@@ -413,7 +413,7 @@ class UpDownEngine:
             try:
                 import json as _json
                 from pathlib import Path as _Path
-                _rs = _Path(__file__).parent.parent.parent / "regime_status.json"
+                _rs = _Path(__file__).parent.parent.parent / "data" / "regime_status.json"
                 if _rs.exists():
                     _d = _json.loads(_rs.read_text(encoding="utf-8"))
                     _reg = _d.get("regime")
@@ -911,7 +911,7 @@ class UpDownEngine:
             try:
                 import json as _json
                 from pathlib import Path as _Path
-                _rs = _Path(__file__).parent.parent.parent / "regime_status.json"
+                _rs = _Path(__file__).parent.parent.parent / "data" / "regime_status.json"
                 if _rs.exists():
                     _d = _json.loads(_rs.read_text(encoding="utf-8"))
                     _atr_pct = float(_d.get("atr_percentile", 50.0))
@@ -1894,7 +1894,7 @@ class UpDownEngine:
         try:
             import json
             from pathlib import Path
-            regime_path = Path(__file__).parent.parent.parent / "regime_status.json"
+            regime_path = Path(__file__).parent.parent.parent / "data" / "regime_status.json"
             if regime_path.exists():
                 data = json.loads(regime_path.read_text(encoding="utf-8"))
                 # Canonical regimes from RegimeDetector + legacy aliases for

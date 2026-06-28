@@ -36,7 +36,7 @@ log = logging.getLogger("zisi.volatility_surface")
 _PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-_OI_HISTORY_PATH = os.path.join(_PROJECT_ROOT, "oi_history.json")
+_OI_HISTORY_PATH = os.path.join(_PROJECT_ROOT, "data", "oi_history.json")
 
 # ── Binance endpoints ────────────────────────────────────────────────────────
 _FUNDING_URL = "https://fapi.binance.com/fapi/v1/fundingRate"

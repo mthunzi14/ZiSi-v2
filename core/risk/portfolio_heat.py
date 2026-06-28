@@ -40,7 +40,7 @@ log = logging.getLogger("zisi.portfolio_heat")
 # ── Paths ────────────────────────────────────────────────────────────────────
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
 _POSITIONS_FILE = _PROJECT_ROOT / "data" / "positions_state.json"
-_HEAT_STATE_FILE = _PROJECT_ROOT / "portfolio_heat_state.json"
+_HEAT_STATE_FILE = _PROJECT_ROOT / "data" / "portfolio_heat_state.json"
 
 # ── Constants ────────────────────────────────────────────────────────────────
 _TRACKED_ASSETS: list[str] = ["BTC", "ETH", "SOL", "XRP"]

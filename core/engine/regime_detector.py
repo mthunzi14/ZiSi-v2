@@ -33,7 +33,7 @@ log = logging.getLogger("zisi.regime_detector")
 _PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-_REGIME_STATUS_PATH = os.path.join(_PROJECT_ROOT, "regime_status.json")
+_REGIME_STATUS_PATH = os.path.join(_PROJECT_ROOT, "data", "regime_status.json")
 
 # ── Regime definitions ───────────────────────────────────────────────────────
 

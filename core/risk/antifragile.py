@@ -32,7 +32,7 @@ log = logging.getLogger("zisi.antifragile")
 # ── File paths ────────────────────────────────────────────────────────────────
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_STATE_PATH = _PROJECT_ROOT / "antifragile_state.json"
+_STATE_PATH = _PROJECT_ROOT / "data" / "antifragile_state.json"
 _POSITIONS_PATH = _PROJECT_ROOT / "data" / "positions_state.json"
 
 # ── Tier constants ────────────────────────────────────────────────────────────

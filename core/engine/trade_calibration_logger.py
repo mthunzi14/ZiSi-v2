@@ -40,7 +40,7 @@ def _extract_meta_from_title(title: str) -> dict:
 def _read_regime_status() -> str:
     try:
         base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        path = os.path.join(base, "regime_status.json")
+        path = os.path.join(base, "data", "regime_status.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f).get("regime", "UNKNOWN")

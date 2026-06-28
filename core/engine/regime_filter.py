@@ -8,7 +8,7 @@ from typing import Literal
 log = logging.getLogger("zisi.regime_filter")
 
 _REGIME_STATUS_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "regime_status.json"
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "regime_status.json"
 )
 
 def get_regime_mode(timeframe: str = "5m") -> Literal["TREND", "MEAN_REVERSION"]:

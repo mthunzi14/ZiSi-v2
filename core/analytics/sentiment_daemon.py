@@ -24,6 +24,7 @@ log = logging.getLogger("zisi.sentiment_daemon")
 
 _STATE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data",
     "sentiment_state.json",
 )
 _POLL_INTERVAL = 4 * 3600   # 4 hours
