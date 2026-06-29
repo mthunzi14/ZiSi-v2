@@ -522,11 +522,12 @@ def build_metrics_panel() -> Panel:
 
 
 def build_spot_prices_panel() -> Panel:
-    """Build pricing layout displaying spot, Chainlink, YES, NO, and Spread values."""
+    """Build pricing layout displaying spot, Chainlink, Pyth, YES, NO, and Spread values."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
     table.add_column("Asset", style=f"bold {COLOR_ASSET}")
     table.add_column("Binance Spot", justify="right", style=COLOR_VAL)
     table.add_column("Chainlink Spot", justify="right", style=COLOR_LABEL)
+    table.add_column("Pyth Spot", justify="right", style=COLOR_LABEL)
     table.add_column("YES Price", justify="right", style=COLOR_VAL)
     table.add_column("NO Price", justify="right", style=COLOR_VAL)
     table.add_column("Spread", justify="right", style=COLOR_LABEL)
@@ -534,6 +535,7 @@ def build_spot_prices_panel() -> Panel:
     with g_state.lock:
         spot_copy = dict(g_state.spot_prices)
         cl_copy = dict(g_state.chainlink_prices)
+        pyth_copy = dict(g_state.pyth_prices)
         clob_token_ids = dict(g_state.asset_token_ids)
         positions = list(g_state.positions_state.get("active", []))
 
@@ -554,6 +556,13 @@ def build_spot_prices_panel() -> Panel:
             cl_str = f"${cl_price:.5f}" if cl_price > 0 else "-"
         else:
             cl_str = f"${cl_price:,.2f}" if cl_price > 0 else "-"
+            
+        pyth_entry = pyth_copy.get(asset, {})
+        pyth_price = float(pyth_entry.get("price", 0.0)) if isinstance(pyth_entry, dict) else float(pyth_entry or 0.0)
+        if asset == "DOGE":
+            pyth_str = f"${pyth_price:.5f}" if pyth_price > 0 else "-"
+        else:
+            pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
         
         # Resolve YES and NO token IDs for this asset
         token_info = clob_token_ids.get(asset, {})
@@ -597,7 +606,7 @@ def build_spot_prices_panel() -> Panel:
                 if yes_price_str == "-":
                     yes_price_str = f"${(1.0 - no_val):.3f}"
 
-        table.add_row(asset, spot_str, cl_str, yes_price_str, no_price_str, spread_str)
+        table.add_row(asset, spot_str, cl_str, pyth_str, yes_price_str, no_price_str, spread_str)
 
     return Panel(table, title="[bold white]Spot & Oracle Price Matrix (5m Contracts)[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
@@ -855,10 +864,6 @@ def main():
         while True:
             now = time.time()
             
-            # Periodically clear the console every 15 seconds to force-resync high-latency SSH terminal buffers
-            if int(now) % 15 == 0:
-                console.clear()
-                
             # Throttle local file I/O to once every 2 seconds to keep CPU/disk usage minimal
             if now - last_file_sync >= 2.0:
                 sync_file_states()
