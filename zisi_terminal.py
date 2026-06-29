@@ -841,9 +841,6 @@ def make_layout() -> Layout:
 
 def main():
     """Main rendering loop optimized for high-refresh with throttled disk I/O."""
-    # Force full screen size (stty cols 180 rows 45) automatically on startup
-    os.system("stty cols 180 rows 45 2>/dev/null")
-    
     layout = make_layout()
     console.clear()
     console.set_window_title("ZiSi-v2 Terminal Dashboard")
