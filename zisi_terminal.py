@@ -906,10 +906,10 @@ def make_layout() -> Layout:
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="upper_body", size=11),  # Size increased from 8 to 11 to display all 5 assets completely!
-        Layout(name="active_panel", size=6), # Fixed size to save space when empty
-        Layout(name="closed_panel", ratio=1), # Dynamically occupies all remaining space
-        Layout(name="logs_panel", size=12)
+        Layout(name="upper_body", size=10),
+        Layout(name="active_panel", size=5),
+        Layout(name="closed_panel", ratio=1),
+        Layout(name="logs_panel", size=10)
     )
     
     layout["upper_body"].split_row(

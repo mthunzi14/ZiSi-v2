@@ -6,12 +6,10 @@ SESSION="zisi"
 tmux has-session -t $SESSION 2>/dev/null
 
 if [ $? -ne 0 ]; then
-  # Session does not exist, create it and run the dashboard
+  # Session does not exist, create it and attach immediately
   echo "Starting new persistent dashboard session..."
-  tmux new-session -d -s $SESSION "/root/ZiSi-v2/venv/bin/python3 /root/ZiSi-v2/zisi_terminal.py"
+  tmux new-session -s $SESSION "/root/ZiSi-v2/venv/bin/python3 /root/ZiSi-v2/zisi_terminal.py"
 else
   echo "Attaching to existing persistent dashboard session..."
+  tmux attach -t $SESSION
 fi
-
-# Attach to the session
-tmux attach -t $SESSION
