@@ -935,8 +935,8 @@ def main():
     
     last_file_sync = time.time()
     
-    # Sub-second high-speed rendering loop (10 updates per second) for instant, fluid tick-for-tick refresh
-    with Live(layout, refresh_per_second=10, screen=True) as live:
+    # 3Hz fluid rendering loop (3 updates per second) to eliminate SSH buffer lag and enable instant loading
+    with Live(layout, refresh_per_second=3, screen=True) as live:
         while True:
             now = time.time()
             
@@ -961,7 +961,7 @@ def main():
             except Exception:
                 pass
                 
-            time.sleep(0.1)
+            time.sleep(0.33)
 
 
 if __name__ == "__main__":
