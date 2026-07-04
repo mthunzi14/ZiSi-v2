@@ -52,7 +52,7 @@ SENTIMENT_FILE = DATA_DIR / "sentiment_state.json"
 CHAINLINK_FILE = DATA_DIR / "chainlink_prices.json"
 PYTH_FILE = DATA_DIR / "pyth_prices.json"
 
-PM2_LOG_PATH = Path("/root/.pm2/logs/ZiSi-Core-Engine-out.log")
+PM2_LOG_PATH = Path("/root/.pm2/logs/ZiSi-Core-Engine-error.log")
 LOCAL_LOG_PATH = PROJECT_ROOT / "zisi_bot_console.log"
 LOG_FILE = PM2_LOG_PATH if PM2_LOG_PATH.exists() else LOCAL_LOG_PATH
 
@@ -290,6 +290,58 @@ def load_json_file(file_path: Path) -> dict:
     return {}
 
 
+def generate_trade_history_report(closed_positions):
+    """Write all closed trades to a local markdown report file for in-depth analysis."""
+    report_path = DATA_DIR / "trade_history_report.md"
+    try:
+        total = len(closed_positions)
+        wins = sum(1 for p in closed_positions if float(p.get("realized_pnl", 0.0)) > 0.01)
+        losses = sum(1 for p in closed_positions if float(p.get("realized_pnl", 0.0)) < -0.01)
+        pnl = sum(float(p.get("realized_pnl", 0.0)) for p in closed_positions)
+        win_rate = (wins / total * 100) if total > 0 else 0.0
+        
+        lines = [
+            "# ZiSi-v2 - Complete Trade History Report",
+            f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            "",
+            "## Summary Metrics",
+            f"- **Total Trades:** {total}",
+            f"- **Wins / Losses:** {wins}W / {losses}L",
+            f"- **Win Rate:** {win_rate:.1f}%",
+            f"- **Total Realized P&L:** ${pnl:+.2f} USDC",
+            "",
+            "## Closed Positions List",
+            "| Closed Time (UTC) | Asset | TF | Direction | Size | Entry Price | Exit Price | Hold | Exit Reason | Realized P&L |",
+            "|---|---|---|---|---|---|---|---|---|---|",
+        ]
+        
+        for pos in closed_positions:
+            title = pos.get("event_title", "")
+            asset = "UNKNOWN"
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+                if f"[{possible}]" in title.upper() or possible in title.upper():
+                    asset = possible
+                    break
+            tf = "5m"
+            if "15M" in title.upper():
+                tf = "15m"
+            elif "1H" in title.upper():
+                tf = "1h"
+            
+            pnl_val = float(pos.get("realized_pnl", 0.0))
+            pnl_str = f"${pnl_val:+.2f}"
+            hold_min = float(pos.get("hold_hours", 0.0)) * 60
+            
+            lines.append(
+                f"| {pos.get('exit_time', '')} | {asset} | {tf} | {pos.get('direction', 'YES')} | ${pos.get('size', 0.0):.2f} | {pos.get('entry_price', 0.0)} | {pos.get('exit_price', 0.0)} | {hold_min:.1f}m | {pos.get('exit_reason', '')} | {pnl_str} |"
+            )
+            
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+    except Exception:
+        pass
+
+
 def sync_file_states():
     """Load latest states from local files into global state."""
     account = load_json_file(STATE_FILE)
@@ -325,6 +377,10 @@ def sync_file_states():
             resolved_token_ids.add(token_dict["no"])
             
         g_state.active_market_ids = active_ids.union(resolved_token_ids)
+        
+        # Generate persistent trade history report locally
+        closed_positions = list(positions.get("closed", []))
+        generate_trade_history_report(closed_positions)
 
 
 def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
@@ -665,6 +721,7 @@ def build_active_positions_panel() -> Panel:
     """Build the active open positions table with full attributes and live PnL."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
     table.add_column("Asset", style=f"bold {COLOR_ASSET}")
+    table.add_column("TF", justify="center", style=COLOR_LABEL)
     table.add_column("Strategy", justify="center", style=COLOR_LABEL)
     table.add_column("Dir", justify="center")
     table.add_column("Size", justify="right", style=COLOR_LABEL)
@@ -681,7 +738,7 @@ def build_active_positions_panel() -> Panel:
         spot_copy = dict(g_state.spot_prices)
 
     if not active_positions:
-        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "No active positions running", "-", "-")
+        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No active positions running", "-", "-")
     else:
         for pos in active_positions:
             title = pos.get("event_title", "Unknown")
@@ -693,6 +750,15 @@ def build_active_positions_panel() -> Panel:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
+            
+            # Timeframe parse
+            tf = "5m"
+            if "15M" in title.upper():
+                tf = "15m"
+            elif "1H" in title.upper():
+                tf = "1h"
+            elif "5M" in title.upper():
+                tf = "5m"
             
             direction = pos.get("direction", "YES")
             dir_color = "green" if direction == "YES" else "red"
@@ -726,6 +792,7 @@ def build_active_positions_panel() -> Panel:
 
             table.add_row(
                 asset,
+                tf,
                 pos.get("entry_type", "SIG"),
                 f"[{dir_color}]{direction}[/{dir_color}]",
                 f"${size:,.2f}",
@@ -746,6 +813,7 @@ def build_closed_positions_panel() -> Panel:
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
     table.add_column("Closed Time (SAST)", justify="center", style=COLOR_LABEL)
     table.add_column("Asset", style=f"bold {COLOR_ASSET}")
+    table.add_column("TF", justify="center", style=COLOR_LABEL)
     table.add_column("Strategy", justify="center", style=COLOR_LABEL)
     table.add_column("Dir", justify="center")
     table.add_column("Size", justify="right", style=COLOR_LABEL)
@@ -758,8 +826,8 @@ def build_closed_positions_panel() -> Panel:
     with g_state.lock:
         closed_positions = list(g_state.positions_state.get("closed", []))
 
-    # Display last 5 closed trades
-    for pos in closed_positions[:5]:
+    # Display last 15 closed trades
+    for pos in closed_positions[:15]:
         title = pos.get("event_title", "Unknown")
         
         # Asset parse
@@ -768,6 +836,15 @@ def build_closed_positions_panel() -> Panel:
             if f"[{possible}]" in title.upper() or possible in title.upper():
                 asset = possible
                 break
+        
+        # Timeframe parse
+        tf = "5m"
+        if "15M" in title.upper():
+            tf = "15m"
+        elif "1H" in title.upper():
+            tf = "1h"
+        elif "5M" in title.upper():
+            tf = "5m"
         
         direction = pos.get("direction", "YES")
         dir_color = "green" if direction == "YES" else "red"
@@ -795,6 +872,7 @@ def build_closed_positions_panel() -> Panel:
         table.add_row(
             formatted_exit_ts,
             asset,
+            tf,
             pos.get("entry_type", "SIG"),
             f"[{dir_color}]{direction}[/{dir_color}]",
             f"${size:,.2f}",
@@ -806,7 +884,7 @@ def build_closed_positions_panel() -> Panel:
         )
 
     if not closed_positions:
-        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-")
+        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-")
 
     return Panel(table, title="[bold white]Recent Closed Trades (Trade History)[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
