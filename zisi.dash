@@ -6,9 +6,18 @@ SESSION="zisi"
 tmux has-session -t $SESSION 2>/dev/null
 
 if [ $? -ne 0 ]; then
-  # Session does not exist, create it and attach immediately
+  # Session does not exist, create it in background
   echo "Starting new persistent dashboard session..."
-  tmux new-session -s $SESSION "stty sane && /root/ZiSi-v2/venv/bin/python3 /root/ZiSi-v2/zisi_terminal.py"
+  tmux new-session -d -s $SESSION "stty sane && /root/ZiSi-v2/venv/bin/python3 /root/ZiSi-v2/zisi_terminal.py"
+  
+  # Configure sleek Titanium Gray status bar theme
+  tmux set-option -t $SESSION status-bg colour235
+  tmux set-option -t $SESSION status-fg colour244
+  tmux set-option -t $SESSION window-status-current-style "fg=colour253,bg=colour238,bold"
+  tmux set-option -t $SESSION window-status-style "fg=colour244,bg=colour235"
+  
+  # Attach to the newly created session
+  tmux attach -t $SESSION
 else
   echo "Attaching to existing persistent dashboard session..."
   tmux attach -t $SESSION
