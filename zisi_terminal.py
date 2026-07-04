@@ -569,19 +569,19 @@ def build_metrics_panel() -> Panel:
     metrics_table.add_row("Live Unreal:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]")
     metrics_table.add_row("Total Trades:", f"[green]{wins}W[/green] / [red]{losses}L[/red] ({win_rate:.1f}% WR)")
 
-    return Panel(metrics_table, title="[bold white]Performance Summary[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
+    return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]Performance Summary[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_spot_prices_panel() -> Panel:
     """Build pricing layout displaying spot, Chainlink, Pyth, YES, NO, and Spread values."""
-    table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Asset", style=f"bold {COLOR_ASSET}")
-    table.add_column("Binance Spot", justify="right", style=COLOR_VAL)
-    table.add_column("Chainlink Spot", justify="right", style=COLOR_LABEL)
-    table.add_column("Pyth Spot", justify="right", style=COLOR_LABEL)
-    table.add_column("YES Price", justify="right", style=COLOR_VAL)
-    table.add_column("NO Price", justify="right", style=COLOR_VAL)
-    table.add_column("Spread", justify="right", style=COLOR_LABEL)
+    table = Table(box=ROUNDED, expand=True, padding=(0, 0))
+    table.add_column("Asset", header_style="bold #708090", style=f"bold {COLOR_ASSET}")
+    table.add_column("Binance", justify="right", header_style="#708090", style=COLOR_VAL)
+    table.add_column("Chainlink", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Pyth", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("YES", justify="right", header_style="#708090", style=COLOR_VAL)
+    table.add_column("NO", justify="right", header_style="#708090", style=COLOR_VAL)
+    table.add_column("Spread", justify="right", header_style="#708090", style=COLOR_LABEL)
 
     with g_state.lock:
         spot_copy = dict(g_state.spot_prices)
