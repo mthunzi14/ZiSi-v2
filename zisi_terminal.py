@@ -806,17 +806,17 @@ def build_active_positions_panel() -> Panel:
 def build_closed_positions_panel() -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Closed Time (SAST)", justify="center", header_style="slate_gray", style=COLOR_LABEL)
-    table.add_column("Asset", header_style="bold slate_gray", style=f"bold {COLOR_ASSET}")
-    table.add_column("TF", justify="center", header_style="slate_gray", style=COLOR_LABEL)
-    table.add_column("Strategy", justify="center", header_style="slate_gray", style=COLOR_LABEL)
-    table.add_column("Dir", justify="center", header_style="slate_gray")
-    table.add_column("Size", justify="right", header_style="slate_gray", style=COLOR_LABEL)
-    table.add_column("Entry Token", justify="right", header_style="slate_gray", style=COLOR_LABEL)
-    table.add_column("Exit Token", justify="right", header_style="slate_gray", style=COLOR_LABEL)
-    table.add_column("Hold", justify="right", header_style="slate_gray", style=COLOR_LABEL)
-    table.add_column("Exit Reason", justify="left", header_style="slate_gray")
-    table.add_column("PnL ($)", justify="right", header_style="slate_gray")
+    table.add_column("Closed Time (SAST)", justify="center", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Asset", header_style="bold #708090", style=f"bold {COLOR_ASSET}")
+    table.add_column("TF", justify="center", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Strategy", justify="center", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Dir", justify="center", header_style="#708090")
+    table.add_column("Size", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Entry Token", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Exit Token", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Hold", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Exit Reason", justify="left", header_style="#708090")
+    table.add_column("PnL ($)", justify="right", header_style="#708090")
 
     with g_state.lock:
         closed_positions = list(g_state.positions_state.get("closed", []))
@@ -907,7 +907,7 @@ def make_layout() -> Layout:
     layout.split_column(
         Layout(name="header", size=3),
         Layout(name="upper_body", size=10),
-        Layout(name="active_panel", size=5),
+        Layout(name="active_panel", size=7),
         Layout(name="closed_panel", ratio=1),
         Layout(name="logs_panel", size=10)
     )
