@@ -698,7 +698,6 @@ def build_regime_panel() -> Panel:
 
     regime_table.add_row("Market Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]")
     regime_table.add_row("ATR Percentile:", f"{atr_pct:.1f}%")
-    regime_table.add_row("Order Imbalance:", f"{obi:+.2f}")
     regime_table.add_row("Volume Ratio:", f"{vol_ratio:.2f}x")
     regime_table.add_row("F&G Index:", f"{fng_val} ({fng_lbl})")
 

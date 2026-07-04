@@ -112,3 +112,41 @@ This appendix deconstructs the latest architectural, sizing, and execution strat
 *   **Rebate Tier Formula**: Polymarket’s taker rebate program (which launched May 29, 2026) offers up to 50% rebates on taker fees. Category weights apply: **Crypto gets a 2.3x volume multiplier**, Politics/Tech gets 1.3x, Geopolitics gets 0x.
 *   **ZISI Application**:
     *   Focusing ZISI's high-frequency trading strictly on Crypto assets (BTC, ETH, SOL, XRP, DOGE) maximizes our weighted volume (2.3x multiplier), accelerating our path to higher fee rebate tiers and expanding our trading margins.
+
+---
+
+## 📓 PBot Twitter Articles Analysis (June 1 – June 8)
+
+This appendix deconstructs the latest batch of articles from **UPDATED2.docx** covering PBot's execution, latency, and arbitrage models between June 1 and June 8, 2026.
+
+### 1. ⚡ Lag is the Entire Edge (June 3 & June 4)
+*   **The Inefficiency**: Prediction market prices on Polymarket reflect crowd consensus, whereas Binance prices reflect real-time institutional flows. When a fast price movement occurs on Binance, the Polymarket CLOB lags behind by **2 to 10 seconds** (the physical floor is Polygon's 2–3s block time).
+*   **Signal Fusion**:
+    *   **Binance Ingestion**: Feed real-time spot ticks, CVD, and OBI.
+    *   **Polymarket Ingestion**: Feed current YES/NO book spreads.
+    *   **The Sniper Trigger**: If Binance CVD spikes and OBI favors buyers, but Polymarket YES prices have not moved yet, fire a taker order instantly before the rest of the market reprices.
+    *   **No Polling**: All data ingestion must be strictly event-driven (websockets). Polling introduces latency that kills the edge.
+*   **ZISI Application**: This confirms our spot-to-oracle lag engine is the correct architectural path. We will optimize `spot_websocket_ingest.py` to process ticks strictly via events with zero polling.
+
+### 2. 🎯 Queue Sniping & Priority (June 5 & June 8)
+*   **Time-Priority Queue**: Fills on the CLOB are distributed strictly based on who arrived first (FIFO). 
+*   **Colocation vs. Holding**: Colocation (Ireland/Dublin) only matters for high-frequency scalpers and sweepers racing for the same fill. For a 15-minute window or GTC limit orders placed hours early, colocation is a waste of money because the hold time is the edge, not the 6ms latency.
+*   **ZISI Application**: Since ZISI uses a mix of SIG (momentum/hold) and Sweep (close-snipe), we will maintain our standard server infrastructure but focus on **GTC limit laddering** for reversion entries to secure early queue positions.
+
+### 3. 📊 EV Layering (June 7)
+*   **Multi-Price expected value**: Rather than executing a single strategy at one price range (e.g. buying only at 50¢), calculate the Expected Value (EV) at every price point across the entire probability curve simultaneously.
+*   *Formula*: \(EV = (Probability \times Payout) - (Loss\_Probability)\).
+*   **ZISI Application**: Instead of flat-sizing or skipping neutral/divergent windows, we will implement **Dynamic EV Tranche Sizing**. When CVD and OBI are aligned (high EV), trade full size. When they diverge but the core momentum model still sees edge (lower EV), execute a smaller tranche (e.g., 25% size) at a highly favorable price level.
+
+### 4. ⚙️ Tick-to-Trade Optimization (May 30 & June 8)
+*   **The Bottleneck**: Developers obsess over language speed (Rust vs. Python) but ignore the real bottleneck: decoding, snapshot serialization, and order signing on the hot path. The CLOB has a 20ms API processing delay, making a 0.5ms Rust serialization saving irrelevant.
+*   **Top-5 Book Cache**: Do not re-sort the entire order book on every tick. Maintain a local cache of the top 5 bids/asks and update it incrementally.
+*   **CPU Pinning**: Pin core execution loops permanently to specific CPU cores to avoid OS scheduling context-switch latency.
+*   **ZISI Application**: 
+    *   Implement an incremental top-5 book cache in ZISI's book listener to save CPU cycles.
+    *   Pre-build and pre-sign order payloads before the window opens, reducing execution to a simple "clone and send" action.
+
+### 🔒 5. Security & Key Management (May 31)
+*   **Credential Isolation**: Never store private keys or API credentials in plain text or Git-tracked files. Use runtime environment injection.
+*   **Compartmentalization**: Separate wallets for separate strategies to limit the blast radius of any potential compromise.
+*   **ZISI Application**: Maintain strict separation of paper/live API keys and use git-ignored `.env` files for credential loads.
