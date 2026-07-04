@@ -659,7 +659,7 @@ def build_spot_prices_panel() -> Panel:
 
         table.add_row(asset, spot_str, cl_str, pyth_str, yes_price_str, no_price_str, spread_str)
 
-    return Panel(table, title="[bold white]Spot & Oracle Price Matrix (5m Contracts)[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
+    return Panel(table, title=f"[bold {COLOR_LABEL}]Spot & Oracle Price Matrix (5m Contracts)[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_regime_panel() -> Panel:
@@ -709,7 +709,7 @@ def build_regime_panel() -> Panel:
         mult = 0.30
     regime_table.add_row("Size Modifier:", f"{mult:.2f}x")
 
-    return Panel(regime_table, title="[bold white]Market Regime & Analytics[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
+    return Panel(regime_table, title=f"[bold {COLOR_LABEL}]Market Regime & Analytics[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_active_positions_panel() -> Panel:
