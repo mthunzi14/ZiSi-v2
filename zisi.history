@@ -1,0 +1,3 @@
+#!/bin/bash
+# Wrapper to run the interactive trade history browser
+/root/ZiSi-v2/venv/bin/python3 /root/ZiSi-v2/zisi_history.py
