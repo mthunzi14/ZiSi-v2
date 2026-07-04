@@ -569,11 +569,6 @@ def build_metrics_panel() -> Panel:
     metrics_table.add_row("Live Unreal:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]")
     metrics_table.add_row("Total Trades:", f"[green]{wins}W[/green] / [red]{losses}L[/red] ({win_rate:.1f}% WR)")
 
-    # Render Win Rate Progress Bar
-    bar_len = int(win_rate / 10)
-    bar_str = "█" * bar_len + "░" * (10 - bar_len)
-    metrics_table.add_row("Win Rate Bar:", f"[cyan][{bar_str}][/cyan]")
-
     return Panel(metrics_table, title="[bold white]Performance Summary[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
@@ -886,7 +881,7 @@ def build_closed_positions_panel() -> Panel:
     if not closed_positions:
         table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-")
 
-    return Panel(table, title="[bold white]Recent Closed Trades (Trade History)[/bold white]", box=ROUNDED, border_style=COLOR_BORDER)
+    return Panel(table, title=f"[bold {COLOR_LABEL}]Trade History[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_logs_panel() -> Panel:
@@ -900,7 +895,7 @@ def build_logs_panel() -> Panel:
         
     return Panel(
         log_text,
-        title=f"[bold white]Live Engine Logs ({LOG_FILE.name})[/bold white]",
+        title=f"[bold {COLOR_LABEL}]Live Engine Logs ({LOG_FILE.name})[/bold {COLOR_LABEL}]",
         box=ROUNDED,
         border_style=COLOR_BORDER
     )
