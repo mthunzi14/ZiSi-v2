@@ -157,18 +157,57 @@ class BinanceWebSocketIngest:
         self.symbols = [s.upper() for s in symbols]
         self.running = False
         self._task: Optional[asyncio.Task] = None
+        self._writer_task: Optional[asyncio.Task] = None
 
     def start(self):
         if not self.running:
             self.running = True
             self._task = asyncio.create_task(self._socket_loop())
+            self._writer_task = asyncio.create_task(self._writer_loop())
             log.info("[HFT-WS] Ingest daemon started for %s", self.symbols)
 
     def stop(self):
         self.running = False
         if self._task:
             self._task.cancel()
-            log.info("[HFT-WS] Ingest daemon stopped.")
+        if self._writer_task:
+            self._writer_task.cancel()
+        log.info("[HFT-WS] Ingest daemon stopped.")
+
+    async def _writer_loop(self):
+        # Determine the data directory relative to this file
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        data_dir = os.path.join(base_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)
+        target_file = os.path.join(data_dir, "hft_metrics.json")
+        temp_file = target_file + ".tmp"
+        
+        while self.running:
+            try:
+                metrics = {}
+                async with _market_books_lock:
+                    for s in self.symbols:
+                        book = _market_books.get(s, {})
+                        trades = book.get("trades_history", [])
+                        now = time.time()
+                        fast = sum(tr[1] for tr in trades if tr[0] >= now - 10.0)
+                        slow = sum(tr[1] for tr in trades if tr[0] >= now - 60.0)
+                        
+                        metrics[s] = {
+                            "obi": book.get("binance_obi", 0.0),
+                            "ofi": book.get("ofi_value", 0.0),
+                            "cvd_fast": fast,
+                            "cvd_slow": slow,
+                            "last_tick": book.get("timestamp", 0.0)
+                        }
+                
+                # Write atomically to prevent partial reads
+                with open(temp_file, "w") as f:
+                    json.dump(metrics, f, indent=4)
+                os.replace(temp_file, target_file)
+            except Exception as e:
+                log.warning("[HFT-WS] Failed to dump metrics: %r", e)
+            await asyncio.sleep(1.0)
 
     async def _socket_loop(self):
         # Build combined stream — 3 feeds per symbol

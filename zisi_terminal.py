@@ -51,6 +51,7 @@ REGIME_FILE = DATA_DIR / "regime_status.json"
 SENTIMENT_FILE = DATA_DIR / "sentiment_state.json"
 CHAINLINK_FILE = DATA_DIR / "chainlink_prices.json"
 PYTH_FILE = DATA_DIR / "pyth_prices.json"
+HFT_METRICS_FILE = DATA_DIR / "hft_metrics.json"
 
 PM2_LOG_PATH = Path("/root/.pm2/logs/ZiSi-Core-Engine-error.log")
 LOCAL_LOG_PATH = PROJECT_ROOT / "zisi_bot_console.log"
@@ -82,6 +83,7 @@ class GlobalDashboardState:
         self.sentiment_state = {}
         self.chainlink_prices = {}
         self.pyth_prices = {}
+        self.hft_metrics = {}
         
         # Timing
         self.start_time = time.time()
@@ -350,6 +352,7 @@ def sync_file_states():
     sentiment = load_json_file(SENTIMENT_FILE)
     chainlink = load_json_file(CHAINLINK_FILE)
     pyth = load_json_file(PYTH_FILE)
+    hft = load_json_file(HFT_METRICS_FILE)
 
     with g_state.lock:
         g_state.account_state = account
@@ -358,6 +361,7 @@ def sync_file_states():
         g_state.sentiment_state = sentiment
         g_state.chainlink_prices = chainlink
         g_state.pyth_prices = pyth
+        g_state.hft_metrics = hft
         
         # Pre-populate spot prices from Chainlink at startup to prevent "CONNECTING..."
         for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
@@ -667,6 +671,7 @@ def build_regime_panel() -> Panel:
     with g_state.lock:
         reg = dict(g_state.regime_state)
         sent = dict(g_state.sentiment_state)
+        hft = dict(g_state.hft_metrics)
 
     raw_reg = str(reg.get("regime", "UNKNOWN")).upper()
     atr_pct = float(reg.get("atr_percentile", 50.0))
@@ -708,6 +713,19 @@ def build_regime_panel() -> Panel:
     elif raw_reg == "VOLATILE_CHAOS":
         mult = 0.30
     regime_table.add_row("Size Modifier:", f"{mult:.2f}x")
+
+    # HFT Asset Flow section (CVD & OBI)
+    regime_table.add_row("", "")  # Spacer
+    regime_table.add_row("[bold #708090]Asset Flow[/bold #708090]", "[bold #708090]CVD (10s) | OBI[/bold #708090]")
+    for asset in ["BTC", "ETH", "SOL"]:
+        m = hft.get(asset, {})
+        obi_val = m.get("obi", 0.0)
+        cvd_val = m.get("cvd_fast", 0.0)
+        
+        cvd_color = "green" if cvd_val > 0 else "red" if cvd_val < 0 else "grey70"
+        obi_color = "green" if obi_val > 0.05 else "red" if obi_val < -0.05 else "grey70"
+        
+        regime_table.add_row(f" {asset}:", f"[{cvd_color}]{cvd_val:+.1f}[/{cvd_color}] | [{obi_color}]{obi_val:+.2f}[/{obi_color}]")
 
     return Panel(regime_table, title=f"[bold {COLOR_LABEL}]Market Regime & Analytics[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
@@ -906,7 +924,7 @@ def make_layout() -> Layout:
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="upper_body", size=10),
+        Layout(name="upper_body", size=12),
         Layout(name="active_panel", size=7),
         Layout(name="closed_panel", ratio=1),
         Layout(name="logs_panel", size=10)
