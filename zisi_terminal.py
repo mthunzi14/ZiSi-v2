@@ -717,15 +717,34 @@ def build_regime_panel() -> Panel:
     # HFT Asset Flow section (CVD & OBI)
     regime_table.add_row("", "")  # Spacer
     regime_table.add_row("[bold #708090]Asset Flow[/bold #708090]", "[bold #708090]CVD (10s) | OBI[/bold #708090]")
-    for asset in ["BTC", "ETH", "SOL"]:
+    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
         m = hft.get(asset, {})
         obi_val = m.get("obi", 0.0)
         cvd_val = m.get("cvd_fast", 0.0)
         
-        cvd_color = "green" if cvd_val > 0 else "red" if cvd_val < 0 else "grey70"
-        obi_color = "green" if obi_val > 0.05 else "red" if obi_val < -0.05 else "grey70"
+        # CVD formatting with arrows
+        if cvd_val > 0.01:
+            cvd_str = f"▲ +{cvd_val:.1f}"
+            cvd_color = "green"
+        elif cvd_val < -0.01:
+            cvd_str = f"▼ {cvd_val:.1f}"
+            cvd_color = "red"
+        else:
+            cvd_str = "  0.0"
+            cvd_color = "grey70"
+            
+        # OBI formatting with arrows
+        if obi_val > 0.05:
+            obi_str = f"▲ +{obi_val:.2f}"
+            obi_color = "green"
+        elif obi_val < -0.05:
+            obi_str = f"▼ {obi_val:.2f}"
+            obi_color = "red"
+        else:
+            obi_str = f"  {obi_val:.2f}"
+            obi_color = "grey70"
         
-        regime_table.add_row(f" {asset}:", f"[{cvd_color}]{cvd_val:+.1f}[/{cvd_color}] | [{obi_color}]{obi_val:+.2f}[/{obi_color}]")
+        regime_table.add_row(f" {asset}:", f"[{cvd_color}]{cvd_str}[/{cvd_color}] | [{obi_color}]{obi_str}[/{obi_color}]")
 
     return Panel(regime_table, title=f"[bold {COLOR_LABEL}]Market Regime & Analytics[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
@@ -924,7 +943,7 @@ def make_layout() -> Layout:
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="upper_body", size=12),
+        Layout(name="upper_body", size=15),
         Layout(name="active_panel", size=7),
         Layout(name="closed_panel", ratio=1),
         Layout(name="logs_panel", size=10)
