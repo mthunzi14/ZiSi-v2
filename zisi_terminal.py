@@ -715,18 +715,18 @@ def build_regime_panel() -> Panel:
 def build_active_positions_panel() -> Panel:
     """Build the active open positions table with full attributes and live PnL."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Asset", style=f"bold {COLOR_ASSET}")
-    table.add_column("TF", justify="center", style=COLOR_LABEL)
-    table.add_column("Strategy", justify="center", style=COLOR_LABEL)
-    table.add_column("Dir", justify="center")
-    table.add_column("Size", justify="right", style=COLOR_LABEL)
-    table.add_column("Entry Spot", justify="right", style=COLOR_LABEL)
-    table.add_column("Mark Spot", justify="right", style=COLOR_LABEL)
-    table.add_column("Entry Token", justify="right", style=COLOR_LABEL)
-    table.add_column("Mark Token", justify="right", style=COLOR_LABEL)
-    table.add_column("Entry Time (SAST)", justify="center", style=COLOR_LABEL)
-    table.add_column("Hold", justify="right", style=COLOR_LABEL)
-    table.add_column("Unrealized PnL", justify="right")
+    table.add_column("Asset", header_style="bold #708090", style=f"bold {COLOR_ASSET}")
+    table.add_column("TF", justify="center", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Strategy", justify="center", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Dir", justify="center", header_style="#708090")
+    table.add_column("Size", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Entry Spot", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Mark Spot", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Entry Token", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Mark Token", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Entry Time (SAST)", justify="center", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Hold", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Unrealized PnL", justify="right", header_style="#708090")
 
     with g_state.lock:
         active_positions = list(g_state.positions_state.get("active", []))
@@ -935,8 +935,8 @@ def main():
     
     last_file_sync = time.time()
     
-    # Optimized 1Hz rendering loop (1 update per second) to completely eliminate SSH socket buffering lag
-    with Live(layout, refresh_per_second=1, screen=True) as live:
+    # Sub-second high-speed rendering loop (10 updates per second) for instant, fluid tick-for-tick refresh
+    with Live(layout, refresh_per_second=10, screen=True) as live:
         while True:
             now = time.time()
             
@@ -961,7 +961,7 @@ def main():
             except Exception:
                 pass
                 
-            time.sleep(1.0)
+            time.sleep(0.1)
 
 
 if __name__ == "__main__":
