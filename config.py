@@ -15,11 +15,11 @@ ASSETS: list = ["BTC", "ETH", "SOL", "XRP", "DOGE"]
 FUTURE_ASSETS: list = []
 
 TIMEFRAMES: dict = {
-    "BTC": ["5m", "15m"],
-    "ETH": ["5m", "15m"],
-    "SOL": ["5m", "15m"],
-    "XRP": ["5m", "15m"],
-    "DOGE": ["5m", "15m"],
+    "BTC": ["5m"],
+    "ETH": ["5m"],
+    "SOL": ["5m"],
+    "XRP": ["5m"],
+    "DOGE": ["5m"],
 }
 
 # Active trading window (UTC hours, inclusive start/exclusive end) - set to 24/7
@@ -55,21 +55,21 @@ MAX_TOTAL_OPEN: int = 8
 
 # Fair-value (Type-1) primary entry. When True, a spot-distance mispricing that
 # clears EDGE_MARGIN fires an entry at the real L2 quote BEFORE the momentum cascade.
-FAIR_VALUE_MODE: bool = True
+FAIR_VALUE_MODE: bool = False
 
 # Strategy scope configurations
-SKIP_WEEKEND_SIGNAL: bool = os.getenv("SKIP_WEEKEND_SIGNAL", "True").lower() == "true"
-ENABLE_NCS: bool = os.getenv("ENABLE_NCS", "False").lower() == "true"
-ENABLE_SWEEPER: bool = os.getenv("ENABLE_SWEEPER", "False").lower() == "true"
-ENABLE_LATENCY_ARB: bool = os.getenv("ENABLE_LATENCY_ARB", "False").lower() == "true"
+SKIP_WEEKEND_SIGNAL: bool = False
+ENABLE_NCS: bool = False
+ENABLE_SWEEPER: bool = False
+ENABLE_LATENCY_ARB: bool = False
 
 # ── Strategy-Specific Overlays (Sprint 12 / Mentor Emulation) ──────────────────
-OVERLAY_C_ENABLED: bool = True
+OVERLAY_C_ENABLED: bool = False
 OVERLAY_C_SPEC_BUDGET_PCT: float = 0.01          # 1.0% of total balance
 OVERLAY_C_MAX_UNDERDOG_PRICE: float = 0.20        # contracts priced <= 20c
 
-OVERLAY_B_ENABLED: bool = True
-OVERLAY_B_FREEZE_MIDPOINTS: bool = True           # freeze 40c-60c contracts during breakout
+OVERLAY_B_ENABLED: bool = False
+OVERLAY_B_FREEZE_MIDPOINTS: bool = False           # freeze 40c-60c contracts during breakout
 OVERLAY_B_TREND_ALIGNMENT_THRESHOLD: int = 4      # requires 4/4 alignment across timeframes
 OVERLAY_B_ADX_THRESHOLD: float = 25.0             # ADX threshold for breakout strength
 

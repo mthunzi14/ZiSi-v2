@@ -91,6 +91,7 @@ class GlobalDashboardState:
         self.potential_trades = {}
         self.closed_scroll_offset = 0
         self.logs_scroll_offset = 0
+        self.fullscreen_mode = None
         
         # Timing
         self.start_time = time.time()
@@ -492,13 +493,10 @@ def build_header_panel() -> Panel:
 
     # Countdown calculations
     sec_5m = 300 - (int(now) % 300)
-    sec_15m = 900 - (int(now) % 900)
     
     cd_5m_str = f"{sec_5m // 60:02d}:{sec_5m % 60:02d}"
-    cd_15m_str = f"{sec_15m // 60:02d}:{sec_15m % 60:02d}"
     
     style_5m = COLOR_ASSET
-    style_15m = COLOR_ASSET
 
     # Uptime in Titanium Gray
     uptime = get_uptime_str(g_state.start_time)
@@ -526,9 +524,6 @@ def build_header_panel() -> Panel:
         (" │ ", "bright_black"),
         ("5m Candle: ", f"bold {COLOR_LABEL}"),
         (cd_5m_str, style_5m),
-        (" │ ", "bright_black"),
-        ("15m Candle: ", f"bold {COLOR_LABEL}"),
-        (cd_15m_str, style_15m),
         (" │ ", "bright_black"),
         ("Uptime: ", f"bold {COLOR_LABEL}"),
         (uptime, "yellow")
@@ -803,6 +798,7 @@ def build_active_positions_panel() -> Panel:
     with g_state.lock:
         active_positions = list(g_state.positions_state.get("active", []))
         spot_copy = dict(g_state.spot_prices)
+        fullscreen = g_state.fullscreen_mode == 'active'
 
     if not active_positions:
         table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No active positions running", "-", "-")
@@ -872,10 +868,11 @@ def build_active_positions_panel() -> Panel:
                 f"[{unreal_color}]${unreal:+.2f}[/{unreal_color}]"
             )
 
-    return Panel(table, title=f"[bold {COLOR_LABEL}]Active Positions[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
+    title_str = "Active Positions [P or H to Minimize]" if fullscreen else "Active Positions [P to Fullscreen]"
+    return Panel(table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
-def build_closed_positions_panel() -> Panel:
+def build_closed_positions_panel(num_lines: int = 15) -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
     table.add_column("Closed Time (SAST)", justify="center", header_style="#708090", style=COLOR_LABEL)
@@ -893,9 +890,10 @@ def build_closed_positions_panel() -> Panel:
     with g_state.lock:
         closed_positions = list(g_state.positions_state.get("closed", []))
         offset = g_state.closed_scroll_offset = min(g_state.closed_scroll_offset, max(0, len(closed_positions) - 1))
+        fullscreen = g_state.fullscreen_mode == 'closed'
 
     # Display sliced closed trades based on scroll offset
-    visible_positions = closed_positions[offset : offset + 15]
+    visible_positions = closed_positions[offset : offset + num_lines]
     for pos in visible_positions:
         title = pos.get("event_title", "Unknown")
         
@@ -956,23 +954,26 @@ def build_closed_positions_panel() -> Panel:
     if not closed_positions:
         table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-")
 
-    title_str = f"Trade History [Scroll: -{offset}] (Up/Down Arrow to Scroll, U to Reset)" if offset > 0 else "Trade History (Up/Down Arrow to Scroll, U to Reset)"
+    key_guide = "T or H to Minimize" if fullscreen else "T to Fullscreen"
+    title_str = f"Trade History [Scroll: -{offset}] ({key_guide}, Up/Down Arrow to Scroll, U to Reset)" if offset > 0 else f"Trade History ({key_guide}, Up/Down Arrow to Scroll, U to Reset)"
     return Panel(table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
-def build_logs_panel() -> Panel:
+def build_logs_panel(num_lines: int = 8) -> Panel:
     """Build the scrolling log viewer with keyboard controls."""
     with g_state.lock:
         offset = g_state.logs_scroll_offset
+        fullscreen = g_state.fullscreen_mode == 'logs'
 
-    log_lines = tail_log_file(LOG_FILE, num_lines=8, offset=offset)
+    log_lines = tail_log_file(LOG_FILE, num_lines=num_lines, offset=offset)
     log_text = Text()
     for idx, line in enumerate(log_lines):
         if idx > 0:
             log_text.append("\n")
         log_text.append(colorize_log_line(line))
         
-    title_str = f"Live Engine Logs [Scroll: -{offset}] (W/S to Scroll, U to Reset)" if offset > 0 else "Live Engine Logs (W/S to Scroll, U to Reset)"
+    key_guide = "L or H to Minimize" if fullscreen else "L to Fullscreen"
+    title_str = f"Live Engine Logs [Scroll: -{offset}] ({key_guide}, W/S to Scroll, U to Reset)" if offset > 0 else f"Live Engine Logs ({key_guide}, W/S to Scroll, U to Reset)"
     return Panel(
         log_text,
         title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]",
@@ -1013,6 +1014,18 @@ def run_keyboard_listener():
                     with g_state.lock:
                         g_state.closed_scroll_offset = 0
                         g_state.logs_scroll_offset = 0
+                elif ch.lower() == 'l':  # Toggle logs fullscreen
+                    with g_state.lock:
+                        g_state.fullscreen_mode = 'logs' if g_state.fullscreen_mode != 'logs' else None
+                elif ch.lower() == 't':  # Toggle trade history fullscreen
+                    with g_state.lock:
+                        g_state.fullscreen_mode = 'closed' if g_state.fullscreen_mode != 'closed' else None
+                elif ch.lower() == 'p':  # Toggle active positions fullscreen
+                    with g_state.lock:
+                        g_state.fullscreen_mode = 'active' if g_state.fullscreen_mode != 'active' else None
+                elif ch.lower() == 'h':  # Reset to default layout
+                    with g_state.lock:
+                        g_state.fullscreen_mode = None
     except Exception:
         pass
     finally:
@@ -1041,10 +1054,6 @@ def make_layout() -> Layout:
 
 def main():
     """Main rendering loop optimized for high-refresh with throttled disk I/O."""
-    # stty cols/rows is commented out when running inside tmux to prevent terminal size mismatch glitches.
-    # os.system("stty cols 180 rows 45 2>/dev/null")
-    
-    layout = make_layout()
     console.clear()
     console.set_window_title("ZiSi-v2 Terminal Dashboard")
     
@@ -1057,8 +1066,29 @@ def main():
     
     last_file_sync = time.time()
     
+    # Create the layouts
+    layout_default = make_layout()
+    
+    layout_logs = Layout()
+    layout_logs.split_column(
+        Layout(name="header", size=3),
+        Layout(name="logs_panel", ratio=1)
+    )
+    
+    layout_closed = Layout()
+    layout_closed.split_column(
+        Layout(name="header", size=3),
+        Layout(name="closed_panel", ratio=1)
+    )
+    
+    layout_active = Layout()
+    layout_active.split_column(
+        Layout(name="header", size=3),
+        Layout(name="active_panel", ratio=1)
+    )
+    
     # 3Hz fluid rendering loop (3 updates per second) to eliminate SSH buffer lag and enable instant loading
-    with Live(layout, refresh_per_second=3, screen=True) as live:
+    with Live(layout_default, refresh_per_second=3, screen=True) as live:
         while True:
             now = time.time()
             
@@ -1067,14 +1097,32 @@ def main():
                 sync_file_states()
                 last_file_sync = now
                 
-            # Update layout panels instantly
-            layout["header"].update(build_header_panel())
-            layout["metrics"].update(build_metrics_panel())
-            layout["prices"].update(build_spot_prices_panel())
-            layout["regime"].update(build_regime_panel())
-            layout["active_panel"].update(build_active_positions_panel())
-            layout["closed_panel"].update(build_closed_positions_panel())
-            layout["logs_panel"].update(build_logs_panel())
+            with g_state.lock:
+                fs_mode = g_state.fullscreen_mode
+                
+            # Render based on fullscreen mode
+            if fs_mode == 'logs':
+                layout_logs["header"].update(build_header_panel())
+                layout_logs["logs_panel"].update(build_logs_panel(num_lines=32))
+                live.update(layout_logs)
+            elif fs_mode == 'closed':
+                layout_closed["header"].update(build_header_panel())
+                layout_closed["closed_panel"].update(build_closed_positions_panel(num_lines=30))
+                live.update(layout_closed)
+            elif fs_mode == 'active':
+                layout_active["header"].update(build_header_panel())
+                layout_active["active_panel"].update(build_active_positions_panel())
+                live.update(layout_active)
+            else:
+                # Default layout
+                layout_default["header"].update(build_header_panel())
+                layout_default["metrics"].update(build_metrics_panel())
+                layout_default["prices"].update(build_spot_prices_panel())
+                layout_default["regime"].update(build_regime_panel())
+                layout_default["active_panel"].update(build_active_positions_panel())
+                layout_default["closed_panel"].update(build_closed_positions_panel(num_lines=15))
+                layout_default["logs_panel"].update(build_logs_panel(num_lines=8))
+                live.update(layout_default)
             
             # Write a heartbeat file to confirm the process loop is running without freezing
             try:

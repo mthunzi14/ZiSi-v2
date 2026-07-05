@@ -95,7 +95,10 @@ class TradingContext:
     def log_skip(self, reason: str, asset: str, timeframe: str, details: dict = None) -> None:
         self.funnel_stats["skipped"] += 1
         track_skip(reason, {"asset": asset, "timeframe": timeframe, **(details or {})})
-        log.info("[MAIN] %s/%s SKIP (%s) %s", asset, timeframe, reason, details or "")
+        if reason == "no_signal":
+            log.debug("[MAIN] %s/%s SKIP (%s) %s", asset, timeframe, reason, details or "")
+        else:
+            log.info("[MAIN] %s/%s SKIP (%s) %s", asset, timeframe, reason, details or "")
 
 
 def _try_telegram(msg: str) -> None:
@@ -271,64 +274,12 @@ async def _validate_trade_slot(
         except Exception as _corr_err:
             log.error("[FV-CORR-CAP] Error checking correlated exposure: %s", _corr_err)
 
-    # SIG 40¢ floor: below 40¢ the crowd is >60% against the signal — momentum lag can't overcome
-    # that consensus. Raised from 20¢ after two clean-slate losses at 24.5¢ and 40¢ NO entries.
-    # CORR trades (already vetted by lead asset) and FV/NCS are exempt.
-    if _entry_source not in ("FAIR_VAL", "CLOSE-SNIPE", "CORR") and entry_price < 0.40:
-        log.info("[SIG-FLOOR] %s/%s: SIG %.4f < 0.40 — crowd >60%% against signal — skip",
-                 asset, timeframe, entry_price)
-        context.log_skip("sig_floor_40c", asset, timeframe)
-        return False, {}
-
-    # P5: SIG price ceiling — block buying the expensive side of an overextended market.
-    # SIG/YES (UP) at >60¢ on 5m or >65¢ on 15m means market already priced it heavily;
-    # edge evaporates and losses at 65¢ have confirmed this repeatedly.
-    if _entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "CORR"):
-        _sig_ceil = 0.60 if timeframe == "5m" else 0.65
-        if entry_price > _sig_ceil:
-            log.info("[SIG-CEIL] %s/%s: SIG %.4f > %.4f ceiling — overextended — skip",
-                     asset, timeframe, entry_price, _sig_ceil)
-            context.log_skip("sig_ceiling", asset, timeframe)
-            return False, {}
-
     # ── 15m Conviction Guard: Prefer 5m trades unless 15m has high conviction (score >= 0.70) ──
     if _entry_source in ("SIG", "SIGNAL") and timeframe == "15m" and score < 0.70:
         log.info("[SIG-15M-GUARD] %s/15m: SIG score %.2f < 0.70 — skip 15m to prefer 5m",
                  asset, score)
         context.log_skip("sig_15m_conviction_guard", asset, timeframe)
         return False, {}
-
-    # SIG mid-range quality guard (REBUILD Phase 4): the deleted dead zone let weak
-    # cheap/contrarian SIG back in (26.5c NO -$4.08, 57.5c NO -$0.52). Re-protect the
-    # 35-57c band — only allow SIG here on a strong score; FV carries direction at ATM.
-    # BTC↔ETH corroboration bypass: if the correlated pair is already in a same-direction
-    # same-timeframe position, the MIDGUARD score bar is dropped — both assets move together
-    # and the open position is live confirmation of the edge.
-    if (_entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "T2_SWEEPER", "REVERSAL_STREAK", "CORR")
-            and 0.35 < entry_price < 0.57 and score < 0.70):
-        _corr_bypass = False
-        _corr_pair = {"BTC": "ETH", "ETH": "BTC"}.get(asset.upper())
-        if _corr_pair:
-            try:
-                from core.engine.state_manager import get_open_positions as _get_open_positions
-                for _p in _get_open_positions():
-                    _pt = _p.get("event_title", "")
-                    if (_corr_pair in _pt
-                            and f"[{timeframe}]" in _pt
-                            and _p.get("direction", "").upper() == direction.upper()):
-                        _corr_bypass = True
-                        log.info(
-                            "[SIG-CORROBORATE] %s/%s: %s open same-dir %s — MIDGUARD bypassed",
-                            asset, timeframe, _corr_pair, direction,
-                        )
-                        break
-            except Exception:
-                pass
-        if not _corr_bypass:
-            log.info("[SIG-MIDGUARD] %s/%s: SIG %.4f in 0.35-0.57 with weak score %.2f < 0.70 — skip",
-                     asset, timeframe, entry_price, score)
-            context.log_skip("sig_midrange_guard", asset, timeframe)
-            return False, {}
 
     # FV global rate limiter and directional cooldown removed as requested by user.
 
@@ -528,24 +479,7 @@ async def _validate_trade_slot(
             context.log_skip("15m_correlation_cap", asset, timeframe)
             return False, {}
 
-    # ── CLOB V2 Fee Mitigation engine ──
-    # Midpoint trades (40¢–60¢) in Pillar 1 are rejected if implied edge < 1.5× taker fee.
-    _entry_source = signal.get("entry_source", "SIG")
-    if _entry_source in ("SIG", "SIGNAL", "FAIR_VAL", "FV", "REVERSAL_SNIPE", "REV_SNIPE"):
-        if 0.40 <= entry_price <= 0.60:
-            win_rate = signal.get("fv_confidence") or signal.get("score") or 0.52
-            if win_rate > 1.0:
-                win_rate = win_rate / 100.0
-            implied_edge = win_rate - entry_price
-            taker_fee_per_share = 0.072 * entry_price * (1.0 - entry_price)
-            
-            if implied_edge < 1.5 * taker_fee_per_share:
-                log.info(
-                    "[FEE-GATE] Blocked Pillar 1 midpoint trade: asset=%s, price=%.4f, win_rate=%.4f, implied_edge=%.4f, taker_fee_per_share=%.4f (1.5x fee = %.4f)",
-                    asset, entry_price, win_rate, implied_edge, taker_fee_per_share, 1.5 * taker_fee_per_share
-                )
-                context.log_skip("fee_gate_blocked", asset, timeframe)
-                return False, {}
+
 
     allowed, slot_reason = await request_trade_slot(
         asset, timeframe, score, interval_minutes, open_positions, is_dual=is_dual, direction=direction,
@@ -1139,7 +1073,7 @@ async def main() -> None:
                     stagger += 15  # Stagger startup by 15s to distribute WebSocket and RPC load evenly
 
             tasks.append(reconciliation_loop(state_manager, _try_telegram))
-            tasks.append(arbitrage_scanner_loop(_try_telegram))
+            # tasks.append(arbitrage_scanner_loop(_try_telegram))
             tasks.append(heartbeat_daemon())
             asyncio.create_task(_zombie_cleanup_loop())
 
@@ -1152,12 +1086,13 @@ async def main() -> None:
                 except Exception as e:
                     log.error("[MAIN] Failed to import start_latency_edge_scanner: %s", e)
 
-            try:
-                from core.engine.cycle_manager import start_reversal_sniper
-                tasks.append(start_reversal_sniper(session, context.engines))
-                log.info("[MAIN] Reversal sniper background task registered.")
-            except Exception as e:
-                log.error("[MAIN] Failed to import start_reversal_sniper: %s", e)
+            # Mute reversal sniper for SIG isolation
+            # try:
+            #     from core.engine.cycle_manager import start_reversal_sniper
+            #     tasks.append(start_reversal_sniper(session, context.engines))
+            #     log.info("[MAIN] Reversal sniper background task registered.")
+            # except Exception as e:
+            #     log.error("[MAIN] Failed to import start_reversal_sniper: %s", e)
 
             if cfg.get("ENABLE_SWEEPER", False):
                 try:

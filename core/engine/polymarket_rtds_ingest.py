@@ -80,9 +80,9 @@ class PolymarketRTDSIngest:
         log.info("[RTDS-WS] Ingest daemon stopped.")
 
     async def _binance_poll_loop(self):
-        """Poll Binance REST every 3 seconds as price backstop — ensures cards stay green even without RTDS."""
+        """Poll Binance REST every 30 seconds as price backstop — ensures cards stay green even without RTDS."""
         while self.running:
-            await asyncio.sleep(3)
+            await asyncio.sleep(30)
             await self._refresh_from_binance()
 
     async def _write_cache_to_disk_loop(self):
@@ -215,7 +215,7 @@ class PolymarketRTDSIngest:
                             price = float(item.get("price", 0))
                             if price > 0:
                                 _chainlink_prices[asset] = {"price": price, "timestamp": now}
-                    log.info("[RTDS-WS] Binance REST fallback: updated %d prices", len(data))
+                    log.debug("[RTDS-WS] Binance REST fallback: updated %d prices", len(data))
         except Exception as e:
             log.debug("[RTDS-WS] Binance fallback failed: %s", e)
 

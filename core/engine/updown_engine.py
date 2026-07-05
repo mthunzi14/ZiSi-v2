@@ -476,7 +476,7 @@ class UpDownEngine:
         # Entering at T-36s or T-72s means the market has nearly resolved — tiny win potential,
         # full loss exposure. NCS is exempt (it intentionally targets T-8s to T-45s).
         import sys, os as _os_t
-        is_testing = _os_t.environ.get("ZISI_TESTING") == "True" or any("unittest" in a or "pytest" in a for a in sys.argv)
+        is_testing = _os_t.environ.get("ZISI_TESTING") == "True" or "unittest" in sys.modules or "pytest" in sys.modules
         if not is_testing:
             import time as _time_ttl
             _ttl_s = market.get("expiry_ts", 0) - _time_ttl.time()
@@ -624,9 +624,7 @@ class UpDownEngine:
             _expected_start_ts = int(_now_ts // _candle_duration_s * _candle_duration_s)
             _last_kline_ts = int(klines[-1][0]) // 1000 if klines else 0
 
-            import sys
-            import os
-            is_testing = os.environ.get("ZISI_TESTING") == "True" or any("unittest" in arg or "pytest" in arg for arg in sys.argv)
+            is_testing = os.environ.get("ZISI_TESTING") == "True" or "unittest" in sys.modules or "pytest" in sys.modules
 
             if _last_kline_ts != _expected_start_ts and not is_testing:
                 # Klines list is lagged — wait for next tick to resolve current strike
@@ -978,7 +976,7 @@ class UpDownEngine:
                     SKIP_WEEKEND_SIGNAL = True
 
                 import sys, os
-                is_testing = os.environ.get("ZISI_TESTING") == "True" or any("unittest" in a or "pytest" in a for a in sys.argv)
+                is_testing = os.environ.get("ZISI_TESTING") == "True" or "unittest" in sys.modules or "pytest" in sys.modules
 
                 if not is_testing and SKIP_WEEKEND_SIGNAL:
                     try:
@@ -1010,207 +1008,33 @@ class UpDownEngine:
                         flow_bullish = fast_cvd > 0 and fast_cvd > 0.25 * abs(slow_cvd) and binance_obi > 0.10
                         flow_bearish = fast_cvd < 0 and abs(fast_cvd) > 0.25 * abs(slow_cvd) and binance_obi < -0.10
                         
-                        if is_weekend:
-                            # Weekend extreme conviction: no flipping, just pure confirmation
-                            if direction == "UP" and not flow_bullish:
-                                log.info("[WEEKEND-CONFIRM-FAIL] %s/%s: UP unconfirmed by order flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — skip",
+                        # Weekday & Weekend unified: Flip-to-Flow (Never skip, only flip or align)
+                        if direction == "UP":
+                            if flow_bullish:
+                                log.info("[SIG-FLOW-ALIGN] %s/%s: UP confirmed by flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f)",
                                          self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                return None
-                            elif direction == "DOWN" and not flow_bearish:
-                                log.info("[WEEKEND-CONFIRM-FAIL] %s/%s: DOWN unconfirmed by order flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — skip",
+                            elif flow_bearish:
+                                log.warning("[SIG-FLOW-FLIP] %s/%s: UP triggers but flow is bearish (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — flipping to DOWN",
+                                            self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
+                                direction = "DOWN"
+                                raw_dir = "DOWN"
+                            else:
+                                log.info("[SIG-FLOW-PROCEED] %s/%s: UP triggers with weak/neutral flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — proceed",
                                          self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                return None
-                        else:
-                            # Weekday: Flip-to-Flow
-                            if direction == "UP":
-                                if flow_bullish:
-                                    log.info("[SIG-FLOW-ALIGN] %s/%s: UP confirmed by flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f)",
-                                             self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                elif flow_bearish:
-                                    log.warning("[SIG-FLOW-FLIP] %s/%s: UP triggers but flow is bearish (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — flipping to DOWN",
-                                                self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                    direction = "DOWN"
-                                    raw_dir = "DOWN"
-                                else:
-                                    log.info("[SIG-FLOW-SKIP] %s/%s: UP triggers but flow is weak/neutral (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — skip",
-                                             self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                    return None
-                            elif direction == "DOWN":
-                                if flow_bearish:
-                                    log.info("[SIG-FLOW-ALIGN] %s/%s: DOWN confirmed by flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f)",
-                                             self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                elif flow_bullish:
-                                    log.warning("[SIG-FLOW-FLIP] %s/%s: DOWN triggers but flow is bullish (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — flipping to UP",
-                                                self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                    direction = "UP"
-                                    raw_dir = "UP"
-                                else:
-                                    log.info("[SIG-FLOW-SKIP] %s/%s: DOWN triggers but flow is weak/neutral (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — skip",
-                                             self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
-                                    return None
+                        elif direction == "DOWN":
+                            if flow_bearish:
+                                log.info("[SIG-FLOW-ALIGN] %s/%s: DOWN confirmed by flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f)",
+                                         self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
+                            elif flow_bullish:
+                                log.warning("[SIG-FLOW-FLIP] %s/%s: DOWN triggers but flow is bullish (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — flipping to UP",
+                                            self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
+                                direction = "UP"
+                                raw_dir = "UP"
+                            else:
+                                log.info("[SIG-FLOW-PROCEED] %s/%s: DOWN triggers with weak/neutral flow (fast_cvd=%.2f, slow_cvd=%.2f, obi=%.3f) — proceed",
+                                         self.asset, self.timeframe, fast_cvd, slow_cvd, binance_obi)
                     else:
-                        log.warning("[SIG-FLOW-SKIP] %s/%s: CVD data is missing — skipping to avoid coin-flips", self.asset, self.timeframe)
-                        return None
-
-                # SIG-CONFIRM gate (2026-06-10) — replaces the prior-candle trap guard.
-                # 60-day study (BTC/ETH/SOL, 5m+15m): prior-candle continuation runs 45-49%
-                # (NEGATIVE edge, worst after big prior moves — exactly when RSI/mom triggers
-                # fire), while the current window's own early move predicts its close at 61-69%
-                # once it reaches >= 0.15x the mean window range. A SIG bet pays only on THIS
-                # window's open->close, so the current window must confirm the direction —
-                # regardless of score (the 01:45 five-asset cascade lead scored 0.86 and bypassed
-                # the old guard). Reversal snipes stay exempt (contrarian by design).
-                # Threshold lowered 0.15x→0.10x to admit near-miss confirmations (57-63% WR
-                # still positive edge over ATM 50c entry price).
-                if not _dec.get("is_reversal"):
-                    try:
-                        _co = float(klines[-1][1])
-                        _intra = (closes[-1] - _co) / _co if _co > 0 else 0.0
-                        _wrets = []
-                        for _k in klines[-15:-1]:
-                            _wo = float(_k[1])
-                            if _wo > 0:
-                                _wrets.append(abs(float(_k[4]) - _wo) / _wo)
-                        _vol_unit = (sum(_wrets) / len(_wrets)) if _wrets else 0.0
-                        _confirm_min = 0.10 * _vol_unit
-                        _aligned = (_intra > 0) if direction == "UP" else (_intra < 0)
-                        if not _aligned or abs(_intra) < _confirm_min:
-                            log.info(
-                                "[SIG-CONFIRM] %s/%s: %s unconfirmed by current window "
-                                "(intra=%+.4f%% vs required ±%.4f%%) — skip",
-                                self.asset, self.timeframe, direction,
-                                _intra * 100, _confirm_min * 100,
-                            )
-                            return None
-                    except Exception:
-                        pass
-
-                # 15m RSI overbought/oversold gate for 5m SIG.
-                # Entering a 5m trend trade when 15m RSI > 76 (overbought) or < 24 (oversold)
-                # is buying into exhaustion — the candle that caused the large 15m RSI is already done.
-                # BTC/ETH @ 20:05 loss case: 15m RSI 80/84 → SIG entered UP → reversed -$12.
-                # Exempt: reversal signals (they explicitly bet against the exhaustion).
-                if self.timeframe == "5m" and not _dec.get("is_reversal"):
-                    try:
-                        _15m_tf = conf_up.get("timeframes", {}).get("15m", {})  # conf_up from L~833
-                        _15m_rsi_v = _15m_tf.get("rsi")
-                        if _15m_rsi_v is not None:
-                            _rsi_ob = float(os.getenv("SIG_15M_RSI_OB", "76"))
-                            _rsi_os = float(os.getenv("SIG_15M_RSI_OS", "24"))
-                            if direction == "UP" and _15m_rsi_v > _rsi_ob:
-                                log.info(
-                                    "[SIG-15M-RSI] %s/5m: UP blocked — 15m RSI=%.1f > %.0f (overbought exhaustion)",
-                                    self.asset, _15m_rsi_v, _rsi_ob,
-                                )
-                                return None
-                            elif direction == "DOWN" and _15m_rsi_v < _rsi_os:
-                                log.info(
-                                    "[SIG-15M-RSI] %s/5m: DOWN blocked — 15m RSI=%.1f < %.0f (oversold exhaustion)",
-                                    self.asset, _15m_rsi_v, _rsi_os,
-                                )
-                                return None
-                    except (NameError, AttributeError, KeyError):
-                        pass  # fail-open: no confluence data → don't block
-
-                # Tier 3: SIG 5m late-entry gate — don't enter weak signals with < 90s remaining.
-                # At T-90s (3.5 min elapsed), the edge is already priced in; remaining upside minimal.
-                import os as _os_sig, sys as _sys_sig
-                _sig_is_testing = (_os_sig.environ.get("ZISI_TESTING") == "True"
-                                   or any("unittest" in a or "pytest" in a for a in _sys_sig.argv))
-                if not _sig_is_testing and self.timeframe == "5m" and score_base < 0.80:
-                    try:
-                        from datetime import datetime as _dt_sig, timezone as _tz_sig
-                        _sig_now_ts = _dt_sig.now(_tz_sig.utc).timestamp()
-                        _sig_candle_start = int(_sig_now_ts // 300) * 300
-                        _sig_elapsed = (_sig_now_ts - _sig_candle_start) / 60.0
-                        if _sig_elapsed > 3.5:
-                            log.info(
-                                "[SIG-LATE-GATE] %s/5m: %.2fmin elapsed, score=%.2f < 0.80 — late entry risk — skip",
-                                self.asset, _sig_elapsed, score_base,
-                            )
-                            return None
-                    except Exception:
-                        pass
-
-                # Trend gate + choppy detection
-                if len(closes) >= 10:
-                    _c0 = closes[-5] if closes[-5] > 0 else 1.0
-                    _slope = (closes[-1] - closes[-5]) / _c0
-                    _TREND_GATE = 0.004
-                    _ranging = abs(_slope) < _TREND_GATE
-                    if not _ranging and regime != "MEAN_REVERSION":  # REBUILD: trend-confirm only in TREND (fade is intentional in MR)
-                        _trend_dn = _slope < 0
-                        _signal_dn = direction == "DOWN"
-                        if _trend_dn != _signal_dn:
-                            log.info(
-                                "[TREND-GATE] %s/%s: %s signal contradicts trend (slope=%.3f%%) — skip",
-                                self.asset, self.timeframe, direction, _slope * 100,
-                            )
-                            return None
-
-                    # Serve choppy cooldown
-                    if self.asset == "DOGE" and self._choppy_candles > 0:
-                        self._choppy_candles -= 1
-                        log.info(
-                            "[CHOPPY] %s/%s: cooling down (%d candle(s) remaining)",
-                            self.asset, self.timeframe, self._choppy_candles,
-                        )
-                        return None
-
-                    # Accumulate slope
-                    self._slope_history.append(_slope)
-                    if len(self._slope_history) > 4:
-                        self._slope_history = self._slope_history[-4:]
-
-                    # Detect choppy
-                    if len(self._slope_history) >= 4 and _ranging:
-                        _flips = sum(
-                            1 for i in range(1, len(self._slope_history))
-                            if (self._slope_history[i] >= 0) != (self._slope_history[i - 1] >= 0)
-                        )
-                        if _flips >= 2:
-                            self._choppy_candles = 2
-                            log.info(
-                                "[CHOPPY] %s/%s: %d slope flips, slope=%.3f%% — 2-candle pause",
-                                self.asset, self.timeframe, _flips, _slope * 100,
-                            )
-                            if self.asset == "DOGE":
-                                return None
-
-                # Macro trend gate (8-candle)
-                if self.asset == "DOGE" and len(klines) >= 10:
-                    _macro_candles = klines[-9:-1]
-                    _macro_up = sum(1 for k in _macro_candles if float(k[4]) > float(k[1]))
-                    _macro_dn = 8 - _macro_up
-                    _signal_is_up = direction == "UP"
-                    if _macro_up >= 6 and not _signal_is_up:
-                        log.info(
-                            "[MACRO-GATE] %s/%s: blocked DN — %d/8 candles bullish",
-                            self.asset, self.timeframe, _macro_up,
-                        )
-                        _write_gate_event(self.asset, self.timeframe, "MACRO-GATE", direction, f"{_macro_up}/8 candles bullish")
-                        return None
-                    if _macro_dn >= 6 and _signal_is_up:
-                        log.info(
-                            "[MACRO-GATE] %s/%s: blocked UP — %d/8 candles bearish",
-                            self.asset, self.timeframe, _macro_dn,
-                        )
-                        _write_gate_event(self.asset, self.timeframe, "MACRO-GATE", direction, f"{_macro_dn}/8 candles bearish")
-                        return None
-
-                # SIG trend confirmation
-                if self.asset == "DOGE" and len(klines) >= 4:
-                    c_last_bull = float(klines[-2][4]) > float(klines[-2][1])
-                    c_prev_bull = float(klines[-3][4]) > float(klines[-3][1])
-                    signal_bull = direction == "UP"
-                    if not (c_last_bull == c_prev_bull == signal_bull):
-                        _c_desc = f"{('UP' if c_prev_bull else 'DN')}/{('UP' if c_last_bull else 'DN')}"
-                        log.info(
-                            "[TREND-CONFIRM] %s/%s: SIG %s blocked — last 2 closed candles: %s",
-                            self.asset, self.timeframe, direction, _c_desc,
-                        )
-                        _write_gate_event(self.asset, self.timeframe, "TREND-CONFIRM", direction, f"candles: {_c_desc}")
-                        return None
+                        log.info("[SIG-FLOW-PROCEED] %s/%s: CVD data is missing — proceeding on technical triggers", self.asset, self.timeframe)
 
         # Composite score
         # FV Score Isolation (Tier 1): FV signals have their own confidence model.
@@ -1248,9 +1072,9 @@ class UpDownEngine:
             if direction == "UP" and up_tk:
                 clob_obi = polymarket_l2_gateway.get_obi(up_tk)
                 if clob_obi < -0.60:
-                    log.info("[ENGINE] %s/%s: Polymarket YES OBI extreme selling pressure (%.2f < -0.60) — blocking entry.",
+                    score = max(0.10, score - 0.10)
+                    log.info("[ENGINE] %s/%s: Polymarket YES OBI extreme selling pressure (%.2f < -0.60) — penalty -0.10",
                              self.asset, self.timeframe, clob_obi)
-                    return None
                 elif clob_obi > 0.0:
                     score = min(1.0, score + 0.04)
                     log.info("[ENGINE] %s/%s: YES OBI confirms direction (%.2f > 0.0) -> boost +0.04", self.asset, self.timeframe, clob_obi)
@@ -1260,9 +1084,9 @@ class UpDownEngine:
             elif direction == "DOWN" and dn_tk:
                 clob_obi = polymarket_l2_gateway.get_obi(dn_tk)
                 if clob_obi < -0.60:
-                    log.info("[ENGINE] %s/%s: Polymarket NO OBI extreme selling pressure (%.2f < -0.60) — blocking entry.",
+                    score = max(0.10, score - 0.10)
+                    log.info("[ENGINE] %s/%s: Polymarket NO OBI extreme selling pressure (%.2f < -0.60) — penalty -0.10",
                              self.asset, self.timeframe, clob_obi)
-                    return None
                 elif clob_obi > 0.0:
                     score = min(1.0, score + 0.04)
                     log.info("[ENGINE] %s/%s: NO OBI confirms direction (%.2f > 0.0) -> boost +0.04", self.asset, self.timeframe, clob_obi)
@@ -1353,41 +1177,7 @@ class UpDownEngine:
         if score < 0.55 and not is_dual_eligible:
             return None
 
-        # Directional saturation gate: SIG-only — FV fires on Pyth divergence every candle like Bone Reaper
-        _dir_streak = self._recent_same_direction_streak(direction, n=6)
-        if entry_source != "FAIR_VAL" and _dir_streak >= 4:
-            log.info(
-                "[DIR-SAT] %s/%s: %d consecutive %s entries — directional saturation, SKIP",
-                self.asset, self.timeframe, _dir_streak, direction,
-            )
-            return None
-        elif entry_source != "FAIR_VAL" and _dir_streak == 3:
-            old_score = score
-            score = max(0.50, score - 0.12)
-            log.info(
-                "[DIR-SAT] %s/%s: 3 consecutive %s — soft penalty %.2f -> %.2f (smaller size)",
-                self.asset, self.timeframe, direction, old_score, score,
-            )
 
-        # Correlated asset loss brake (soft filter): after 3+ full losses
-        # (settled ≤10¢) in the last 20 min across ANY asset, the macro environment
-        # has likely reversed — raise bar to edge ≥0.20 (FV) or score ≥0.82 (SIG).
-        _full_loss_count = self._recent_full_loss_count(lookback_minutes=20)
-        if _full_loss_count >= 8:
-            if entry_source == "FAIR_VAL":
-                _fv_edge = _fv.get("edge", 0.0) if _fv.get("direction") is not None else 0.0
-                if _fv_edge < 0.20:
-                    log.info(
-                        "[LOSS-BRAKE] %s/%s: %d full losses in 20min — FV edge %.3f < 0.20, skip",
-                        self.asset, self.timeframe, _full_loss_count, _fv_edge,
-                    )
-                    return None
-            elif score < 0.82:
-                log.info(
-                    "[LOSS-BRAKE] %s/%s: %d full losses in 20min — SIG score %.2f < 0.82, skip",
-                    self.asset, self.timeframe, _full_loss_count, score,
-                )
-                return None
 
         # ── Overlay B: Trend-Following Midpoint Freeze Protection ──
         try:

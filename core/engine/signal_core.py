@@ -172,25 +172,7 @@ def decide_signal(
         res.update(direction="DOWN", score=p["reversal_score"], is_reversal=True)
         return res
 
-    # Low-Volatility Veto (Sprint 12 - Optimal ATR-only): block 5m and 15m entries under extremely low volatility.
-    # When atr_percentile <= 20.0, the price is in a flat squeeze where indicators trigger
-    # on minor noise, leading to fake breakouts/fake signals. Omit BBW to preserve optimal trade volume.
-    if timeframe in ("5m", "15m") and atr_percentile is not None:
-        if atr_percentile <= 20.0:
-            res["blocked"] = True
-            return res
 
-    # Volatility Veto (Sprint 5): block 5m mean-reversion entries under extreme volatility.
-    # PURE: percentiles are passed in by the caller (the live engine reads regime_status.json
-    # and supplies them). When absent (tests / backtester) the veto is skipped, so this
-    # function is deterministic and does NO file I/O.
-    if timeframe == "5m" and atr_percentile is not None and bbw_percentile is not None:
-        _MEAN_REVERSION_REGIMES = {"MEAN_REVERTING", "COMPRESSION", "RANGE", "NORMAL"}
-        if (regime or "").upper() in _MEAN_REVERSION_REGIMES and (
-            atr_percentile >= 80.0 or bbw_percentile >= 80.0
-        ):
-            res["blocked"] = True
-            return res
 
     up_trigger = (
         (rsi > rsi_up_eff and mom >= p["mom_up"])
