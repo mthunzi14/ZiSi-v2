@@ -264,7 +264,7 @@ async def polymarket_clob_listener():
                     except asyncio.TimeoutError:
                         pass
         except Exception:
-            await asyncio.sleep(2)  # Reconnect
+            await asyncio.sleep(0.5)  # Reconnect
 
 
 def run_ws_event_loop():
@@ -531,7 +531,7 @@ def build_header_panel() -> Panel:
         (cd_15m_str, style_15m),
         (" │ ", "bright_black"),
         ("Uptime: ", f"bold {COLOR_LABEL}"),
-        (uptime, COLOR_LABEL)
+        (uptime, "yellow")
     )
     
     return Panel(Align.center(header_text), box=ROUNDED, style="bright_black")
@@ -583,7 +583,7 @@ def build_metrics_panel() -> Panel:
     metrics_table.add_row("Live Capital:", f"[{COLOR_LABEL}]${live_balance:,.2f} USDC[/{COLOR_LABEL}]")
     metrics_table.add_row("Realized P&L:", f"[{real_color}]${realized:+,.2f} ({realized_roi:+.2f}%)[/{real_color}]" if realized != 0 else f"[{COLOR_LABEL}]$0.00 (0.00%)[/{COLOR_LABEL}]")
     metrics_table.add_row("Live Unrealized P&L:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]" if total_live_unrealized != 0 else f"[{COLOR_LABEL}]$0.00[/{COLOR_LABEL}]")
-    metrics_table.add_row("Total Trades:", f"[{COLOR_LABEL}]{wins}W / {losses}L ({win_rate:.1f}% WR)[/{COLOR_LABEL}]")
+    metrics_table.add_row("Total Trades:", f"[green]{wins}W[/green] / [red]{losses}L[/red] ([{COLOR_LABEL}]{win_rate:.1f}% WR[/{COLOR_LABEL}])")
 
     return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]Performance Summary[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
@@ -994,7 +994,7 @@ def run_keyboard_listener():
             if rlist:
                 ch = sys.stdin.read(1)
                 if ch == '\x1b':  # Escape sequences (arrows)
-                    rlist2, _, _ = select.select([sys.stdin], [], [], 0.05)
+                    rlist2, _, _ = select.select([sys.stdin], [], [], 0.25)
                     if rlist2:
                         extra = sys.stdin.read(2)
                         if extra == '[A':  # Up Arrow -> Scroll Closed positions back (older)

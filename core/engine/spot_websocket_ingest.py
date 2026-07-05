@@ -208,7 +208,7 @@ class BinanceWebSocketIngest:
                 os.replace(temp_file, target_file)
             except Exception as e:
                 log.warning("[HFT-WS] Failed to dump metrics: %r", e)
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.2)
 
     async def _socket_loop(self):
         # Build combined stream — 3 feeds per symbol
