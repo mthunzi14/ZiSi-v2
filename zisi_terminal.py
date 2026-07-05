@@ -420,9 +420,18 @@ def tail_log_file(file_path: Path, num_lines: int = 10, offset: int = 0) -> list
                     break
                 chunk_size *= 2
                 
+            total_lines = len(lines)
+            max_offset = max(0, total_lines - num_lines)
+            if offset > max_offset:
+                offset = max_offset
+                with g_state.lock:
+                    g_state.logs_scroll_offset = offset
+                    
             if offset > 0:
                 end_idx = -offset
                 start_idx = -num_lines - offset
+                if abs(start_idx) > len(lines):
+                    start_idx = 0
                 return lines[start_idx:end_idx]
             else:
                 return lines[-num_lines:]
@@ -841,11 +850,12 @@ def build_active_positions_panel() -> Panel:
                 unreal = float(pos.get("unrealized_pnl", 0.0))
             
             # Formulate spot entry estimations
-            entry_spot_str = "-"
-            
+            entry_spot = float(pos.get("entry_spot", 0.0))
             if asset == "DOGE":
+                entry_spot_str = f"${entry_spot:.5f}" if entry_spot > 0 else "-"
                 mark_spot_str = f"${live_spot:.5f}" if live_spot > 0 else "-"
             else:
+                entry_spot_str = f"${entry_spot:,.2f}" if entry_spot > 0 else "-"
                 mark_spot_str = f"${live_spot:,.2f}" if live_spot > 0 else "-"
             
             unreal_color = "green" if unreal > 0.01 else ("red" if unreal < -0.01 else COLOR_LABEL)
@@ -918,8 +928,8 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         
         # Format values
         size = float(pos.get("size", 0.0))
-        entry = float(pos.get("entry_token_price", 0.0))
-        exit_pr = float(pos.get("exit_token_price", 0.0))
+        entry = float(pos.get("entry_price", pos.get("entry_token_price", 0.0)))
+        exit_pr = float(pos.get("exit_price", pos.get("exit_token_price", 0.0)))
         hold_hours = float(pos.get("hold_hours", 0.0))
         pnl = float(pos.get("realized_pnl", 0.0))
         pnl_color = "green" if pnl > 0.01 else ("red" if pnl < -0.01 else COLOR_LABEL)

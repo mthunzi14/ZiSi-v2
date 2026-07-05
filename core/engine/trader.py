@@ -463,6 +463,7 @@ def place_order(
     expiry_ts: int = 0,
     market: str = "POLYMARKET",
     hold_to_expiry: bool = False,
+    entry_spot: float = 0.0,
 ) -> Optional[dict]:
     """
     Place a BUY order for the given Polymarket market.
@@ -558,6 +559,7 @@ def place_order(
                 "timestamp": timestamp,
                 "status": api_status.upper(),
                 "market": "KALSHI",
+                "entry_spot": entry_spot,
                 **({"expiry_ts": expiry_ts} if expiry_ts else {}),
             }
 
@@ -595,6 +597,7 @@ def place_order(
             "timestamp": timestamp,
             "status": "FILLED",
             "market": market,
+            "entry_spot": entry_spot,
             **({"expiry_ts": expiry_ts} if expiry_ts else {}),
         }
         tp, sl = _calculate_exit_targets_fallback(entry_price, actual_cost, _display_title, direction)
@@ -656,6 +659,7 @@ def place_order(
         "timestamp":       timestamp,
         "status":          api_status,
         "market":          market,
+        "entry_spot":      entry_spot,
     }
 
     if api_status in ("PENDING", "PARTIALLY_FILLED"):
@@ -1680,6 +1684,7 @@ def persist_positions() -> None:
                     "entry_type":       pos.get("entry_type", "SIGNAL"),
                     "trade_type":       _derive_trade_type(pos.get("entry_type","SIGNAL")),
                     "regime":           pos.get("regime", "UNKNOWN"),
+                    "entry_spot":       pos.get("entry_spot", 0.0),
                 })
             else:
                 current_price = pos.get("current_price", entry_price)
@@ -1705,6 +1710,7 @@ def persist_positions() -> None:
                     "entry_type":     pos.get("entry_type", "SIGNAL"),
                     "trade_type":     _derive_trade_type(pos.get("entry_type","SIGNAL")),
                     "regime":         pos.get("regime", "UNKNOWN"),
+                    "entry_spot":     pos.get("entry_spot", 0.0),
                 })
 
         # Newest closed trades first

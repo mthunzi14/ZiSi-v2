@@ -1879,7 +1879,7 @@ class UpDownEngine:
     async def check_potential_trade(self, session: aiohttp.ClientSession) -> None:
         """Run a pre-flight check at T-45s to see if a trade is close to triggering."""
         try:
-            klines = await self.fetch_klines(session)
+            klines = await _fetch_klines_async(session, self.asset, self.timeframe, 30)
             if not klines or len(klines) < 14:
                 self._update_potential_trade_file(False)
                 return

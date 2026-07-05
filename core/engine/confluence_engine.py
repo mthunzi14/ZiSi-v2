@@ -295,7 +295,7 @@ class ConfluenceEngine:
 
         self._last_result = result
 
-        log.info(
+        log.debug(
             "[Confluence] %s %s: score=%d/4 (%s) boost=%.2f | %s",
             asset_upper,
             direction_upper,

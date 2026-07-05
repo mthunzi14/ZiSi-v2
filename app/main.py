@@ -211,7 +211,7 @@ async def _evaluate_market_signals(
         # Prevent any mid-candle/late signal generation and entry.
         # This completely eliminates the momentum-chasing late entry trap.
         if elapsed > 30.0:
-            log.info(
+            log.debug(
                 "[MAIN] %s/%s: Signal evaluation retry window closed (elapsed=%.1fs > 30.0s) — skip",
                 asset, timeframe, elapsed
             )
@@ -224,7 +224,7 @@ async def _evaluate_market_signals(
         now_ts_after = datetime.now(timezone.utc).timestamp()
         elapsed_after = now_ts_after - candle_start
 
-        log.info(
+        log.debug(
             "[MAIN] %s/%s: No L2 book/signal at %.1fs — retrying...",
             asset, timeframe, elapsed_after,
         )
@@ -948,6 +948,15 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
         except Exception as slip_err:
             log.debug("[TRADE] Slippage guard skipped (could not read L2 book): %s", slip_err)
 
+        spot_price = 0.0
+        try:
+            import requests as _reqs
+            _r = _reqs.get(f"https://api.binance.com/api/v3/ticker/price?symbol={asset.upper()}USDT", timeout=2)
+            if _r.status_code == 200:
+                spot_price = float(_r.json().get("price", 0.0))
+        except Exception as _e_spot:
+            log.warning("[TRADE] Failed to fetch spot price for %s: %s", asset, _e_spot)
+
         shares = max(1, round(usd_amount / entry_price)) if entry_price > 0 else 1
         actual_cost = shares * entry_price
 
@@ -959,6 +968,7 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             entry_price=entry_price,
             event_title=f"[UPDOWN][{asset}][{timeframe}][{trade_type}] {market['event_title']}",
             expiry_ts=market["expiry_ts"],
+            entry_spot=spot_price,
         )
 
         if order:
