@@ -16,6 +16,9 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+import select
+import termios
+import tty
 
 # Try importing rich. Exit gracefully if missing.
 try:
@@ -52,6 +55,7 @@ SENTIMENT_FILE = DATA_DIR / "sentiment_state.json"
 CHAINLINK_FILE = DATA_DIR / "chainlink_prices.json"
 PYTH_FILE = DATA_DIR / "pyth_prices.json"
 HFT_METRICS_FILE = DATA_DIR / "hft_metrics.json"
+POTENTIAL_TRADES_FILE = DATA_DIR / "potential_trades.json"
 
 PM2_LOG_PATH = Path("/root/.pm2/logs/ZiSi-Core-Engine-error.log")
 LOCAL_LOG_PATH = PROJECT_ROOT / "zisi_bot_console.log"
@@ -84,6 +88,9 @@ class GlobalDashboardState:
         self.chainlink_prices = {}
         self.pyth_prices = {}
         self.hft_metrics = {}
+        self.potential_trades = {}
+        self.closed_scroll_offset = 0
+        self.logs_scroll_offset = 0
         
         # Timing
         self.start_time = time.time()
@@ -353,6 +360,7 @@ def sync_file_states():
     chainlink = load_json_file(CHAINLINK_FILE)
     pyth = load_json_file(PYTH_FILE)
     hft = load_json_file(HFT_METRICS_FILE)
+    potential_trades = load_json_file(POTENTIAL_TRADES_FILE)
 
     with g_state.lock:
         g_state.account_state = account
@@ -362,6 +370,7 @@ def sync_file_states():
         g_state.chainlink_prices = chainlink
         g_state.pyth_prices = pyth
         g_state.hft_metrics = hft
+        g_state.potential_trades = potential_trades
         
         # Pre-populate spot prices from Chainlink at startup to prevent "CONNECTING..."
         for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
@@ -387,8 +396,8 @@ def sync_file_states():
         generate_trade_history_report(closed_positions)
 
 
-def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
-    """Tail the log file safely without reading the whole file to prevent I/O blocking."""
+def tail_log_file(file_path: Path, num_lines: int = 10, offset: int = 0) -> list[str]:
+    """Tail the log file safely with scroll offset without reading the whole file to prevent I/O blocking."""
     if not file_path.exists():
         return [f"[{COLOR_LABEL}]Waiting for log file to generate...[/{COLOR_LABEL}]"]
     try:
@@ -398,9 +407,10 @@ def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
             if file_size == 0:
                 return []
                 
-            chunk_size = 1024
+            needed = num_lines + offset
+            chunk_size = max(1024, needed * 150)
             lines = []
-            while chunk_size <= 65536 and len(lines) <= num_lines:
+            while chunk_size <= 262144 and len(lines) <= needed:
                 seek_offset = min(file_size, chunk_size)
                 f.seek(file_size - seek_offset)
                 chunk = f.read(seek_offset).decode("utf-8", errors="ignore")
@@ -409,7 +419,12 @@ def tail_log_file(file_path: Path, num_lines: int = 10) -> list[str]:
                     break
                 chunk_size *= 2
                 
-            return lines[-num_lines:]
+            if offset > 0:
+                end_idx = -offset
+                start_idx = -num_lines - offset
+                return lines[start_idx:end_idx]
+            else:
+                return lines[-num_lines:]
     except Exception as e:
         return [f"[red]Error reading logs: {e}[/red]"]
 
@@ -550,28 +565,25 @@ def build_metrics_panel() -> Panel:
             total_live_unrealized += float(pos.get("unrealized_pnl", 0.0))
 
     live_balance = current_bal + total_live_unrealized
-    net_pnl = live_balance - start_bal
-    roi = (net_pnl / start_bal) * 100 if start_bal > 0 else 0.0
+    realized_roi = (realized / start_bal) * 100 if start_bal > 0 else 0.0
 
     wins = int(summary.get("win_count", 0))
     losses = int(summary.get("loss_count", 0))
     total_closed = wins + losses
     win_rate = (wins / total_closed) * 100 if total_closed > 0 else 0.0
 
-    pnl_color = "green" if net_pnl > 0.01 else ("red" if net_pnl < -0.01 else COLOR_LABEL)
     real_color = "green" if realized > 0.01 else ("red" if realized < -0.01 else COLOR_LABEL)
     unreal_color = "green" if total_live_unrealized > 0.01 else ("red" if total_live_unrealized < -0.01 else COLOR_LABEL)
 
     metrics_table = Table.grid(expand=True, padding=(0, 1))
-    metrics_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=16)
-    metrics_table.add_column("Value", justify="right", style=COLOR_VAL)
+    metrics_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=21)
+    metrics_table.add_column("Value", justify="right")
 
-    metrics_table.add_row("Start Capital:", f"${start_bal:,.2f} USDC")
-    metrics_table.add_row("Live Capital:", f"${live_balance:,.2f} USDC")
-    metrics_table.add_row("Session Net PnL:", f"[{pnl_color}]${net_pnl:+,.2f} ({roi:+.2f}%)[/{pnl_color}]")
-    metrics_table.add_row("Realized P&L:", f"[{real_color}]${realized:+,.2f}[/{real_color}]")
-    metrics_table.add_row("Live Unreal:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]")
-    metrics_table.add_row("Total Trades:", f"[green]{wins}W[/green] / [red]{losses}L[/red] ({win_rate:.1f}% WR)")
+    metrics_table.add_row("Start Capital:", f"[{COLOR_LABEL}]${start_bal:,.2f} USDC[/{COLOR_LABEL}]")
+    metrics_table.add_row("Live Capital:", f"[{COLOR_LABEL}]${live_balance:,.2f} USDC[/{COLOR_LABEL}]")
+    metrics_table.add_row("Realized P&L:", f"[{real_color}]${realized:+,.2f} ({realized_roi:+.2f}%)[/{real_color}]" if realized != 0 else f"[{COLOR_LABEL}]$0.00 (0.00%)[/{COLOR_LABEL}]")
+    metrics_table.add_row("Live Unrealized P&L:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]" if total_live_unrealized != 0 else f"[{COLOR_LABEL}]$0.00[/{COLOR_LABEL}]")
+    metrics_table.add_row("Total Trades:", f"[{COLOR_LABEL}]{wins}W / {losses}L ({win_rate:.1f}% WR)[/{COLOR_LABEL}]")
 
     return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]Performance Summary[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
@@ -663,7 +675,7 @@ def build_spot_prices_panel() -> Panel:
 
         table.add_row(asset, spot_str, cl_str, pyth_str, yes_price_str, no_price_str, spread_str)
 
-    return Panel(table, title=f"[bold {COLOR_LABEL}]Spot & Oracle Price Matrix (5m Contracts)[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
+    return Panel(table, title=f"[bold {COLOR_LABEL}]Spot & Oracle Price Matrix[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_regime_panel() -> Panel:
@@ -744,6 +756,30 @@ def build_regime_panel() -> Panel:
             obi_color = "grey70"
         
         regime_table.add_row(f" {asset}:", f"[{cvd_color}]{cvd_str}[/{cvd_color}] | [{obi_color}]{obi_str}[/{obi_color}]")
+
+    # Upcoming setups based on potential_trades.json
+    regime_table.add_row("", "")  # Spacer
+    regime_table.add_row("[bold #708090]Setup Alerts[/bold #708090]", "[bold #708090]RSI Proximity[/bold #708090]")
+    
+    with g_state.lock:
+        pt = dict(g_state.potential_trades)
+        
+    setups = []
+    for key in sorted(pt.keys()):
+        if pt[key]:
+            # Convert format like "BTC/5m" to uppercase asset but keep TF
+            parts = key.split("/")
+            if len(parts) == 2:
+                setups.append(f"{parts[0].upper()}/{parts[1]}")
+            else:
+                setups.append(key)
+            
+    if setups:
+        setup_str = ", ".join(f"[bold green]{s}[/bold green]" for s in setups)
+    else:
+        setup_str = "[grey50]None[/grey50]"
+        
+    regime_table.add_row(" Formed setups:", setup_str)
 
     return Panel(regime_table, title=f"[bold {COLOR_LABEL}]Market Regime & Analytics[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
@@ -856,9 +892,11 @@ def build_closed_positions_panel() -> Panel:
 
     with g_state.lock:
         closed_positions = list(g_state.positions_state.get("closed", []))
+        offset = g_state.closed_scroll_offset = min(g_state.closed_scroll_offset, max(0, len(closed_positions) - 1))
 
-    # Display last 15 closed trades
-    for pos in closed_positions[:15]:
+    # Display sliced closed trades based on scroll offset
+    visible_positions = closed_positions[offset : offset + 15]
+    for pos in visible_positions:
         title = pos.get("event_title", "Unknown")
         
         # Asset parse
@@ -880,12 +918,13 @@ def build_closed_positions_panel() -> Panel:
         direction = pos.get("direction", "YES")
         dir_color = "green" if direction == "YES" else "red"
         
+        # Format values
         size = float(pos.get("size", 0.0))
-        entry = float(pos.get("entry_price", 0.0))
-        exit_pr = float(pos.get("exit_price", 0.0))
+        entry = float(pos.get("entry_token_price", 0.0))
+        exit_pr = float(pos.get("exit_token_price", 0.0))
+        hold_hours = float(pos.get("hold_hours", 0.0))
         pnl = float(pos.get("realized_pnl", 0.0))
         pnl_color = "green" if pnl > 0.01 else ("red" if pnl < -0.01 else COLOR_LABEL)
-        hold_hours = float(pos.get("hold_hours", 0.0))
         
         formatted_exit_ts = format_iso_timestamp(pos.get("exit_time", ""))
         
@@ -917,24 +956,67 @@ def build_closed_positions_panel() -> Panel:
     if not closed_positions:
         table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-")
 
-    return Panel(table, title=f"[bold {COLOR_LABEL}]Trade History[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
+    title_str = f"Trade History [Scroll: -{offset}] (Up/Down Arrow to Scroll, U to Reset)" if offset > 0 else "Trade History (Up/Down Arrow to Scroll, U to Reset)"
+    return Panel(table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_logs_panel() -> Panel:
-    """Build the scrolling log viewer."""
-    log_lines = tail_log_file(LOG_FILE, num_lines=10)
+    """Build the scrolling log viewer with keyboard controls."""
+    with g_state.lock:
+        offset = g_state.logs_scroll_offset
+
+    log_lines = tail_log_file(LOG_FILE, num_lines=8, offset=offset)
     log_text = Text()
     for idx, line in enumerate(log_lines):
         if idx > 0:
             log_text.append("\n")
         log_text.append(colorize_log_line(line))
         
+    title_str = f"Live Engine Logs [Scroll: -{offset}] (W/S to Scroll, U to Reset)" if offset > 0 else "Live Engine Logs (W/S to Scroll, U to Reset)"
     return Panel(
         log_text,
-        title=f"[bold {COLOR_LABEL}]Live Engine Logs ({LOG_FILE.name})[/bold {COLOR_LABEL}]",
+        title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]",
         box=ROUNDED,
         border_style=COLOR_BORDER
     )
+
+
+def run_keyboard_listener():
+    """Background listener to process non-blocking keyboard controls for terminal scrollback."""
+    fd = sys.stdin.fileno()
+    if not os.isatty(fd):
+        return
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        while True:
+            rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
+            if rlist:
+                ch = sys.stdin.read(1)
+                if ch == '\x1b':  # Escape sequences (arrows)
+                    rlist2, _, _ = select.select([sys.stdin], [], [], 0.05)
+                    if rlist2:
+                        extra = sys.stdin.read(2)
+                        if extra == '[A':  # Up Arrow -> Scroll Closed positions back (older)
+                            with g_state.lock:
+                                g_state.closed_scroll_offset += 1
+                        elif extra == '[B':  # Down Arrow -> Scroll Closed positions forward (newer)
+                            with g_state.lock:
+                                g_state.closed_scroll_offset = max(0, g_state.closed_scroll_offset - 1)
+                elif ch.lower() == 'w':  # Scroll logs UP (older)
+                    with g_state.lock:
+                        g_state.logs_scroll_offset += 1
+                elif ch.lower() == 's':  # Scroll logs DOWN (newer)
+                    with g_state.lock:
+                        g_state.logs_scroll_offset = max(0, g_state.logs_scroll_offset - 1)
+                elif ch.lower() == 'u':  # Reset both offsets to live real-time view
+                    with g_state.lock:
+                        g_state.closed_scroll_offset = 0
+                        g_state.logs_scroll_offset = 0
+    except Exception:
+        pass
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 def make_layout() -> Layout:
@@ -942,7 +1024,7 @@ def make_layout() -> Layout:
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="upper_body", size=15),
+        Layout(name="upper_body", size=17),
         Layout(name="active_panel", size=7),
         Layout(name="closed_panel", ratio=1),
         Layout(name="logs_panel", size=10)
@@ -965,6 +1047,10 @@ def main():
     layout = make_layout()
     console.clear()
     console.set_window_title("ZiSi-v2 Terminal Dashboard")
+    
+    # Start keyboard listener thread
+    keyboard_thread = threading.Thread(target=run_keyboard_listener, daemon=True)
+    keyboard_thread.start()
     
     # Load initial states
     sync_file_states()
