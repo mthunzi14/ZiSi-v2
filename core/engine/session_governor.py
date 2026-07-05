@@ -195,10 +195,10 @@ async def request_trade_slot(
                     log.info("[GOVERNOR] Blocked opposing exposure on same asset %s", asset_upper)
                     return False, f"opposing_exposure_{asset_upper}"
 
-        # 5. Correlated asset checks (blocks self-hedging)
-        if has_opposing_correlated_exposure(open_positions, asset_upper, direction):
-            log.info("[GOVERNOR] Blocked opposing correlated exposure for %s", asset_upper)
-            return False, f"correlated_opposing_{asset_upper}"
+        # 5. Correlated asset checks (blocks self-hedging) - DISABLED for cross-asset hedging
+        # if has_opposing_correlated_exposure(open_positions, asset_upper, direction):
+        #     log.info("[GOVERNOR] Blocked opposing correlated exposure for %s", asset_upper)
+        #     return False, f"correlated_opposing_{asset_upper}"
 
         # 5.5 BTC duplicate check
         bucket = candle_bucket_key(interval_minutes)

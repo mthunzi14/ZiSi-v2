@@ -131,12 +131,7 @@ def _calculate_exit_targets_fallback(entry_price: float, amount_spent: float, ti
 
         _is_short_tf = "5M" in _title_upper or "15M" in _title_upper or "UPDOWN" in _title_upper
         if _is_short_tf:
-            # 5m gets a tighter target (72¢) — achievable in 5 minutes
-            # 15m keeps 88¢ — has the full window to run
-            _is_5m = "][5M]" in _title_upper
-            target = 0.72 if _is_5m else 0.88
-            if entry_price >= target:
-                target = min(0.99, round(entry_price + 0.04, 4))
+            target = 0.99
             log.info("[SL-CALIB] Short-TF trade '%s' (entry=%.4f) -> target %.4f, stop -1.0", title, entry_price, target)
             return target, -1.0
 
@@ -1088,14 +1083,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
 
         target_price = pos.get("target_price")
         if _is_short_tf:
-            if _is_ncs_or_sweep:
-                target_price = 0.99
-            elif not target_price or target_price <= 0:
-                _is_5m = "][5M]" in _ev_title
-                target_price = 0.72 if _is_5m else 0.88
-            
-            if target_price and target_price <= entry_price:
-                target_price = min(0.99, round(entry_price + 0.04, 4))
+            target_price = 0.99
         elif not target_price or target_price <= 0:
             target_price = round(entry_price * cfg.get("POSITION_TARGET_MULTIPLIER", 1.50), 4)
 

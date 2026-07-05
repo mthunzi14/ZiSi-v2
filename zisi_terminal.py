@@ -861,6 +861,8 @@ def build_active_positions_panel() -> Panel:
             
             unreal_color = "green" if unreal > 0.01 else ("red" if unreal < -0.01 else COLOR_LABEL)
             hold_min = float(pos.get("hold_minutes", 0.0))
+            hold_sec = int(hold_min * 60)
+            hold_str = f"{hold_sec // 60}m {hold_sec % 60}s"
             
             formatted_entry_ts = format_iso_timestamp(pos.get("entry_time", ""))
 
@@ -875,7 +877,7 @@ def build_active_positions_panel() -> Panel:
                 f"${entry_token:.3f}",
                 f"${mark_token:.3f}",
                 formatted_entry_ts,
-                f"{hold_min:.1f}m",
+                hold_str,
                 f"[{unreal_color}]${unreal:+.2f}[/{unreal_color}]"
             )
 
@@ -932,6 +934,8 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         entry = float(pos.get("entry_price", pos.get("entry_token_price", 0.0)))
         exit_pr = float(pos.get("exit_price", pos.get("exit_token_price", 0.0)))
         hold_hours = float(pos.get("hold_hours", 0.0))
+        hold_sec = int(hold_hours * 3600)
+        hold_str = f"{hold_sec // 60}m {hold_sec % 60}s"
         pnl = float(pos.get("realized_pnl", 0.0))
         pnl_color = "green" if pnl > 0.01 else ("red" if pnl < -0.01 else COLOR_LABEL)
         
@@ -957,7 +961,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
             f"${size:,.2f}",
             f"${entry:.3f}",
             f"${exit_pr:.3f}",
-            f"{hold_hours * 60:.1f}m",
+            hold_str,
             reason_str,
             f"[{pnl_color}]${pnl:+.2f}[/{pnl_color}]"
         )

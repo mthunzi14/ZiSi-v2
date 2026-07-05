@@ -212,7 +212,8 @@ class TestEdgesAndFilters(unittest.IsolatedAsyncioTestCase):
                        "confluence_score": 2, "regime_kelly": 1.0}
         import json as _json
         _regime_json = _json.dumps({"regime": "MEAN_REVERTING", "atr_percentile": 30.0})
-        with patch("pathlib.Path.exists", return_value=True), \
+        with patch("config.FAIR_VALUE_MODE", True), \
+             patch("pathlib.Path.exists", return_value=True), \
              patch("pathlib.Path.read_text", return_value=_regime_json), \
              patch("core.engine.edge_orchestrator.edge_orchestrator.get_trade_context",
                    new_callable=AsyncMock, return_value=_benign_ctx), \
@@ -321,13 +322,12 @@ class TestEdgesAndFilters(unittest.IsolatedAsyncioTestCase):
             }
         ]
 
-        # 1. ETH DOWN should be BLOCKED (BTC UP open, ETH is correlated, DOWN is opposing)
+        # 1. ETH DOWN should be ALLOWED now that opposing correlated block is disabled
         with patch("core.engine.state_manager.get_open_positions", return_value=open_positions_btc_up):
             allowed, reason = await request_trade_slot(
                 "ETH", "5m", 0.80, 5, open_positions_btc_up, is_dual=False, direction="DOWN"
             )
-        self.assertFalse(allowed, "ETH DOWN should be blocked when BTC UP is open (correlated opposing)")
-        self.assertEqual(reason, "correlated_opposing_ETH")
+        self.assertTrue(allowed, "ETH DOWN should be allowed now that correlated opposing block is disabled")
 
         # 2. ETH UP should be ALLOWED (same direction as BTC UP — no self-hedge)
         with patch("core.engine.state_manager.get_open_positions", return_value=open_positions_btc_up):

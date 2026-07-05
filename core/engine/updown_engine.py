@@ -609,7 +609,6 @@ class UpDownEngine:
             _expected_start_ts = int(_now_ts // _candle_duration_s * _candle_duration_s)
             _last_kline_ts = int(klines[-1][0]) // 1000 if klines else 0
 
-            is_testing = os.environ.get("ZISI_TESTING") == "True" or "unittest" in sys.modules or "pytest" in sys.modules
 
             if _last_kline_ts != _expected_start_ts and not is_testing:
                 # Klines list is lagged — wait for next tick to resolve current strike
