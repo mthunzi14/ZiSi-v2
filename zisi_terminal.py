@@ -92,6 +92,7 @@ class GlobalDashboardState:
         self.closed_scroll_offset = 0
         self.logs_scroll_offset = 0
         self.fullscreen_mode = None
+        self.redraw_event = threading.Event()
         
         # Timing
         self.start_time = time.time()
@@ -1036,6 +1037,9 @@ def run_keyboard_listener():
                 elif ch.lower() == 'h':  # Reset to default layout
                     with g_state.lock:
                         g_state.fullscreen_mode = None
+                
+                # Instantly notify main loop to wake up and redraw
+                g_state.redraw_event.set()
     except Exception:
         pass
     finally:
@@ -1141,7 +1145,9 @@ def main():
             except Exception:
                 pass
                 
-            time.sleep(0.33)
+            # Sleep for up to 0.33s, but wake up instantly if a redraw is triggered (zero-latency keyboard input)
+            g_state.redraw_event.wait(timeout=0.33)
+            g_state.redraw_event.clear()
 
 
 if __name__ == "__main__":

@@ -567,17 +567,6 @@ async def _validate_trade_slot(
             log.info("[RISK] FV-1h cap: $%.2f → $%.2f (uncalibrated — env FV_1H_MAX_BET to override)", bet_usd, _fv_1h_cap)
             bet_usd = float(os.getenv("FV_1H_MAX_BET", str(_fv_1h_cap)))
 
-    # ── Optimal Altcoin Sizing Gates (Fix A - Maximize P&L safely) ──
-    # Exempt FV deep contrarian (<40c): sized by edge, not asset volatility.
-    _fv_deep_exempt = (_entry_source == "FAIR_VAL" and entry_price < 0.40)
-    if not _fv_deep_exempt:
-        if asset in ["SOL", "XRP"]:
-            bet_usd = bet_usd * 0.60
-            log.info("[RISK] SOL/XRP Sizing calibrated to 60%%: $%.2f", bet_usd)
-        elif asset in ["ADA", "DOGE", "AVAX", "SUI"]:
-            bet_usd = min(bet_usd * 0.35, 35.0)
-            log.info("[RISK] Altcoin %s Sizing calibrated to 35%% (max $35): $%.2f", asset, bet_usd)
-
     # Safety cap: Max 35% of current_balance per trade slot — Bonereaper-scale sizing.
     # 35% allows $17.50 at $50 balance, $35 at $100, $70 at $200 — matches mentor's proportional bets.
     max_safety_size = current_balance * 0.35
@@ -1030,13 +1019,7 @@ async def main() -> None:
 
     context = TradingContext(starting_balance=get_current_balance())
     initialize_runtime_tracking()
-    # Pre-load PyTorch and initialize the AI Injector at boot time to prevent CPU-blocking event loop freeze during trading
-    try:
-        log.info("[MAIN] Pre-loading AI Predictor & PyTorch LSTM model in-memory...")
-        from core.ml.ai_injector import injector
-        log.info("[MAIN] AI Predictor pre-loaded successfully (observe-only: %s)", not injector.is_trained)
-    except Exception as e:
-        log.warning("[MAIN] Failed to pre-load AI Predictor: %s", e)
+
 
     for asset in ASSETS:
         for tf in TIMEFRAMES.get(asset, ["5m"]):

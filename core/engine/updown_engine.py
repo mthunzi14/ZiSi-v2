@@ -485,21 +485,6 @@ class UpDownEngine:
                          self.asset, self.timeframe, _ttl_s)
                 return None
 
-        # Verify that the fetched market's start timestamp matches the current candle start timestamp
-        # Prevents timeframe mismatch where we place trades on upcoming or previous candles
-        # based on the current candle's indicators.
-
-        duration_min = market.get("duration_min")
-        if duration_min is None:
-            duration_min = 60 if self.timeframe == "1h" else int(self.timeframe.rstrip("m"))
-        market_start_ts = market["expiry_ts"] - duration_min * 60
-        last_kline_ts = int(klines[-1][0]) // 1000
-        if market_start_ts != last_kline_ts and not is_testing:
-            log.info(
-                "[ENGINE] %s/%s Timeframe mismatch detected: market_start_ts=%d last_kline_ts=%d — skipping entry",
-                self.asset, self.timeframe, market_start_ts, last_kline_ts
-            )
-            return None
 
         up_price = market["up_price"]
         dn_price = market["dn_price"]
@@ -1096,40 +1081,7 @@ class UpDownEngine:
         except Exception as e:
             log.warning("[ENGINE] Failed to read or apply Polymarket CLOB OBI: %s", e)
 
-        # ── PyTorch AI Predictor Injection (trained model only) ──
-        try:
-            from core.ml.ai_injector import injector
-            if injector.is_trained:
-                seq = []
-                for i in range(max(1, len(klines) - 10), len(klines)):
-                    subset = [float(k[4]) for k in klines[:i+1]]
-                    vol = float(klines[i][5])
-                    p_delta = float(klines[i][4]) - float(klines[i][1])
-                    sub_rsi = _compute_rsi(subset) or 50.0
-                    sub_mom = _compute_momentum(subset) or 0.0
-                    # Aligned to exact order of FEATURE_NAMES: ["rsi", "momentum", "ofi", "volume", "price_delta"]
-                    seq.append([sub_rsi, sub_mom, 0.0, vol, p_delta])
-                if seq:
-                    seq[-1][2] = ofi  # Index 2 is "ofi"
-                
-                # Predict passing the active regime for 9-feature one-hot encoding
-                ai_up_prob = injector.predict(seq, regime)
-                
-                if direction == "UP" and ai_up_prob < 0.35:
-                    log.warning("[AI-VETO] %s/%s UP entry vetoed by PyTorch LSTM (probability: %.1f%% < 35%%)", self.asset, self.timeframe, ai_up_prob * 100)
-                    return None
-                elif direction == "DOWN" and ai_up_prob > 0.65:
-                    log.warning("[AI-VETO] %s/%s DOWN entry vetoed by PyTorch LSTM (probability: %.1f%% > 65%%)", self.asset, self.timeframe, ai_up_prob * 100)
-                    return None
-                
-                if direction == "UP" and ai_up_prob > 0.60:
-                    score = min(1.0, score + 0.05)
-                    log.info("[AI-BOOST] %s/%s UP entry score boosted by PyTorch LSTM (probability: %.1f%% > 60%%)", self.asset, self.timeframe, ai_up_prob * 100)
-                elif direction == "DOWN" and ai_up_prob < 0.40:
-                    score = min(1.0, score + 0.05)
-                    log.info("[AI-BOOST] %s/%s DOWN entry score boosted by PyTorch LSTM (probability: %.1f%% < 40%%)", self.asset, self.timeframe, ai_up_prob * 100)
-        except Exception as e:
-            log.error("[ENGINE] AI Predictor failed: %s", e)
+
 
         # ── Edge Architecture Integration (Advancements A-M) ──
         edge_ctx = {}
