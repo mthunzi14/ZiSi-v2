@@ -596,13 +596,13 @@ def build_metrics_panel() -> Panel:
 def build_spot_prices_panel() -> Panel:
     """Build pricing layout displaying spot, Chainlink, Pyth, YES, NO, and Spread values."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 0))
-    table.add_column("Asset", header_style="bold #708090", style=f"bold {COLOR_ASSET}")
-    table.add_column("Binance", justify="right", header_style="#708090", style=COLOR_VAL)
-    table.add_column("Chainlink", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Pyth", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("YES", justify="right", header_style="#708090", style=COLOR_VAL)
-    table.add_column("NO", justify="right", header_style="#708090", style=COLOR_VAL)
-    table.add_column("Spread", justify="right", header_style="#708090", style=COLOR_LABEL)
+    table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
+    table.add_column("Binance", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
+    table.add_column("Chainlink", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Pyth", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("YES", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
+    table.add_column("NO", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
+    table.add_column("Spread", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
 
     with g_state.lock:
         spot_copy = dict(g_state.spot_prices)
@@ -732,7 +732,7 @@ def build_regime_panel() -> Panel:
 
     # HFT Asset Flow section (CVD & OBI)
     regime_table.add_row("", "")  # Spacer
-    regime_table.add_row("[bold #708090]Asset Flow[/bold #708090]", "[bold #708090]CVD (10s) | OBI[/bold #708090]")
+    regime_table.add_row(f"[bold {COLOR_LABEL}]Asset Flow[/bold {COLOR_LABEL}]", f"[bold {COLOR_LABEL}]CVD (10s) | OBI[/bold {COLOR_LABEL}]")
     for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
         m = hft.get(asset, {})
         obi_val = m.get("obi", 0.0)
@@ -764,7 +764,7 @@ def build_regime_panel() -> Panel:
 
     # Upcoming setups based on potential_trades.json
     regime_table.add_row("", "")  # Spacer
-    regime_table.add_row("[bold #708090]Setup Alerts[/bold #708090]", "[bold #708090]RSI Proximity[/bold #708090]")
+    regime_table.add_row(f"[bold {COLOR_LABEL}]Setup Alerts[/bold {COLOR_LABEL}]", f"[bold {COLOR_LABEL}]RSI Proximity[/bold {COLOR_LABEL}]")
     
     with g_state.lock:
         pt = dict(g_state.potential_trades)
@@ -792,18 +792,18 @@ def build_regime_panel() -> Panel:
 def build_active_positions_panel() -> Panel:
     """Build the active open positions table with full attributes and live PnL."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Asset", header_style="bold #708090", style=f"bold {COLOR_ASSET}")
-    table.add_column("TF", justify="center", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Strategy", justify="center", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Dir", justify="center", header_style="#708090")
-    table.add_column("Size", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Entry Spot", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Mark Spot", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Entry Token", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Mark Token", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Entry Time (SAST)", justify="center", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Hold", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Unrealized PnL", justify="right", header_style="#708090")
+    table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
+    table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Strategy", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Dir", justify="center", header_style=COLOR_LABEL)
+    table.add_column("Size", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Entry Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Mark Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Mark Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Entry Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Unrealized PnL", justify="right", header_style=COLOR_LABEL)
 
     with g_state.lock:
         active_positions = list(g_state.positions_state.get("active", []))
@@ -888,17 +888,17 @@ def build_active_positions_panel() -> Panel:
 def build_closed_positions_panel(num_lines: int = 15) -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Closed Time (SAST)", justify="center", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Asset", header_style="bold #708090", style=f"bold {COLOR_ASSET}")
-    table.add_column("TF", justify="center", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Strategy", justify="center", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Dir", justify="center", header_style="#708090")
-    table.add_column("Size", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Entry Token", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Exit Token", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Hold", justify="right", header_style="#708090", style=COLOR_LABEL)
-    table.add_column("Exit Reason", justify="left", header_style="#708090")
-    table.add_column("PnL ($)", justify="right", header_style="#708090")
+    table.add_column("Closed Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
+    table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Strategy", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Dir", justify="center", header_style=COLOR_LABEL)
+    table.add_column("Size", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Exit Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Exit Reason", justify="left", header_style=COLOR_LABEL)
+    table.add_column("PnL ($)", justify="right", header_style=COLOR_LABEL)
 
     with g_state.lock:
         closed_positions = list(g_state.positions_state.get("closed", []))
