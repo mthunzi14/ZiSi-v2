@@ -578,8 +578,8 @@ def log_signal_evaluation(signal_data: dict, matched_event: Optional[dict], conf
     coin = affected[0].upper() if affected else signal_data.get("coin", "UNKNOWN").upper()
 
     trade_type = "REAL" if matched_event else "MISSED"
-    reason_missed = None
-    if not matched_event:
+    reason_missed = signal_data.get("skip_reason")
+    if not matched_event and not reason_missed:
         reason_missed = "LOW_CONFIDENCE" if confidence <= 0.5 else "NO_LIQUIDITY"
 
     evaluation = {
@@ -606,10 +606,18 @@ def log_signal_evaluation(signal_data: dict, matched_event: Optional[dict], conf
 
     sig_dir = signal_data.get("direction", "UNKNOWN").upper()
     sig_source = signal_data.get("source", signal_data.get("signal_source", "SIG")).upper()
-    log.info(
-        "[SIGNAL-EVAL] %s %s (%s) | score=%.2f | type=%s",
-        coin, sig_dir, sig_source, confidence, trade_type,
-    )
+    
+    if trade_type == "MISSED":
+        reason = reason_missed or "NO_LIQUIDITY"
+        log.info(
+            "[SIGNAL-EVAL] %s %s (%s) | score=%.2f | skipped: %s",
+            coin, sig_dir, sig_source, confidence, reason.upper(),
+        )
+    else:
+        log.info(
+            "[SIGNAL-EVAL] %s %s (%s) | score=%.2f | type=REAL",
+            coin, sig_dir, sig_source, confidence,
+        )
 
 
 def calculate_hypothetical_pnl() -> dict:

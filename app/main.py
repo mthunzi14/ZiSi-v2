@@ -270,7 +270,7 @@ async def _validate_trade_slot(
                 log.info("[FV-CORR-CAP] %s/%s: already %d open FV %s positions — skip to avoid correlated exposure",
                          asset, timeframe, _fv_same_dir_open, direction)
                 context.log_skip("fv_correlated_cap", asset, timeframe)
-                return False, {}
+                return False, {"skip_reason": "fv_correlated_cap"}
         except Exception as _corr_err:
             log.error("[FV-CORR-CAP] Error checking correlated exposure: %s", _corr_err)
 
@@ -279,7 +279,7 @@ async def _validate_trade_slot(
         log.info("[SIG-15M-GUARD] %s/15m: SIG score %.2f < 0.70 — skip 15m to prefer 5m",
                  asset, score)
         context.log_skip("sig_15m_conviction_guard", asset, timeframe)
-        return False, {}
+        return False, {"skip_reason": "sig_15m_conviction_guard"}
 
     # FV global rate limiter and directional cooldown removed as requested by user.
 
@@ -298,7 +298,7 @@ async def _validate_trade_slot(
 
     if not is_dual and not entry_price_gate(entry_price, score, is_dual=False):
         context.log_skip("entry_price", asset, timeframe, {"price": entry_price, "score": score})
-        return False, {}
+        return False, {"skip_reason": "entry_price_gate"}
 
     # SIGNAL dead zone: REMOVED to restore Friday June 5th trading volume
     # if _entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "T2_SWEEPER", "REVERSAL_STREAK") and 0.35 < entry_price < 0.57:
@@ -354,7 +354,7 @@ async def _validate_trade_slot(
                 asset, timeframe, direction
             )
             context.log_skip("leader_corroboration_guard", asset, timeframe)
-            return False, {}
+            return False, {"skip_reason": "leader_corroboration_guard"}
         # ...but PROPAGATE when both leaders CONFIRM (REBUILD Phase 5): Bonereaper fires the
         # same direction across BTC/ETH/SOL/XRP/DOGE on a macro move. Boost the alt's conviction
         # (corroboration multiplier) so sizing scales with the cross-asset signal.
@@ -389,7 +389,7 @@ async def _validate_trade_slot(
                 asset, timeframe, asset
             )
             context.log_skip("fv_active_dedup", asset, timeframe)
-            return False, {}
+            return False, {"skip_reason": "fv_active_dedup"}
 
     # NCS same-asset dedup: block new NCS entry on an asset if an active NCS position exists on that asset.
     # ETH/5m NCS + ETH/15m NCS firing simultaneously creates correlated double-exposure;
@@ -406,7 +406,7 @@ async def _validate_trade_slot(
                 asset, timeframe, asset
             )
             context.log_skip("ncs_same_asset_dedup", asset, timeframe)
-            return False, {}
+            return False, {"skip_reason": "ncs_same_asset_dedup"}
 
     # Tier 1: FV Correlated Exposure Cap — max 2 FV positions open in same direction.
     # BTC+ETH+SOL all firing FV DOWN simultaneously creates correlated cluster risk:
@@ -423,7 +423,7 @@ async def _validate_trade_slot(
                 asset, timeframe, _fv_same_dir, direction,
             )
             context.log_skip("fv_corr_cap", asset, timeframe)
-            return False, {}
+            return False, {"skip_reason": "fv_corr_cap"}
 
     # Same-direction quality gate: moderate ATM FV + ≥3 open same-direction → require high score.
     # Near-certainty FV (≤38¢ or ≥57¢) is exempt — stacking those is exactly what we want.
@@ -438,7 +438,7 @@ async def _validate_trade_slot(
                 asset, timeframe, _same_dir_count, direction, entry_price, score,
             )
             context.log_skip("same_dir_quality_gate", asset, timeframe)
-            return False, {}
+            return False, {"skip_reason": "same_dir_quality_gate"}
 
     # ─── FV ATM confidence guard (REBUILD: replaces the old 44-65c hard dead zones) ───
     # The CDF sweet spot 42-65c is where the mentors (esp. PBot-6) make MOST of their money —
@@ -464,7 +464,7 @@ async def _validate_trade_slot(
                 asset, timeframe, entry_price, _fv_conf, _fv_atm_min,
             )
             context.log_skip("fv_atm_low_confidence", asset, timeframe)
-            return False, {}
+            return False, {"skip_reason": "fv_atm_low_confidence"}
 
     # Correlation cap: max 2 simultaneous 15m positions open at any time.
     # At 22:45, 4 correlated 15m positions (BTC+ETH+XRP+SOL) all expired wrong → -$10.91 in 2s.
@@ -477,7 +477,7 @@ async def _validate_trade_slot(
                 asset, _open_15m,
             )
             context.log_skip("15m_correlation_cap", asset, timeframe)
-            return False, {}
+            return False, {"skip_reason": "15m_correlation_cap"}
 
 
 
@@ -486,12 +486,12 @@ async def _validate_trade_slot(
     )
     if not allowed:
         context.log_skip(slot_reason, asset, timeframe, {"score": score})
-        return False, {}
+        return False, {"skip_reason": slot_reason}
 
     risk_multiplier = global_diagnostics.get_risk_multiplier()
     if risk_multiplier <= 0:
         context.log_skip("diagnostics_halt", asset, timeframe)
-        return False, {}
+        return False, {"skip_reason": "diagnostics_halt"}
 
     _entry_source = signal.get("entry_source", "SIG")
 
@@ -575,7 +575,7 @@ async def _validate_trade_slot(
 
     if bet_usd < 1.00 and not is_dual:
         context.log_skip("size_too_small", asset, timeframe, {"bet_usd": bet_usd})
-        return False, {}
+        return False, {"skip_reason": "size_too_small"}
 
     validation_details = {
         "direction":    direction,
@@ -752,6 +752,7 @@ async def asset_loop(
                         "direction": details.get("direction", signal.get("direction", "UNKNOWN")),
                         "coin": asset,
                         "source": signal.get("entry_source", "SIG"),
+                        "skip_reason": details.get("skip_reason", "UNKNOWN"),
                     }
                     log_signal_evaluation(eval_signal_data, None, signal["score"])
                 except Exception as eval_err:
