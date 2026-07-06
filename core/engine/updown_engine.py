@@ -1303,7 +1303,7 @@ class UpDownEngine:
                 return derived_up, dn_p, spread
 
         # No live L2 book and REST fallback also failed. Return None (no fake fallbacks).
-        log.warning(
+        log.debug(
             "[LIVE-BOOK] %s/%s: No valid L2 book (WS+REST failed) — skipping candle.",
             self.asset, self.timeframe,
         )

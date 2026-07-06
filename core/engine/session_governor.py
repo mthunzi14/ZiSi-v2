@@ -123,27 +123,8 @@ async def request_trade_slot(
 ) -> tuple[bool, str]:
     asset_upper = asset.upper()
     
-    # 1. 10s simultaneous entry cap: delay altcoins before checking 10s request list
-    is_altcoin = asset_upper in ("SOL", "XRP", "DOGE")
-    if is_altcoin:
-        await asyncio.sleep(0.5)
-        
     async with _lock:
         now = time.time()
-        
-        # Clean up old requests (> 10s old)
-        global _recent_requests
-        _recent_requests = [(t, a) for t, a in _recent_requests if now - t <= 10.0]
-        
-        # Record current request
-        _recent_requests.append((now, asset_upper))
-        
-        # Count distinct assets in the 10s window
-        distinct_assets = {a for _, a in _recent_requests}
-        if len(distinct_assets) > 3 and is_altcoin:
-            log.info("[GOVERNOR] Drop altcoin %s due to excess correlation (%d assets in 10s: %s)",
-                     asset_upper, len(distinct_assets), distinct_assets)
-            return False, "excess_correlation_cap"
 
         # 2. Enforce exposure ceilings
         from config import get_config

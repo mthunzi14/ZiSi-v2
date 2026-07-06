@@ -525,16 +525,6 @@ async def _validate_trade_slot(
         log.info("[RISK] %s/%s corroboration_mult=%.1f → bet $%.2f",
                  asset, timeframe, corr_mult, bet_usd)
 
-    # SIGNAL/5m premium: 75%+ WR confirmed — allocate proportionally more capital.
-    # Only applies to pure SIG entries on 5m candles, not FV or LAT-ARB.
-    if _entry_source == "SIG" and timeframe == "5m":
-        bet_usd *= 1.35
-        log.info("[RISK] SIG/5m premium +35%%: $%.2f", bet_usd)
-    # ── 15m Size Reduction: Reduce 15m trade size by 30% to prefer 5m allocation ──
-    if timeframe == "15m":
-        bet_usd *= 0.70
-        log.info("[RISK] 15m size discount -30%%: $%.2f", bet_usd)
-
 
     # ── P2: Global Bet Cap — differentiated by timeframe / entry conviction ──
     # Bonereaper bets 13-50% of account per trade. ZiSi raised to match proportionally.
@@ -566,6 +556,12 @@ async def _validate_trade_slot(
         if bet_usd > _fv_1h_cap:
             log.info("[RISK] FV-1h cap: $%.2f → $%.2f (uncalibrated — env FV_1H_MAX_BET to override)", bet_usd, _fv_1h_cap)
             bet_usd = float(os.getenv("FV_1H_MAX_BET", str(_fv_1h_cap)))
+
+    # Enforce minimum size floor ($2.50) to prevent size_too_small skips on small accounts
+    min_bet_floor = 2.50
+    if bet_usd < min_bet_floor:
+        log.info("[RISK] Bet size $%.2f scaled up to minimum floor: $%.2f", bet_usd, min_bet_floor)
+        bet_usd = min_bet_floor
 
     # Safety cap: Max 35% of current_balance per trade slot — Bonereaper-scale sizing.
     # 35% allows $17.50 at $50 balance, $35 at $100, $70 at $200 — matches mentor's proportional bets.
@@ -753,9 +749,9 @@ async def asset_loop(
                 try:
                     eval_signal_data = {
                         "confidence": signal["score"],
-                        "sentiment": signal["direction"],
+                        "direction": details.get("direction", signal.get("direction", "UNKNOWN")),
                         "coin": asset,
-                        "source": "EnsembleML",
+                        "source": signal.get("entry_source", "SIG"),
                     }
                     log_signal_evaluation(eval_signal_data, None, signal["score"])
                 except Exception as eval_err:
@@ -773,9 +769,9 @@ async def asset_loop(
             try:
                 eval_signal_data = {
                     "confidence": signal["score"],
-                    "sentiment": signal["direction"],
+                    "direction": details.get("direction", signal.get("direction", "UNKNOWN")),
                     "coin": asset,
-                    "source": "EnsembleML",
+                    "source": signal.get("entry_source", "SIG"),
                 }
                 log_signal_evaluation(eval_signal_data, signal["market"] if traded else None, signal["score"])
             except Exception as eval_err:

@@ -604,9 +604,11 @@ def log_signal_evaluation(signal_data: dict, matched_event: Optional[dict], conf
         except Exception as exc:
             log.error("Signal evaluation log write failed: %s", exc)
 
+    sig_dir = signal_data.get("direction", "UNKNOWN").upper()
+    sig_source = signal_data.get("source", signal_data.get("signal_source", "SIG")).upper()
     log.info(
-        "[SIGNAL-EVAL] %s | score=%.2f | type=%s | conf=%.2f",
-        coin, sentiment_score, trade_type, confidence,
+        "[SIGNAL-EVAL] %s %s (%s) | score=%.2f | type=%s",
+        coin, sig_dir, sig_source, confidence, trade_type,
     )
 
 
