@@ -88,6 +88,9 @@ class TradingContext:
         "skipped": 0,
         "executed": 0,
     })
+    # Centralized signal pool for coordinated conviction ranking (Step 5)
+    signal_pool: dict[int, list[dict]] = field(default_factory=dict)
+    pool_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def get_engine(self, asset: str, timeframe: str) -> Optional[UpDownEngine]:
         return self.engines.get(f"{asset}/{timeframe}")
@@ -273,6 +276,58 @@ async def _validate_trade_slot(
                 return False, {"skip_reason": "fv_correlated_cap"}
         except Exception as _corr_err:
             log.error("[FV-CORR-CAP] Error checking correlated exposure: %s", _corr_err)
+
+    # SIG 40¢ floor: below 40¢ the crowd is >60% against the signal — momentum lag can't overcome
+    # that consensus. Raised from 20¢ after two clean-slate losses at 24.5¢ and 40¢ NO entries.
+    # CORR trades (already vetted by lead asset) and FV/NCS are exempt.
+    if _entry_source not in ("FAIR_VAL", "CLOSE-SNIPE", "CORR") and entry_price < 0.40:
+        log.info("[SIG-FLOOR] %s/%s: SIG %.4f < 0.40 — crowd >60%% against signal — skip",
+                 asset, timeframe, entry_price)
+        context.log_skip("sig_floor_40c", asset, timeframe)
+        return False, {"skip_reason": "sig_floor_40c"}
+
+    # P5: SIG price ceiling — block buying the expensive side of an overextended market.
+    # SIG/YES (UP) at >60¢ on 5m or >65¢ on 15m means market already priced it heavily;
+    # edge evaporates and losses at 65¢ have confirmed this repeatedly.
+    if _entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "CORR"):
+        _sig_ceil = 0.60 if timeframe == "5m" else 0.65
+        if entry_price > _sig_ceil:
+            log.info("[SIG-CEIL] %s/%s: SIG %.4f > %.4f ceiling — overextended — skip",
+                     asset, timeframe, entry_price, _sig_ceil)
+            context.log_skip("sig_ceiling", asset, timeframe)
+            return False, {"skip_reason": "sig_ceiling"}
+
+    # SIG mid-range quality guard (REBUILD Phase 4): the deleted dead zone let weak
+    # cheap/contrarian SIG back in (26.5c NO -$4.08, 57.5c NO -$0.52). Re-protect the
+    # 35-57c band — only allow SIG here on a strong score; FV carries direction at ATM.
+    # BTC↔ETH corroboration bypass: if the correlated pair is already in a same-direction
+    # same-timeframe position, the MIDGUARD score bar is dropped — both assets move together
+    # and the open position is live confirmation of the edge.
+    if (_entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "T2_SWEEPER", "REVERSAL_STREAK", "CORR")
+            and 0.35 < entry_price < 0.57 and score < 0.70):
+        _corr_bypass = False
+        _corr_pair = {"BTC": "ETH", "ETH": "BTC"}.get(asset.upper())
+        if _corr_pair:
+            try:
+                from core.engine.state_manager import get_open_positions as _get_open_positions
+                for _p in _get_open_positions():
+                    _pt = _p.get("event_title", "")
+                    if (_corr_pair in _pt
+                            and f"[{timeframe}]" in _pt
+                            and _p.get("direction", "").upper() == direction.upper()):
+                        _corr_bypass = True
+                        log.info(
+                            "[SIG-CORROBORATE] %s/%s: %s open same-dir %s — MIDGUARD bypassed",
+                            asset, timeframe, _corr_pair, direction,
+                        )
+                        break
+            except Exception:
+                pass
+        if not _corr_bypass:
+            log.info("[SIG-MIDGUARD] %s/%s: SIG %.4f in 0.35-0.57 with weak score %.2f < 0.70 — skip",
+                     asset, timeframe, entry_price, score)
+            context.log_skip("sig_midrange_guard", asset, timeframe)
+            return False, {"skip_reason": "sig_midrange_guard"}
 
     # ── 15m Conviction Guard: Prefer 5m trades unless 15m has high conviction (score >= 0.70) ──
     if _entry_source in ("SIG", "SIGNAL") and timeframe == "15m" and score < 0.70:
@@ -563,15 +618,19 @@ async def _validate_trade_slot(
         log.info("[RISK] Bet size $%.2f scaled up to minimum floor: $%.2f", bet_usd, min_bet_floor)
         bet_usd = min_bet_floor
 
-    # Safety cap: Max 35% of current_balance per trade slot — Bonereaper-scale sizing.
-    # 35% allows $17.50 at $50 balance, $35 at $100, $70 at $200 — matches mentor's proportional bets.
+    # Safety cap: Max 35% of current_balance per trade slot
     max_safety_size = current_balance * 0.35
-    if bet_usd > max_safety_size:
-        log.info(
-            "[RISK] Sizing capped at 35%% safety limit: $%.2f -> $%.2f",
-            bet_usd, max_safety_size
-        )
-        bet_usd = max_safety_size
+    if max_safety_size >= min_bet_floor:
+        if bet_usd > max_safety_size:
+            log.info(
+                "[RISK] Sizing capped at 35%% safety limit: $%.2f -> $%.2f",
+                bet_usd, max_safety_size
+            )
+            bet_usd = max_safety_size
+    else:
+        if bet_usd > current_balance:
+            bet_usd = current_balance
+            log.info("[RISK] Balance too low for floor sizer, using max available balance: $%.2f", bet_usd)
 
     if bet_usd < 1.00 and not is_dual:
         context.log_skip("size_too_small", asset, timeframe, {"bet_usd": bet_usd})
@@ -593,6 +652,146 @@ async def _validate_trade_slot(
     if _entry_source == "FAIR_VAL":
         _fv_rate_record()
     return True, validation_details
+
+
+async def _coordinate_signal_entry(
+    context: TradingContext,
+    asset: str,
+    timeframe: str,
+    score: float,
+    signal: dict,
+    details: dict,
+    candle_ts: int
+) -> bool:
+    """
+    Coordinated Conviction-Ranked Cap of 3.
+    Gathers all signals for the candle boundary, waits 1.5 seconds to let other asset loops register,
+    ranks them by score, and returns True only if this signal is in the top 3.
+    """
+    item = {
+        "asset": asset,
+        "timeframe": timeframe,
+        "score": score,
+        "signal": signal,
+        "details": details,
+        "decision": "SKIP"
+    }
+
+    async with context.pool_lock:
+        if candle_ts not in context.signal_pool:
+            context.signal_pool[candle_ts] = []
+        context.signal_pool[candle_ts].append(item)
+        pool_list = context.signal_pool[candle_ts]
+
+    # Sleep for 1.5 seconds to allow all concurrent asset loops to register
+    await asyncio.sleep(1.5)
+
+    async with context.pool_lock:
+        # Sort all registered signals by score descending, then asset name to be deterministic
+        pool_list.sort(key=lambda x: (x["score"], x["asset"]), reverse=True)
+        
+        # Mark the top 3 to PROCEED
+        for idx, entry in enumerate(pool_list):
+            if idx < 3:
+                entry["decision"] = "PROCEED"
+            else:
+                entry["decision"] = "SKIP"
+
+        if not hasattr(context, "last_logged_regime_ts") or context.last_logged_regime_ts != candle_ts:
+            context.last_logged_regime_ts = candle_ts
+            regimes_list = []
+            for a in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+                eng = context.engines.get(f"{a}/{timeframe}")
+                if eng and hasattr(eng, "_current_regime_calculated"):
+                    regimes_list.append(f"{a}={eng._current_regime_calculated}")
+                else:
+                    from core.engine.regime_filter import get_regime_mode
+                    reg_mode = get_regime_mode(timeframe)
+                    reg_name = "MEAN_REVERTING" if reg_mode == "MEAN_REVERSION" else "TRENDING"
+                    regimes_list.append(f"{a}={reg_name}")
+            log.info("[SIG-REGIME] %s", ", ".join(regimes_list))
+
+    # Clean up stale pools (older than 10 minutes)
+    try:
+        now_ts = int(time.time())
+        stale_keys = [k for k in context.signal_pool.keys() if now_ts - k > 600]
+        for k in stale_keys:
+            del context.signal_pool[k]
+    except Exception:
+        pass
+
+    return item["decision"] == "PROCEED"
+
+
+def log_unified_sig_lifecycle(
+    asset: str,
+    timeframe: str,
+    signal: Optional[dict],
+    details: Optional[dict],
+    outcome: str,
+    skip_reason: str = None
+) -> None:
+    """Logs the clean, 3-line plain-text evaluation lifecycle per asset."""
+    if signal:
+        rsi = signal.get("rsi") or 50.0
+        mom = signal.get("momentum") or 0.0
+        ofi = signal.get("ofi") or 0.0
+        cvd = signal.get("fast_cvd") or 0.0
+        obi = signal.get("binance_obi") or 0.0
+        score = signal.get("score") or 0.0
+        regime = signal.get("regime") or "MEAN_REVERTING"
+        direction = signal.get("direction") or "UP"
+        
+        whales_str = "neutral"
+        try:
+            ec = signal.get("edge_context") or {}
+            whales = ec.get("whale_count_dict", {})
+            whales_str = f"{whales.get('buy', 0)} buy, {whales.get('sell', 0)} sell"
+        except Exception:
+            pass
+
+        log.info(
+            "[SIG-EVAL] %s/%s [%s Path] | CVD=%+.2f, OBI=%+.2f, OFI=%+.2f | RSI=%.1f, Mom=%.3f | Whales: %s | Score: %.2f",
+            asset, timeframe, direction, cvd, obi, ofi, rsi, mom, whales_str, score
+        )
+    else:
+        log.info("[SIG-EVAL] %s/%s [NEUTRAL] | CVD=0.00, OBI=0.00 | RSI=50.0 | Score: 0.00", asset, timeframe)
+
+    if signal and outcome == "ENTER" and details:
+        bet_usd = details.get("bet_usd", 2.50)
+        score = signal.get("score", 0.0)
+        log.info(
+            "[SIG-EDGE] %s/%s [%s]: Score %.2f -> %.2f | Kelly Sizer: %.2f USDC",
+            asset, timeframe, signal.get("direction", "UP"), score, score, bet_usd
+        )
+    elif signal and outcome == "SKIP":
+        log.info(
+            "[SIG-EDGE] %s/%s [%s]: Edge skipped",
+            asset, timeframe, signal.get("direction", "NEUTRAL")
+        )
+    else:
+        log.info("[SIG-EDGE] %s/%s [NEUTRAL]: No edge", asset, timeframe)
+
+    if outcome == "ENTER" and details:
+        direction = details.get("direction", "UP")
+        entry_price = details.get("entry_price", 0.50)
+        regime = signal.get("regime") or "MEAN_REVERTING"
+        is_5m = "5m" in timeframe.lower()
+        if regime.upper() in ("TRENDING", "TREND"):
+            tp_target = 0.95
+        else:
+            tp_target = 0.72 if is_5m else 0.88
+            
+        log.info(
+            "[SIG-ENTER] %s/%s [%s]: Entered at %.3f | Size: %.2f USDC | TP Target: %.3f (%s)",
+            asset, timeframe, direction, entry_price, details.get("bet_usd", 2.50), tp_target, regime
+        )
+    else:
+        reason = skip_reason or "no_signal"
+        log.info(
+            "[SIG-SKIP] %s/%s: Skipped (%s)",
+            asset, timeframe, reason
+        )
 
 
 async def _execute_order_flow(
@@ -735,6 +934,7 @@ async def asset_loop(
             signal = await _evaluate_market_signals(engine, session, interval_minutes, asset, timeframe)
             if signal is None:
                 context.log_skip("no_signal", asset, timeframe)
+                log_unified_sig_lifecycle(asset, timeframe, None, None, "SKIP", "no_signal")
                 await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
                 continue
 
@@ -746,6 +946,7 @@ async def asset_loop(
                 session=session,
             )
             if not allowed:
+                log_unified_sig_lifecycle(asset, timeframe, signal, details, "SKIP", details.get("skip_reason", "failed_gates"))
                 try:
                     eval_signal_data = {
                         "confidence": signal["score"],
@@ -759,6 +960,32 @@ async def asset_loop(
                     log.error("[MAIN] Failed to log missed signal evaluation: %s", eval_err)
                 await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
                 continue
+
+            # ── Coordinated Conviction-Ranked Cap of 3 ──
+            if signal.get("entry_source", "SIG") in ("SIG", "SIGNAL"):
+                now_ts = int(time.time())
+                candle_ts = (now_ts // (interval_minutes * 60)) * (interval_minutes * 60)
+                proceed = await _coordinate_signal_entry(
+                    context, asset, timeframe, signal["score"], signal, details, candle_ts
+                )
+                if not proceed:
+                    log_unified_sig_lifecycle(asset, timeframe, signal, details, "SKIP", "exceeded_cap_of_3")
+                    context.log_skip("exceeded_cap_of_3", asset, timeframe)
+                    
+                    try:
+                        eval_signal_data = {
+                            "confidence": signal["score"],
+                            "direction": details.get("direction", signal.get("direction", "UNKNOWN")),
+                            "coin": asset,
+                            "source": signal.get("entry_source", "SIG"),
+                            "skip_reason": "exceeded_cap_of_3",
+                        }
+                        log_signal_evaluation(eval_signal_data, None, signal["score"])
+                    except Exception:
+                        pass
+                        
+                    await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
+                    continue
 
             # 3. Execute Order Flow
             execution_start = time.time()
@@ -779,6 +1006,7 @@ async def asset_loop(
                 log.error("[MAIN] Failed to log signal evaluation: %s", eval_err)
 
             if traded:
+                log_unified_sig_lifecycle(asset, timeframe, signal, details, "ENTER")
                 context.funnel_stats["executed"] += 1
                 global_diagnostics.log_execution(execution_time_ms, 0.0, successful_hedge=True)
                 # Corroboration: shadow onto correlated assets at same size as lead trade
@@ -789,6 +1017,8 @@ async def asset_loop(
                         lead_bet_usd=details.get("bet_usd", 0.0),
                         lead_score=details.get("score", 0.75),
                     ))
+            else:
+                log_unified_sig_lifecycle(asset, timeframe, signal, details, "SKIP", "execution_failed")
 
             update_runtime_tracking()
 

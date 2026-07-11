@@ -273,6 +273,7 @@ class UpDownEngine:
         self.last_edge_context: Optional[dict] = None
         self._slope_history:    list = []   # rolling 4 slope readings for choppy detection
         self._choppy_candles:   int  = 0    # candles remaining in choppy cooldown
+        self._current_regime_calculated: str = "MEAN_REVERTING"
 
     def _get_hourly_slug(self, timestamp: int) -> str:
         from zoneinfo import ZoneInfo
@@ -404,6 +405,7 @@ class UpDownEngine:
             return None
 
         from core.engine.regime_filter import get_regime_mode, time_gate_open, apply_regime
+        fast_cvd = slow_cvd = binance_obi = None
         if not time_gate_open():
             log.debug("[ENGINE] %s/%s: time gate closed", self.asset, self.timeframe)
             return None
@@ -448,14 +450,16 @@ class UpDownEngine:
         # close with Pyth injected a phantom down-move into every directional read:
         # fair_prob_up averaged 0.42 and 77% of all FV signals fired DOWN.
 
-        # Recalculate market regime dynamically using BTC candle closes
-        if self.asset == "BTC":
-            try:
-                from core.engine.regime_detector import RegimeDetector
-                detector = RegimeDetector(timeframe=self.timeframe, atr_window=14)
-                detector.update_prices(closes, symbol="BTC")
-            except Exception as e:
-                log.warning("[ENGINE] Failed to update regime detector: %s", e)
+        # Recalculate market regime dynamically
+        try:
+            from core.engine.regime_detector import RegimeDetector
+            detector = RegimeDetector(timeframe=self.timeframe, atr_window=14)
+            write_to_disk = (self.asset == "BTC")
+            detector.update_prices(closes, symbol=self.asset, write_to_disk=write_to_disk)
+            self._current_regime_calculated = detector._current_regime
+        except Exception as e:
+            log.warning("[ENGINE] Failed to update regime detector for %s: %s", self.asset, e)
+            self._current_regime_calculated = "MEAN_REVERTING"
 
         rsi = _compute_rsi(closes)
         self._last_rsi = rsi  # Store RSI for fair-value paper fallbacks
@@ -485,6 +489,20 @@ class UpDownEngine:
                          self.asset, self.timeframe, _ttl_s)
                 return None
 
+        # Verify that the fetched market's start timestamp matches the current candle start timestamp
+        # Prevents timeframe mismatch where we place trades on upcoming or previous candles
+        # based on the current candle's indicators.
+        duration_min = market.get("duration_min")
+        if duration_min is None:
+            duration_min = 60 if self.timeframe == "1h" else int(self.timeframe.rstrip("m"))
+        market_start_ts = market["expiry_ts"] - duration_min * 60
+        last_kline_ts = int(klines[-1][0]) // 1000
+        if market_start_ts != last_kline_ts and not is_testing:
+            log.info(
+                "[ENGINE] %s/%s Timeframe mismatch detected: market_start_ts=%d last_kline_ts=%d — skipping entry",
+                self.asset, self.timeframe, market_start_ts, last_kline_ts
+            )
+            return None
 
         up_price = market["up_price"]
         dn_price = market["dn_price"]
@@ -901,6 +919,16 @@ class UpDownEngine:
             except Exception:
                 pass
 
+            # Fetch order flow metrics (CVD and OBI) early
+            fast_cvd = slow_cvd = binance_obi = None
+            try:
+                from core.engine.spot_websocket_ingest import get_cvd_metrics, get_binance_obi, _has_cvd_data
+                if _has_cvd_data(self.asset):
+                    fast_cvd, slow_cvd = await get_cvd_metrics(self.asset)
+                    binance_obi = await get_binance_obi(self.asset)
+            except Exception as _e:
+                log.warning("[ENGINE] Failed to pre-fetch order flow metrics: %s", _e)
+
             # Raw direction from the shared signal core
             from core.engine.signal_core import decide_signal
             _dec = decide_signal(
@@ -914,12 +942,34 @@ class UpDownEngine:
                 use_session_scaling=True,
                 atr_percentile=_atr_pct,
                 bbw_percentile=_bbw_pct,
+                fast_cvd=fast_cvd,
+                binance_obi=binance_obi,
             )
-            if _dec["blocked"]:
-                log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
-                return None
             raw_dir = _dec["direction"]
             score_base = _dec["score"]
+
+            if _dec["blocked"]:
+                flipped = False
+                if rsi is not None and fast_cvd is not None:
+                    is_originally_up = ofi < 0
+                    is_originally_down = ofi > 0
+                    
+                    if is_originally_up and fast_cvd < 0:
+                        log.warning("[SIG-DIV-FLIP] %s/%s: UP blocked by negative OFI (%.3f) but CVD confirms selling (fast_cvd=%.2f) — flipping to DOWN",
+                                    self.asset, self.timeframe, ofi, fast_cvd)
+                        raw_dir = "DOWN"
+                        score_base = min(0.85, 0.50 + abs(binance_obi or ofi) * 0.35)
+                        flipped = True
+                    elif is_originally_down and fast_cvd > 0:
+                        log.warning("[SIG-DIV-FLIP] %s/%s: DOWN blocked by positive OFI (%.3f) but CVD confirms buying (fast_cvd=%.2f) — flipping to UP",
+                                    self.asset, self.timeframe, ofi, fast_cvd)
+                        raw_dir = "UP"
+                        score_base = min(0.85, 0.50 + abs(binance_obi or ofi) * 0.35)
+                        flipped = True
+
+                if not flipped:
+                    log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
+                    return None
             if _dec["is_reversal"]:
                 log.warning("[REVERSAL] %s/%s RSI=%.2f reversal-snipe %s.", self.asset, self.timeframe, rsi, raw_dir)
             elif raw_dir is None:
@@ -1181,7 +1231,7 @@ class UpDownEngine:
                 except Exception as e:
                     log.warning("[ENGINE] Failed to evaluate Overlay B: %s", e)
 
-        log.info(
+        log.debug(
             "[ENGINE] %s/%s SIGNAL: %s | Score=%.2f | up=%.4f dn=%.4f | dual=%s | %s",
             self.asset, self.timeframe, direction, score,
             up_price, dn_price, is_dual_eligible, market["event_title"],
@@ -1217,6 +1267,9 @@ class UpDownEngine:
             "fv_archetype": _fv_archetype,
             "whale_aligned": _whale_aligned,
             "confluence_score": _confluence_score,
+            "fast_cvd":     fast_cvd,
+            "slow_cvd":     slow_cvd,
+            "binance_obi":  binance_obi,
         }
 
 
@@ -1612,10 +1665,8 @@ class UpDownEngine:
                 _asset_w = {"BTC": 1.0, "ETH": 1.0, "SOL": 1.0, "XRP": 1.0, "DOGE": 1.0}.get(self.asset, 1.0)
                 usd_size *= _asset_w
 
-                shares = round(usd_size / price) if price > 0 else 0
-                actual_cost = shares * price
-                log.info("[SIZE] Adaptive Kelly cost $%.2f (shares=%d, conf=%.2f, asset_w=%.2f)", actual_cost, shares, conf, _asset_w)
-                return actual_cost
+                log.info("[SIZE] Adaptive Kelly cost $%.2f (conf=%.2f, asset_w=%.2f)", usd_size, conf, _asset_w)
+                return usd_size
             except Exception as e:
                 log.warning("[SIZE] Failed to compute adaptive Kelly size, falling back: %s", e)
 

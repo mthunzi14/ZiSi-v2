@@ -121,6 +121,8 @@ def decide_signal(
     use_session_scaling: bool = False,
     atr_percentile: Optional[float] = None,
     bbw_percentile: Optional[float] = None,
+    fast_cvd: Optional[float] = None,
+    binance_obi: Optional[float] = None,
 ) -> dict:
     """Return {"direction": "UP"|"DOWN"|None, "score": float, "is_reversal": bool, "blocked": bool}."""
     if params is None:
@@ -162,6 +164,21 @@ def decide_signal(
 
     res = {"direction": None, "score": 0.0, "is_reversal": False, "blocked": False}
     if rsi is None:
+        return res
+
+    # ── Primary Order Flow Trigger (CVD & OBI) ──
+    if fast_cvd is not None and binance_obi is not None:
+        flow_bullish = fast_cvd > 0 and binance_obi > 0.10
+        flow_bearish = fast_cvd < 0 and binance_obi < -0.10
+
+        if flow_bullish and rsi < 85.0 and mom >= -0.01:
+            res["direction"] = "UP"
+            res["score"] = min(0.85, 0.50 + abs(binance_obi) * 0.35)
+            return res
+        elif flow_bearish and rsi > 15.0 and mom <= 0.01:
+            res["direction"] = "DOWN"
+            res["score"] = min(0.85, 0.50 + abs(binance_obi) * 0.35)
+            return res
         return res
 
     # 1. Pre-momentum reversal sniping gets absolute priority at extreme RSI values

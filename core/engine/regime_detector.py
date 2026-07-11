@@ -124,12 +124,12 @@ class RegimeDetector:
 
     # ── Price ingestion ───────────────────────────────────────────────────
 
-    def update_price(self, price: float, symbol: str = "BTC") -> None:
+    def update_price(self, price: float, symbol: str = "BTC", write_to_disk: bool = True) -> None:
         """Feed the latest price; regime is recalculated automatically."""
         if price <= 0:
             return
         self._price_history.append((time.time(), price))
-        self._recalculate()
+        self._recalculate(write_to_disk=write_to_disk)
         log.debug(
             "[Regime] %s price=%.2f → regime=%s (conf=%.0f%%) ATR=%.4f%% "
             "Kelly×%.2f hurdle×%.2f exit=%s",
@@ -138,7 +138,7 @@ class RegimeDetector:
             self.kelly_multiplier, self.hurdle_multiplier, self.exit_strategy,
         )
 
-    def update_prices(self, prices: list[float], symbol: str = "BTC") -> None:
+    def update_prices(self, prices: list[float], symbol: str = "BTC", write_to_disk: bool = True) -> None:
         """Feed multiple prices at once; recalculates once at the end."""
         valid = [p for p in prices if p > 0]
         if not valid:
@@ -146,7 +146,7 @@ class RegimeDetector:
         now = time.time()
         for p in valid:
             self._price_history.append((now, p))
-        self._recalculate()
+        self._recalculate(write_to_disk=write_to_disk)
         log.debug(
             "[Regime] %s bulk update (%d) → regime=%s ATR=%.4f%% Kelly×%.2f",
             symbol, len(valid), self._current_regime,
@@ -155,7 +155,7 @@ class RegimeDetector:
 
     # ── External context injection ────────────────────────────────────────
 
-    def update_context(self, obi: float = 0.0, volume_ratio: float = 1.0) -> None:
+    def update_context(self, obi: float = 0.0, volume_ratio: float = 1.0, write_to_disk: bool = True) -> None:
         """Inject real-time context signals.
 
         Args:
@@ -167,11 +167,11 @@ class RegimeDetector:
         self._volume_ratio = max(0.0, volume_ratio)
         # Re-classify with updated context (only if we have price data)
         if len(self._price_history) >= 2:
-            self._recalculate()
+            self._recalculate(write_to_disk=write_to_disk)
 
     # ── Core classification engine ────────────────────────────────────────
 
-    def _recalculate(self) -> None:
+    def _recalculate(self, write_to_disk: bool = True) -> None:
         """Run the full multi-signal classification pipeline."""
         prices = [p for _, p in self._price_history]
         if len(prices) < 2:
@@ -203,7 +203,8 @@ class RegimeDetector:
         self._regime_confidence = round(best_score / total, 4)
         self._current_regime = best_regime
 
-        self._write_status()
+        if write_to_disk:
+            self._write_status()
 
     def _score_regimes(self) -> dict[str, float]:
         """Return a score dict for each candidate regime.

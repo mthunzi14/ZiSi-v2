@@ -131,8 +131,27 @@ def _calculate_exit_targets_fallback(entry_price: float, amount_spent: float, ti
 
         _is_short_tf = "5M" in _title_upper or "15M" in _title_upper or "UPDOWN" in _title_upper
         if _is_short_tf:
-            target = 0.99
-            log.info("[SL-CALIB] Short-TF trade '%s' (entry=%.4f) -> target %.4f, stop -1.0", title, entry_price, target)
+            regime = "MEAN_REVERTING"
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                _rs = _Path(__file__).parent.parent.parent / "data" / "regime_status.json"
+                if _rs.exists():
+                    _d = _json.loads(_rs.read_text(encoding="utf-8"))
+                    regime = _d.get("regime", "MEAN_REVERTING").upper()
+            except Exception:
+                pass
+
+            _is_5m = "5M" in _title_upper
+            if regime in ("TRENDING", "TREND"):
+                target = 0.95
+            else:
+                target = 0.72 if _is_5m else 0.88
+
+            if entry_price >= target:
+                target = min(0.99, round(entry_price + 0.04, 4))
+
+            log.info("[SL-CALIB] Short-TF trade '%s' (entry=%.4f, regime=%s) -> target %.4f, stop -1.0", title, entry_price, regime, target)
             return target, -1.0
 
         # Sweeper entries at 90-99¢: target is resolution (0.99), no stop — hold to expiry
@@ -1083,7 +1102,8 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
 
         target_price = pos.get("target_price")
         if _is_short_tf:
-            target_price = 0.99
+            if not target_price or target_price <= 0:
+                target_price, _ = _calculate_exit_targets_fallback(entry_price, pos.get("amount_spent", 0.0), _ev_title, pos.get("direction", "YES"))
         elif not target_price or target_price <= 0:
             target_price = round(entry_price * cfg.get("POSITION_TARGET_MULTIPLIER", 1.50), 4)
 

@@ -801,6 +801,7 @@ def build_active_positions_panel() -> Panel:
     table.add_column("Mark Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Mark Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("TP/Target", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Entry Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Unrealized PnL", justify="right", header_style=COLOR_LABEL)
@@ -876,6 +877,7 @@ def build_active_positions_panel() -> Panel:
                 mark_spot_str,
                 f"${entry_token:.3f}",
                 f"${mark_token:.3f}",
+                f"${float(pos.get('target_price', 0.99)):.3f}",
                 formatted_entry_ts,
                 hold_str,
                 f"[{unreal_color}]${unreal:+.2f}[/{unreal_color}]"
