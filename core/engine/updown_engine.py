@@ -498,11 +498,10 @@ class UpDownEngine:
         market_start_ts = market["expiry_ts"] - duration_min * 60
         last_kline_ts = int(klines[-1][0]) // 1000
         if market_start_ts != last_kline_ts and not is_testing:
-            log.info(
-                "[ENGINE] %s/%s Timeframe mismatch detected: market_start_ts=%d last_kline_ts=%d — skipping entry",
+            log.debug(
+                "[ENGINE] %s/%s Timeframe mismatch detected: market_start_ts=%d last_kline_ts=%d — logging mismatch but proceeding",
                 self.asset, self.timeframe, market_start_ts, last_kline_ts
             )
-            return None
 
         up_price = market["up_price"]
         dn_price = market["dn_price"]
@@ -930,6 +929,31 @@ class UpDownEngine:
                 log.warning("[ENGINE] Failed to pre-fetch order flow metrics: %s", _e)
 
             # Raw direction from the shared signal core
+            def make_neutral_signal():
+                return {
+                    "asset": self.asset,
+                    "timeframe": self.timeframe,
+                    "direction": "NEUTRAL",
+                    "score": 0.0,
+                    "regime": regime,
+                    "inverted": self.invert_signal,
+                    "rsi": rsi,
+                    "momentum": round(mom, 4) if mom is not None else 0.0,
+                    "ofi": ofi if ofi is not None else 0.0,
+                    "fast_cvd": fast_cvd if fast_cvd is not None else 0.0,
+                    "slow_cvd": slow_cvd if slow_cvd is not None else 0.0,
+                    "binance_obi": binance_obi if binance_obi is not None else 0.0,
+                    "market": market if market is not None else {},
+                    "is_dual_eligible": is_dual_eligible if 'is_dual_eligible' in locals() else False,
+                    "edge_context": self.last_edge_context or {},
+                    "entry_source": "SIG",
+                    "corroboration_multiplier": 1.0,
+                    "fv_confidence": 0.0,
+                    "fv_archetype": "moderate",
+                    "whale_aligned": True,
+                    "confluence_score": 2,
+                }
+
             from core.engine.signal_core import decide_signal
             _dec = decide_signal(
                 rsi,
@@ -969,7 +993,7 @@ class UpDownEngine:
 
                 if not flipped:
                     log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
-                    return None
+                    return make_neutral_signal()
             if _dec["is_reversal"]:
                 log.warning("[REVERSAL] %s/%s RSI=%.2f reversal-snipe %s.", self.asset, self.timeframe, rsi, raw_dir)
             elif raw_dir is None:
@@ -995,7 +1019,7 @@ class UpDownEngine:
                             self.asset, self.timeframe, (up_price + dn_price), raw_dir,
                         )
                     else:
-                        return None
+                        return make_neutral_signal()
 
                 # Apply regime (fade weak momentum in mean-reversion; follow strong trends)
                 direction = apply_regime(raw_dir, regime, mom=mom)
@@ -1023,7 +1047,7 @@ class UpDownEngine:
                 if is_weekend:
                     if score_base < 0.82:
                         log.info("[WEEKEND-VETO] %s/%s: weekend SIG score %.2f < 0.82 — skip", self.asset, self.timeframe, score_base)
-                        return None
+                        return make_neutral_signal()
                     else:
                         log.info("[WEEKEND-SIG-HIGH] %s/%s: weekend SIG score %.2f >= 0.82 — check confirmation", self.asset, self.timeframe, score_base)
 
@@ -1176,7 +1200,7 @@ class UpDownEngine:
         #     return None
 
         if score < 0.55 and not is_dual_eligible:
-            return None
+            return make_neutral_signal()
 
 
 
@@ -1227,7 +1251,7 @@ class UpDownEngine:
                                 "[TREND-FREEZE] %s midpoint entry frozen. Alignment=%d/4, ADX=%.1f. Bypassing entry to avoid drawdown.",
                                 self.asset, alignment_score, adx
                             )
-                            return None
+                            return make_neutral_signal()
                 except Exception as e:
                     log.warning("[ENGINE] Failed to evaluate Overlay B: %s", e)
 
@@ -1545,7 +1569,7 @@ class UpDownEngine:
                             dn_tk = clob_token_ids[dn_idx]
                             resolved = await self._resolve_l2_prices(session, up_tk, dn_tk, is_latency_scan=is_latency_scan)
                             if not resolved:
-                                log.info(
+                                log.debug(
                                     "[ENGINE] %s/%s: slug %s — no valid L2 book (skip phantom 50¢)",
                                     self.asset, self.timeframe, slug,
                                 )
@@ -1553,7 +1577,7 @@ class UpDownEngine:
                                 continue
 
                             up_price, dn_price, spread = resolved
-                            log.info(
+                            log.debug(
                                 "[ENGINE] %s/%s: %s up=%.4f dn=%.4f spread=%.4f",
                                 self.asset, self.timeframe, slug,
                                 up_price, dn_price, spread,

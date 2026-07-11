@@ -609,12 +609,12 @@ def log_signal_evaluation(signal_data: dict, matched_event: Optional[dict], conf
     
     if trade_type == "MISSED":
         reason = reason_missed or "NO_LIQUIDITY"
-        log.info(
+        log.debug(
             "[SIGNAL-EVAL] %s %s (%s) | score=%.2f | skipped: %s",
             coin, sig_dir, sig_source, confidence, reason.upper(),
         )
     else:
-        log.info(
+        log.debug(
             "[SIGNAL-EVAL] %s %s (%s) | score=%.2f | type=REAL",
             coin, sig_dir, sig_source, confidence,
         )

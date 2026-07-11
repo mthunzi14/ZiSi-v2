@@ -1147,7 +1147,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 mid_val, _ = polymarket_l2_gateway.get_price(_market_id)
                 if mid_val is not None and 0.01 <= mid_val <= 0.99:
                     exit_price = round(mid_val, 4)
-                    log.info("[LIVE-EXIT] L2 WS Cache price %.4f for %s", exit_price, order_id)
+                    log.debug("[LIVE-EXIT] L2 WS Cache price %.4f for %s", exit_price, order_id)
             except Exception:
                 pass
 
@@ -1160,7 +1160,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                         # Accept any live price; if near 0/1 it is likely resolved
                         if 0.01 <= _real <= 0.99:
                             exit_price = round(_real, 4)
-                            log.info("[LIVE-EXIT] CLOB REST price %.4f for %s", exit_price, order_id)
+                            log.debug("[LIVE-EXIT] CLOB REST price %.4f for %s", exit_price, order_id)
                         elif _real < 0.01:
                             exit_price = 0.01
                         else:
@@ -1205,7 +1205,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
             else:
                 _stored = float(pos.get("current_price", entry_price))
                 exit_price = round(_stored, 4)
-                log.info("[LIVE-EXIT] Using stored price %.4f for %s (live fetch unavailable)", exit_price, order_id)
+                log.debug("[LIVE-EXIT] Using stored price %.4f for %s (live fetch unavailable)", exit_price, order_id)
 
         # Evaluate exit triggers
         is_target_hit = exit_price >= target_price
@@ -1960,7 +1960,7 @@ def refresh_open_position_prices() -> int:
 
     if updated:
         persist_positions()
-        log.info("[PRICE-REFRESH] Updated %d open Polymarket position price(s)", updated)
+        log.debug("[PRICE-REFRESH] Updated %d open Polymarket position price(s)", updated)
     return updated
 
 

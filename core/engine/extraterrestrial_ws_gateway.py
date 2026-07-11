@@ -95,7 +95,7 @@ class ExtraterrestrialWSGateway:
             if self._ws and not self._ws.closed and hasattr(self, "loop"):
                 # Run subscription message on Thread A loop
                 asyncio.run_coroutine_threadsafe(self._send_sub(token_id), self.loop)
-            log.info(f"[GOD-WS] Subscribed to L2 Feed: {token_id}")
+            log.debug(f"[GOD-WS] Subscribed to L2 Feed: {token_id}")
 
     async def _send_sub(self, token_id: str):
         try:

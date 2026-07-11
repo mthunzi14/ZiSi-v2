@@ -938,6 +938,12 @@ async def asset_loop(
                 await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
                 continue
 
+            if signal.get("direction") == "NEUTRAL":
+                context.log_skip("no_signal", asset, timeframe)
+                log_unified_sig_lifecycle(asset, timeframe, signal, None, "SKIP", "no_signal")
+                await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
+                continue
+
             context.funnel_stats["signals_generated"] += 1
 
             # 2. Validate Risk & Entry Gates
@@ -1188,7 +1194,7 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
         )
 
         if order:
-            log.info(
+            log.debug(
                 "[TRADE OPENED] %s/%s %s | $%.2f @ %.4f | score=%.2f | %s",
                 asset, timeframe, direction, actual_cost, entry_price, score, trade_type,
             )

@@ -116,7 +116,7 @@ class RegimeDetector:
         self._atr_percentile: float = 50.0
         self._bbw_percentile: float = 50.0
 
-        log.info(
+        log.debug(
             "[RegimeDetector] initialised — timeframe=%s ATR window=%d "
             "lookback=%d BB(%d, %.1f)",
             timeframe, atr_window, price_lookback, bb_period, bb_std,
