@@ -126,7 +126,7 @@ def _calculate_exit_targets_fallback(entry_price: float, amount_spent: float, ti
         pillar, t_type = _derive_pillar_and_type(_title_upper)
 
         if "REVERSAL_SNIPE" in _title_upper or "REVERSAL-SNIPE" in _title_upper:
-            log.info("[SL-CALIB] Reversal Snipe '%s' entry=%.4f -> target 0.99, hold to expiry", title, entry_price)
+            log.debug("[SL-CALIB] Reversal Snipe '%s' entry=%.4f -> target 0.99, hold to expiry", title, entry_price)
             return 0.99, -1.0
 
         _is_short_tf = "5M" in _title_upper or "15M" in _title_upper or "UPDOWN" in _title_upper
@@ -151,26 +151,26 @@ def _calculate_exit_targets_fallback(entry_price: float, amount_spent: float, ti
             if entry_price >= target:
                 target = min(0.99, round(entry_price + 0.04, 4))
 
-            log.info("[SL-CALIB] Short-TF trade '%s' (entry=%.4f, regime=%s) -> target %.4f, stop -1.0", title, entry_price, regime, target)
+            log.debug("[SL-CALIB] Short-TF trade '%s' (entry=%.4f, regime=%s) -> target %.4f, stop -1.0", title, entry_price, regime, target)
             return target, -1.0
 
         # Sweeper entries at 90-99¢: target is resolution (0.99), no stop — hold to expiry
         if entry_price >= 0.90 or "T2_SWEEPER" in _title_upper or "SWEEP" in _title_upper:
-            log.info("[SL-CALIB] Sweeper/near-certain trade '%s' entry=%.2f -> target 0.99, hold to expiry", title, entry_price)
+            log.debug("[SL-CALIB] Sweeper/near-certain trade '%s' entry=%.2f -> target 0.99, hold to expiry", title, entry_price)
             return 0.99, -1.0
 
         # 1. If ASYMMETRIC_BARBELL and entry_price <= 0.20: hold to expiration (stop_loss = -1.0)
         if pillar == "ASYMMETRIC_BARBELL" and entry_price <= 0.20:
             _is_5m = "][5M]" in _title_upper
             target = 0.72 if _is_5m else 0.88
-            log.info("[SL-CALIB] Underdog Asymmetric Barbell '%s' entry=%.2f -> target %.2f, hold to expiry", title, entry_price, target)
+            log.debug("[SL-CALIB] Underdog Asymmetric Barbell '%s' entry=%.2f -> target %.2f, hold to expiry", title, entry_price, target)
             return target, -1.0
 
         # 2. If 40c-50c midpoint trade: early exit at 20c
         if 0.40 <= entry_price <= 0.50:
             _is_5m = "][5M]" in _title_upper
             target = 0.72 if _is_5m else 0.88
-            log.info("[SL-CALIB] Midpoint trade '%s' entry=%.2f -> target %.2f, stop 0.20 (salvage)", title, entry_price, target)
+            log.debug("[SL-CALIB] Midpoint trade '%s' entry=%.2f -> target %.2f, stop 0.20 (salvage)", title, entry_price, target)
             return target, 0.20
 
         from core.risk.risk_manager import calculate_exit_targets
@@ -594,7 +594,7 @@ def place_order(
             return None
 
     if mode == "paper_trading":
-        log.info(
+        log.debug(
             "[PAPER] BUY %s | %d shares @ %.4f = $%.4f | %s",
             direction, shares, entry_price, actual_cost,
             _display_title[:55],
@@ -1507,7 +1507,7 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
                 log.error("Exit order failed for %s — position still open", order_id)
                 return None
         else:
-            log.info("[PAPER] Exit order for %s (%s) simulated successfully", order_id, pos.get("market"))
+            log.debug("[PAPER] Exit order for %s (%s) simulated successfully", order_id, pos.get("market"))
 
     exit_data = {
         "exit_price": current_price,
