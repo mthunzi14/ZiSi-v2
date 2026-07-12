@@ -148,17 +148,23 @@ class ExtraterrestrialWSGateway:
             log.warning(f"[GOD-WS] Ping error: {e}")
 
     async def _connection_watchdog(self, ws):
-        """Hard 3-second timeout circuit breaker to handle silent connection drops.
-        Triggers reconnect and pulls a REST snapshot if no messages are received for > 3s.
-        """
+        """Hard 30-second timeout for reconnects; quiet 3-second REST pull to keep cache fresh."""
         try:
             while self.is_active and not ws.closed:
                 await asyncio.sleep(0.5)
                 now = time.time()
-                if now - self.last_msg_ts > 3.0:
-                    log.warning("[GOD-WS] Watchdog: 3s timeout reached with no messages — triggering reconnect and pulling REST snapshots.")
-                    await ws.close()
+                lag = now - self.last_msg_ts
+                
+                # If idle for > 3.0s, pull REST snapshots to update cache
+                if lag > 3.0:
                     asyncio.create_task(self._pull_rest_snapshots())
+                    # Reset last_msg_ts to prevent spamming REST requests
+                    self.last_msg_ts = now
+                
+                # Only reconnect if lag exceeds 30.0s (genuinely dead connection)
+                if lag > 30.0:
+                    log.warning("[GOD-WS] Watchdog: 30s silent lag timeout reached — triggering reconnect.")
+                    await ws.close()
                     break
         except asyncio.CancelledError:
             pass
