@@ -928,6 +928,59 @@ class UpDownEngine:
             except Exception as _e:
                 log.warning("[ENGINE] Failed to pre-fetch order flow metrics: %s", _e)
 
+            # Write status to gate matrix file for UI dashboard (Always update on each candle check)
+            try:
+                from pathlib import Path
+                matrix_file = Path(__file__).parent.parent.parent / "data" / "gate_matrix.json"
+                mat_data = {}
+                if matrix_file.exists():
+                    try:
+                        import json as _json
+                        mat_data = _json.loads(matrix_file.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+                
+                # Check if weekend session
+                is_weekend = False
+                try:
+                    from core.shared.session_manager import TradingSessionManager
+                    session_params = TradingSessionManager.get_active_session_params()
+                    is_weekend = session_params.get("session_name") == "WEEKEND"
+                except Exception:
+                    pass
+                
+                # Calculate price velocity proxy
+                closes = [float(k[4]) for k in klines] if 'klines' in locals() and klines else []
+                price_velocity = (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
+                
+                # Calculate NIC score proxy
+                nic_score = 0.0
+                try:
+                    from core.confluence.engine import NICAnalyst
+                    nic_analyst = NICAnalyst()
+                    nic_score = nic_analyst.analyze(price_velocity)
+                except Exception:
+                    pass
+                
+                mat_data["WEEKEND"] = is_weekend
+                assets_data = mat_data.setdefault("assets", {})
+                assets_data[self.asset.upper()] = {
+                    "rsi": round(rsi, 1) if rsi is not None else 50.0,
+                    "cvd": round(fast_cvd, 2) if fast_cvd is not None else 0.0,
+                    "obi": round(binance_obi, 2) if binance_obi is not None else 0.0,
+                    "nic": round(nic_score, 2),
+                    "score": 0.0,
+                    "status": "NEUTRAL"
+                }
+                
+                tmp = matrix_file.with_suffix(".tmp")
+                import json as _json
+                tmp.write_text(_json.dumps(mat_data, indent=2), encoding="utf-8")
+                import os as _os
+                _os.replace(tmp, matrix_file)
+            except Exception as me:
+                log.warning("Failed to write initial gate matrix: %s", me)
+
             # Raw direction from the shared signal core
             def make_neutral_signal():
                 return {
