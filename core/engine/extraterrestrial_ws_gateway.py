@@ -148,16 +148,39 @@ class ExtraterrestrialWSGateway:
             log.warning(f"[GOD-WS] Ping error: {e}")
 
     async def _connection_watchdog(self, ws):
-        """Rule 4: Hard 15-second timeout circuit breaker to handle silent connection drops."""
+        """Hard 3-second timeout circuit breaker to handle silent connection drops.
+        Triggers reconnect and pulls a REST snapshot if no messages are received for > 3s.
+        """
         try:
             while self.is_active and not ws.closed:
-                await asyncio.sleep(1.0)
-                if time.time() - self.last_msg_ts > 15.0:
-                    log.warning("[GOD-WS] Watchdog: 15s timeout reached with no messages — triggering reconnect.")
+                await asyncio.sleep(0.5)
+                now = time.time()
+                if now - self.last_msg_ts > 3.0:
+                    log.warning("[GOD-WS] Watchdog: 3s timeout reached with no messages — triggering reconnect and pulling REST snapshots.")
                     await ws.close()
+                    asyncio.create_task(self._pull_rest_snapshots())
                     break
         except asyncio.CancelledError:
             pass
+
+    async def _pull_rest_snapshots(self):
+        """Pull REST L2 orderbook snapshot for all subscribed tokens to prevent data gaps."""
+        if not self.subscriptions:
+            return
+        log.info("[GOD-WS] Pulling REST snapshots for %d subscribed tokens...", len(self.subscriptions))
+        for token_id in list(self.subscriptions):
+            try:
+                url = "https://clob.polymarket.com/book"
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, params={"token_id": token_id}, timeout=3) as resp:
+                        if resp.status == 200:
+                            book = await resp.json()
+                            book["event_type"] = "book"
+                            book["token_id"] = token_id
+                            self.msg_queue.put(book)
+                            log.debug("[GOD-WS] Restored cache via REST snapshot for %s", token_id)
+            except Exception as e:
+                log.warning("[GOD-WS] Failed to pull REST snapshot for %s: %s", token_id, e)
 
     async def _ws_loop(self):
         """Thread A: WebSocket listener loop."""

@@ -687,16 +687,33 @@ def build_regime_panel() -> Panel:
     """Build the current regime classifications and indicators."""
     with g_state.lock:
         reg = dict(g_state.regime_state)
-        sent = dict(g_state.sentiment_state)
         hft = dict(g_state.hft_metrics)
 
     raw_reg = str(reg.get("regime", "UNKNOWN")).upper()
-    atr_pct = float(reg.get("atr_percentile", 50.0))
-    obi = float(reg.get("obi", 0.0))
-    vol_ratio = float(reg.get("volume_ratio", 1.0))
     
-    fng_val = int(sent.get("value", 50))
-    fng_lbl = str(sent.get("label", "Neutral"))
+    # Load gate matrix data
+    matrix_file = DATA_DIR / "gate_matrix.json"
+    is_weekend = False
+    gate_assets = {}
+    if matrix_file.exists():
+        try:
+            gate_data = json.loads(matrix_file.read_text(encoding="utf-8"))
+            is_weekend = gate_data.get("WEEKEND", False)
+            gate_assets = gate_data.get("assets", {})
+        except Exception:
+            pass
+            
+    # Check fallback: if date is weekend
+    from datetime import datetime
+    if not is_weekend:
+        # Friday 22:00 UTC to Sunday 22:00 UTC
+        now_utc = datetime.utcnow()
+        day = now_utc.weekday()
+        hour = now_utc.hour
+        if (day == 4 and hour >= 22) or day == 5 or (day == 6 and hour < 22):
+            is_weekend = True
+            
+    timeline_mode = "WEEKEND" if is_weekend else "WEEKDAY"
 
     # Mapping styles
     regime_color = "white"
@@ -709,35 +726,58 @@ def build_regime_panel() -> Panel:
     elif raw_reg == "VOLATILE_CHAOS":
         regime_color = "red bold"
 
-    regime_table = Table.grid(expand=True, padding=(0, 1))
-    regime_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=16)
-    regime_table.add_column("Value", justify="right", style=COLOR_VAL)
+    # Header Table
+    header_table = Table.grid(expand=True, padding=(0, 1))
+    header_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=16)
+    header_table.add_column("Value", justify="right", style=COLOR_VAL)
+    header_table.add_row("Market Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]")
+    header_table.add_row("Timeline Mode:", f"[bold magenta]{timeline_mode}[/bold magenta]")
 
-    regime_table.add_row("Market Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]")
-    regime_table.add_row("ATR Percentile:", f"{atr_pct:.1f}%")
-    regime_table.add_row("Volume Ratio:", f"{vol_ratio:.2f}x")
-    regime_table.add_row("F&G Index:", f"{fng_val} ({fng_lbl})")
+    # Signal & Gate Matrix Table
+    matrix_table = Table(box=ROUNDED, expand=True, padding=(0, 1))
+    matrix_table.add_column("Asset", style="bold white")
+    matrix_table.add_column("RSI", justify="right")
+    matrix_table.add_column("CVD", justify="right")
+    matrix_table.add_column("OBI", justify="right")
+    matrix_table.add_column("NIC", justify="right")
+    matrix_table.add_column("Score", justify="right")
+    matrix_table.add_column("Status", justify="center")
 
-    # Size scale multiplier based on regime
-    mult = 1.00
-    if raw_reg == "TRENDING":
-        mult = 1.30
-    elif raw_reg == "COMPRESSION":
-        mult = 1.10
-    elif raw_reg == "MEAN_REVERTING":
-        mult = 0.85
-    elif raw_reg == "VOLATILE_CHAOS":
-        mult = 0.30
-    regime_table.add_row("Size Modifier:", f"{mult:.2f}x")
-
-    # HFT Asset Flow section (CVD & OBI)
-    regime_table.add_row("", "")  # Spacer
-    regime_table.add_row(f"[bold {COLOR_LABEL}]Asset Flow[/bold {COLOR_LABEL}]", f"[bold {COLOR_LABEL}]CVD (10s) | OBI[/bold {COLOR_LABEL}]")
     for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
         m = hft.get(asset, {})
-        obi_val = m.get("obi", 0.0)
-        cvd_val = m.get("cvd_fast", 0.0)
+        # Get live values from websocket/hft, fall back to gate_assets
+        gate_info = gate_assets.get(asset, {})
         
+        # RSI
+        rsi_val = gate_info.get("rsi")
+        if rsi_val is None:
+            rsi_val = 50.0
+            
+        # OBI
+        obi_val = m.get("obi")
+        if obi_val is None:
+            obi_val = gate_info.get("obi", 0.0)
+            
+        # CVD
+        cvd_val = m.get("cvd_fast")
+        if cvd_val is None:
+            cvd_val = gate_info.get("cvd", 0.0)
+            
+        # NIC (Net Imbalance Cascade from gate_info)
+        nic_val = gate_info.get("nic", 0.0)
+        
+        # Confluence Score & Status
+        score_val = gate_info.get("score", 0.0)
+        status_val = gate_info.get("status", "IDLE")
+
+        # RSI Formatting
+        if rsi_val >= 70:
+            rsi_str = f"[red]{rsi_val:.1f}[/red]"
+        elif rsi_val <= 30:
+            rsi_str = f"[green]{rsi_val:.1f}[/green]"
+        else:
+            rsi_str = f"{rsi_val:.1f}"
+
         # CVD formatting with arrows
         if cvd_val > 0.01:
             cvd_str = f"▲ +{cvd_val:.1f}"
@@ -746,7 +786,7 @@ def build_regime_panel() -> Panel:
             cvd_str = f"▼ {cvd_val:.1f}"
             cvd_color = "red"
         else:
-            cvd_str = "  0.0"
+            cvd_str = "0.0"
             cvd_color = "grey70"
             
         # OBI formatting with arrows
@@ -757,22 +797,49 @@ def build_regime_panel() -> Panel:
             obi_str = f"▼ {obi_val:.2f}"
             obi_color = "red"
         else:
-            obi_str = f"  {obi_val:.2f}"
+            obi_str = f"{obi_val:.2f}"
             obi_color = "grey70"
-        
-        regime_table.add_row(f" {asset}:", f"[{cvd_color}]{cvd_str}[/{cvd_color}] | [{obi_color}]{obi_str}[/{obi_color}]")
 
-    # Upcoming setups based on potential_trades.json
-    regime_table.add_row("", "")  # Spacer
-    regime_table.add_row(f"[bold {COLOR_LABEL}]Setup Alerts[/bold {COLOR_LABEL}]", f"[bold {COLOR_LABEL}]RSI Proximity[/bold {COLOR_LABEL}]")
-    
+        # NIC formatting
+        if nic_val > 0.05:
+            nic_str = f"[green]▲ +{nic_val:.2f}[/green]"
+        elif nic_val < -0.05:
+            nic_str = f"[red]▼ {nic_val:.2f}[/red]"
+        else:
+            nic_str = f"[grey70]{nic_val:.2f}[/grey70]"
+
+        # Score
+        score_str = f"{score_val:.2f}"
+
+        # Status
+        if status_val == "CONFIRM":
+            status_str = "[bold green]CONFIRM[/bold green]"
+        elif status_val == "INVERT":
+            status_str = "[bold yellow]INVERT[/bold yellow]"
+        elif status_val == "FADE":
+            status_str = "[bold cyan]FADE[/bold cyan]"
+        elif status_val == "NEUTRAL":
+            status_str = "[grey50]NEUTRAL[/grey50]"
+        else:
+            status_str = f"[grey70]{status_val}[/grey70]"
+
+        matrix_table.add_row(
+            asset,
+            rsi_str,
+            f"[{cvd_color}]{cvd_str}[/{cvd_color}]",
+            f"[{obi_color}]{obi_str}[/{obi_color}]",
+            nic_str,
+            score_str,
+            status_str
+        )
+
+    # Actionable Setup Alerts based on potential_trades.json
     with g_state.lock:
         pt = dict(g_state.potential_trades)
         
     setups = []
     for key in sorted(pt.keys()):
         if pt[key]:
-            # Convert format like "BTC/5m" to uppercase asset but keep TF
             parts = key.split("/")
             if len(parts) == 2:
                 setups.append(f"{parts[0].upper()}/{parts[1]}")
@@ -783,10 +850,18 @@ def build_regime_panel() -> Panel:
         setup_str = ", ".join(f"[bold green]{s}[/bold green]" for s in setups)
     else:
         setup_str = "[grey50]None[/grey50]"
-        
-    regime_table.add_row(" Formed setups:", setup_str)
 
-    return Panel(regime_table, title=f"[bold {COLOR_LABEL}]Market Regime & Analytics[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
+    # Combined Layout Container
+    panel_content = Table.grid(expand=True)
+    panel_content.add_column("Col")
+    panel_content.add_row(header_table)
+    panel_content.add_row("")  # Spacer
+    panel_content.add_row("[bold white]Signal & Gate Matrix[/bold white]")
+    panel_content.add_row(matrix_table)
+    panel_content.add_row("")  # Spacer
+    panel_content.add_row(f"[bold {COLOR_LABEL}]Setup Alerts:[/bold {COLOR_LABEL}] {setup_str}")
+
+    return Panel(panel_content, title=f"[bold {COLOR_LABEL}]Market Regime & Analytics[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_active_positions_panel() -> Panel:

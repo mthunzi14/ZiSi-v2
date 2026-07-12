@@ -1,0 +1,45 @@
+{
+  "WEEKEND": false,
+  "assets": {
+    "BTC": {
+      "rsi": 50.0,
+      "cvd": 0.0,
+      "obi": 0.0,
+      "nic": 0.0,
+      "score": 0.0,
+      "status": "IDLE"
+    },
+    "ETH": {
+      "rsi": 50.0,
+      "cvd": 0.0,
+      "obi": 0.0,
+      "nic": 0.0,
+      "score": 0.0,
+      "status": "IDLE"
+    },
+    "SOL": {
+      "rsi": 50.0,
+      "cvd": 0.0,
+      "obi": 0.0,
+      "nic": 0.0,
+      "score": 0.0,
+      "status": "IDLE"
+    },
+    "XRP": {
+      "rsi": 50.0,
+      "cvd": 0.0,
+      "obi": 0.0,
+      "nic": 0.0,
+      "score": 0.0,
+      "status": "IDLE"
+    },
+    "DOGE": {
+      "rsi": 50.0,
+      "cvd": 0.0,
+      "obi": 0.0,
+      "nic": 0.0,
+      "score": 0.0,
+      "status": "IDLE"
+    }
+  }
+}

@@ -201,8 +201,8 @@ class AntifragileRecovery:
     def _bootstrap_from_positions(self) -> None:
         """Read closed trades from positions_state.json to initialise
         trade history and streak counters if we have no persisted state."""
-        if self._trade_history:
-            # Already populated from persisted state — skip
+        if self._trade_history or _STATE_PATH.exists():
+            # Already populated from persisted state or state file exists — skip
             return
 
         try:

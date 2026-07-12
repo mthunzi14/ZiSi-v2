@@ -210,13 +210,17 @@ async def _evaluate_market_signals(
         candle_start = (int(now_ts) // (interval_minutes * 60)) * (interval_minutes * 60)
         elapsed = now_ts - candle_start
         
-        # ── DEEP FIX: 30-SECOND CANDLE OPEN BOUNDARY LIMIT ──
-        # Prevent any mid-candle/late signal generation and entry.
-        # This completely eliminates the momentum-chasing late entry trap.
-        if elapsed > 30.0:
+        # ── DEEP FIX: TIMING GATE ──
+        # Allow signal evaluation either in the first 30 seconds (Candle Open) OR the final 2 minutes of the candle (Timing Gate).
+        # Otherwise block mid-candle noise.
+        candle_duration = interval_minutes * 60
+        in_open_gate = (elapsed <= 30.0)
+        in_close_gate = (elapsed >= candle_duration - 120.0 and elapsed <= candle_duration - 5.0)
+        
+        if not (in_open_gate or in_close_gate):
             log.debug(
-                "[MAIN] %s/%s: Signal evaluation retry window closed (elapsed=%.1fs > 30.0s) — skip",
-                asset, timeframe, elapsed
+                "[MAIN] %s/%s: Outside timing gates (elapsed=%.1fs, need <=30s or >=%ds) — skip",
+                asset, timeframe, elapsed, candle_duration - 120
             )
             return None
 
@@ -285,6 +289,13 @@ async def _validate_trade_slot(
                  asset, timeframe, entry_price)
         context.log_skip("sig_floor_40c", asset, timeframe)
         return False, {"skip_reason": "sig_floor_40c"}
+
+    # Coin-flip band block: block momentum SIG entries in the 0.60 to 0.70 range
+    if _entry_source in ("SIG", "SIGNAL") and 0.60 <= entry_price <= 0.70:
+        log.info("[SIG-ZONE-BLOCK] %s/%s: SIG %.4f in 0.60-0.70 coin-flip band — block momentum entry",
+                 asset, timeframe, entry_price)
+        context.log_skip("sig_coinflip_zone", asset, timeframe)
+        return False, {"skip_reason": "sig_coinflip_zone"}
 
     # P5: SIG price ceiling — block buying the expensive side of an overextended market.
     # SIG/YES (UP) at >60¢ on 5m or >65¢ on 15m means market already priced it heavily;
@@ -612,8 +623,8 @@ async def _validate_trade_slot(
             log.info("[RISK] FV-1h cap: $%.2f → $%.2f (uncalibrated — env FV_1H_MAX_BET to override)", bet_usd, _fv_1h_cap)
             bet_usd = float(os.getenv("FV_1H_MAX_BET", str(_fv_1h_cap)))
 
-    # Enforce minimum size floor ($2.50) to prevent size_too_small skips on small accounts
-    min_bet_floor = 2.50
+    # Enforce minimum size floor ($5.00) to prevent size_too_small skips on small accounts
+    min_bet_floor = 5.00
     if bet_usd < min_bet_floor:
         log.info("[RISK] Bet size $%.2f scaled up to minimum floor: $%.2f", bet_usd, min_bet_floor)
         bet_usd = min_bet_floor
@@ -967,31 +978,7 @@ async def asset_loop(
                 await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
                 continue
 
-            # ── Coordinated Conviction-Ranked Cap of 3 ──
-            if signal.get("entry_source", "SIG") in ("SIG", "SIGNAL"):
-                now_ts = int(time.time())
-                candle_ts = (now_ts // (interval_minutes * 60)) * (interval_minutes * 60)
-                proceed = await _coordinate_signal_entry(
-                    context, asset, timeframe, signal["score"], signal, details, candle_ts
-                )
-                if not proceed:
-                    log_unified_sig_lifecycle(asset, timeframe, signal, details, "SKIP", "exceeded_cap_of_3")
-                    context.log_skip("exceeded_cap_of_3", asset, timeframe)
-                    
-                    try:
-                        eval_signal_data = {
-                            "confidence": signal["score"],
-                            "direction": details.get("direction", signal.get("direction", "UNKNOWN")),
-                            "coin": asset,
-                            "source": signal.get("entry_source", "SIG"),
-                            "skip_reason": "exceeded_cap_of_3",
-                        }
-                        log_signal_evaluation(eval_signal_data, None, signal["score"])
-                    except Exception:
-                        pass
-                        
-                    await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
-                    continue
+
 
             # 3. Execute Order Flow
             execution_start = time.time()
@@ -1236,6 +1223,40 @@ async def _zombie_cleanup_loop() -> None:
 async def main() -> None:
     # Initialize persistent account state explicitly during bot startup (Issue E fix)
     initialize_state()
+    
+    # ── Startup Credentials Verification ──
+    try:
+        cfg = load_config()
+        mode = cfg.get("BOT_MODE", "paper_trading")
+        is_live = (mode == "live_trading")
+        warnings = []
+        
+        # Check Polymarket CLOB keys
+        clob_key = os.getenv("POLYMARKET_CLOB_API_KEY")
+        clob_secret = os.getenv("POLYMARKET_CLOB_API_SECRET")
+        clob_passphrase = os.getenv("POLYMARKET_CLOB_PASSPHRASE")
+        
+        if not clob_key or not clob_secret or not clob_passphrase:
+            msg = "Missing Polymarket CLOB API credentials (POLYMARKET_CLOB_API_KEY/SECRET/PASSPHRASE)"
+            if is_live:
+                log.critical("[CRITICAL-STARTUP] %s. Halting live bot.", msg)
+                sys.exit(1)
+            else:
+                warnings.append(msg)
+                
+        # Check Telegram credentials (non-blocking warning)
+        tg_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        tg_chat = os.getenv("TELEGRAM_CHAT_ID")
+        if not tg_token or not tg_chat:
+            warnings.append("Missing Telegram configuration (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID)")
+            
+        if warnings:
+            log.warning("[STARTUP-WARN] Paper trading startup credentials check:")
+            for w in warnings:
+                log.warning("  - %s", w)
+    except Exception as _ce:
+        log.warning("[STARTUP-CHECK] Credentials verification error: %s", _ce)
+
     # Clean up any zombie positions from prior session at startup
     try:
         from core.engine.state_manager import cleanup_expired_positions

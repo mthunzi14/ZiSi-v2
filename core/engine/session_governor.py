@@ -126,10 +126,9 @@ async def request_trade_slot(
     async with _lock:
         now = time.time()
 
-        # 2. Enforce exposure ceilings
-        from config import get_config
-        max_total_open = get_config("MAX_TOTAL_OPEN", 8)
-        max_open_per_asset = get_config("MAX_OPEN_PER_ASSET", 2)
+        # 2. Enforce exposure ceilings (Disabled - set to 99)
+        max_total_open = 99
+        max_open_per_asset = 99
         
         total_open = len(open_positions)
         asset_open = 0

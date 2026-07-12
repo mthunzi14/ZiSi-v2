@@ -614,8 +614,16 @@ def place_order(
             "entry_spot": entry_spot,
             **({"expiry_ts": expiry_ts} if expiry_ts else {}),
         }
+        # Decrement mock gas
+        try:
+            from core.engine.state_manager import decrement_gas
+            decrement_gas(0.005)
+        except Exception as ge:
+            log.warning("Failed to decrement gas: %s", ge)
+
         tp, sl = _calculate_exit_targets_fallback(entry_price, actual_cost, _display_title, direction)
         pillar, t_type = _derive_pillar_and_type(_display_title)
+        tranche_a_target = min(0.99, round(entry_price + 0.07, 4))
         _open_positions[order_id] = {
             **order,
             "target_price": tp,
@@ -626,6 +634,9 @@ def place_order(
             "pillar": pillar,
             "type": t_type,
             "hold_to_expiry": hold_to_expiry,
+            "tranche_a_target": tranche_a_target,
+            "tranche_a_closed": False,
+            "tranche_b_closed": False,
         }
         persist_positions()
         return order
@@ -690,6 +701,7 @@ def place_order(
 
     tp, sl = _calculate_exit_targets_fallback(entry_price, amount_dollars, event_title, direction)
     pillar, t_type = _derive_pillar_and_type(event_title or "")
+    tranche_a_target = min(0.99, round(entry_price + 0.07, 4))
     _open_positions[order["order_id"]] = {
         **order,
         "event_title":  event_title or event_id,
@@ -700,6 +712,9 @@ def place_order(
         "trade_type":   _derive_trade_type(_derive_entry_type(event_title or "")),
         "pillar":       pillar,
         "type":         t_type,
+        "tranche_a_target": tranche_a_target,
+        "tranche_a_closed": False,
+        "tranche_b_closed": False,
         **({"expiry_ts": expiry_ts} if expiry_ts else {}),
     }
     persist_positions()
@@ -1207,28 +1222,58 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 exit_price = round(_stored, 4)
                 log.debug("[LIVE-EXIT] Using stored price %.4f for %s (live fetch unavailable)", exit_price, order_id)
 
-        # Evaluate exit triggers
-        is_target_hit = exit_price >= target_price
+        # Evaluate tranches exit targets
+        tranche_a_target = pos.get("tranche_a_target")
+        if not tranche_a_target:
+            tranche_a_target = min(0.99, round(entry_price + 0.07, 4))
+            pos["tranche_a_target"] = tranche_a_target
+        
+        tranche_b_target = pos.get("tranche_b_target") or pos.get("target_price") or target_price
+        if not pos.get("tranche_b_target"):
+            pos["tranche_b_target"] = tranche_b_target
+
+        tranche_a_closed = pos.get("tranche_a_closed", False)
+
+        # Tranche A exit check
+        if not tranche_a_closed:
+            if exit_price >= tranche_a_target:
+                tranche_a_closed = True
+                pos["tranche_a_closed"] = True
+                
+                shares_a = shares * 0.5
+                cost_a = pos["amount_spent"] * 0.5
+                exit_val_a = round(shares_a * exit_price, 2)
+                profit_a = round(exit_val_a - cost_a, 2)
+                
+                new_bal = get_current_balance() + exit_val_a
+                try:
+                    update_balance(new_bal, reason=f"Tranche A of {order_id} closed at {exit_price} (+${profit_a:+.2f})")
+                except Exception as ex:
+                    log.error("Failed to update balance for Tranche A exit: %s", ex)
+                
+                log.info(
+                    "[TRANCHE-A-EXIT] %s Tranche A (50%%) Scalped at %.2fc (entry %.2fc) | PnL = %+.2f$",
+                    order_id, exit_price * 100, entry_price * 100, profit_a
+                )
+                
+                # Reduce active position sizing by half for remaining Tranche B
+                pos["shares_acquired"] = round(shares * 0.5, 4)
+                pos["amount_spent"] = round(pos["amount_spent"] * 0.5, 2)
+                pos["tranche_a_profit"] = profit_a
+                persist_positions()
+
+        # Evaluate Tranche B and emergency triggers
+        is_target_hit = exit_price >= tranche_b_target
         is_stop_hit = exit_price <= stop_loss if (not _is_short_tf or (stop_loss is not None and stop_loss > 0)) else False
         is_time_decay_hit = is_updown and not _is_short_tf and not is_expired and age_minutes >= 0.7 * effective_max_minutes
-
-        # SALVAGE_EXIT (short-TF only): if within 90s of the real market expiry_ts
-        # AND the contract price has collapsed below 20¢, exit immediately to recover
-        # whatever value remains instead of riding it to 1¢.
-        # Uses expiry_ts (actual Polymarket close) NOT age-from-entry, eliminating the
-        # ~90s blind spot that was causing full losses on the reconciliation path.
         is_salvage_exit = False
-        # Salvage exits disabled for short-TF to hold to resolution
 
-        # 80% drawdown stop-loss: if price dropped to ≤20% of entry, position is
-        # almost certainly wrong direction. Exit now to save 80% of stake.
-        # Applies to ALL timeframes including short-TF (which normally has stop_loss=-1).
+        # 80% drawdown stop-loss
         _drawdown_floor = entry_price * 0.20
         if not _is_short_tf and not is_expired and exit_price is not None and 0.005 < exit_price <= _drawdown_floor:
             log.info(
-                "[STOP-LOSS] %s: %.0fc ≤ 20%% of entry %.0fc — early exit saving %.0f%% of stake",
-                order_id, exit_price * 100, entry_price * 100,
-                (exit_price / max(entry_price, 0.001)) * 100,
+                "[STOP-LOSS] %s: %.0fc <= 20%% of entry %.0fc - early exit saving 80%% of remaining stake",
+                order_id, exit_price * 100, entry_price * 100
             )
             is_stop_hit = True
 
@@ -1237,8 +1282,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
             pos["current_price"] = exit_price
             continue
 
-        # ATM hold-to-expiry: if the position has the flag set and target was hit,
-        # suppress the early exit and let the position run until expiry.
+        # ATM hold-to-expiry
         if is_target_hit and pos.get("hold_to_expiry", False):
             remaining_min = effective_max_minutes - age_minutes
             if remaining_min > 0.17:
@@ -1249,11 +1293,10 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         # Determine reason and exit type (Standard vs Netting Merge)
         if is_target_hit:
             exit_reason = "TARGET_HIT"
-            # Competitor Blueprint: Delta-neutral opposite-leg purchase simulation
             opposite_cost = round(1.0 - exit_price, 4)
             log.info(
-                "[NETTING-EXIT] %s TARGET HIT! Buying opposite outcome at %.2fc (YES: %.2fc + NO: %.2fc = %.2fc) to lock in profit risk-free",
-                order_id, opposite_cost * 100, exit_price * 100, opposite_cost * 100, (entry_price + opposite_cost) * 100
+                "[NETTING-EXIT] %s TARGET HIT! Buying opposite outcome at %.2fc to lock in profit risk-free",
+                order_id, opposite_cost * 100
             )
         elif is_stop_hit:
             exit_reason = "STOP_HIT"
@@ -1274,11 +1317,19 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         else:
             exit_reason = "MARKET_EXPIRED"
 
+        # Calculate final total PnL
+        shares_held = pos.get("shares_acquired", pos.get("shares", 0.0))
+        cost_held = pos.get("amount_spent", pos.get("entry_price", 0.0) * shares_held)
+        exit_value = round(shares_held * exit_price, 2)
+        profit_b = round(exit_value - cost_held, 2)
+        total_profit = pos.get("tranche_a_profit", 0.0) + profit_b
+
         result = execute_exit(order_id, exit_price, exit_reason=exit_reason)
         if result:
+            result["profit"] = total_profit
             log.info(
-                "[TIME-EXIT] %s closed after %.1fm | exit=%.4f | pnl=$%+.2f | reason=%s",
-                order_id, age_minutes, exit_price, result["profit"], exit_reason,
+                "[TIME-EXIT] %s closed after %.1fm | exit=%.4f | total_pnl=$%+.2f | reason=%s",
+                order_id, age_minutes, exit_price, total_profit, exit_reason,
             )
             closed.append({"order_id": order_id, **result})
 

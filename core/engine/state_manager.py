@@ -103,6 +103,40 @@ def update_balance(new_balance: float, reason: str = "") -> None:
     )
 
 
+def get_gas_balance() -> float:
+    """Return current mock gas balance (POL)."""
+    if _STATE_FILE.exists():
+        try:
+            data = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+            return float(data.get("gas_balance", 10.00))
+        except Exception:
+            pass
+    return 10.00
+
+
+def decrement_gas(amount: float = 0.005) -> float:
+    """Decrement gas balance by amount (default 0.005 POL per order)."""
+    existing = {}
+    if _STATE_FILE.exists():
+        try:
+            existing = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    gas = float(existing.get("gas_balance", 10.00))
+    gas = max(0.0, round(gas - amount, 5))
+    existing["gas_balance"] = gas
+    
+    # Log warning if < 2 POL
+    if gas < 2.0:
+        log.warning("[GAS-WARN] Mock POL gas balance is low: %.4f POL (warning < 2 POL)", gas)
+    
+    import os
+    tmp_file = _STATE_FILE.with_suffix(".tmp")
+    tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    os.replace(tmp_file, _STATE_FILE)
+    return gas
+
+
 def get_current_balance() -> float:
     """Return the authoritative balance derived from positions_state.json.
 
