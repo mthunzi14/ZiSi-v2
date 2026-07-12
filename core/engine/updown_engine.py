@@ -1096,8 +1096,8 @@ class UpDownEngine:
                                 conf_res["decision"], conf_res["decision_path"]
                             )
                             
-                            # Write status to gate matrix file for UI dashboard
                             try:
+                                from pathlib import Path
                                 matrix_file = Path(__file__).parent.parent.parent / "data" / "gate_matrix.json"
                                 mat_data = {}
                                 if matrix_file.exists():
