@@ -141,14 +141,14 @@ async def _sleep_to_next_candle(
             asyncio.create_task(engine.prefetch_upcoming_market(session, next_boundary))
             asyncio.create_task(engine.check_potential_trade(session))
             
-        # Recalculate remaining sleep until 0.5s past boundary to allow prices to populate
+        # Recalculate remaining sleep until 8.0s past boundary to allow prices to populate and spreads to narrow
         now = datetime.now(timezone.utc).timestamp()
-        sleep_secs = next_boundary - now + 0.5
+        sleep_secs = next_boundary - now + 8.0
         if sleep_secs > 0:
             await asyncio.sleep(sleep_secs)
     else:
-        # Standard sleep fallback (1.5 seconds past boundary for safety)
-        sleep_secs = next_boundary - now + 1.5
+        # Standard sleep fallback (9.0 seconds past boundary for safety)
+        sleep_secs = next_boundary - now + 9.0
         if sleep_secs > 0:
             await asyncio.sleep(sleep_secs)
 
