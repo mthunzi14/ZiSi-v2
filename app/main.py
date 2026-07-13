@@ -98,10 +98,7 @@ class TradingContext:
     def log_skip(self, reason: str, asset: str, timeframe: str, details: dict = None) -> None:
         self.funnel_stats["skipped"] += 1
         track_skip(reason, {"asset": asset, "timeframe": timeframe, **(details or {})})
-        if reason == "no_signal":
-            log.debug("[MAIN] %s/%s SKIP (%s) %s", asset, timeframe, reason, details or "")
-        else:
-            log.info("[MAIN] %s/%s SKIP (%s) %s", asset, timeframe, reason, details or "")
+        log.debug("[MAIN] %s/%s SKIP (%s) %s", asset, timeframe, reason, details or "")
 
 
 def _try_telegram(msg: str) -> None:
@@ -274,7 +271,7 @@ async def _validate_trade_slot(
                 and ((p.get("direction") in ("YES","UP")) == (direction == "UP"))
             )
             if _fv_same_dir_open >= 2:
-                log.info("[FV-CORR-CAP] %s/%s: already %d open FV %s positions — skip to avoid correlated exposure",
+                log.debug("[FV-CORR-CAP] %s/%s: already %d open FV %s positions — skip to avoid correlated exposure",
                          asset, timeframe, _fv_same_dir_open, direction)
                 context.log_skip("fv_correlated_cap", asset, timeframe)
                 return False, {"skip_reason": "fv_correlated_cap"}
@@ -286,7 +283,7 @@ async def _validate_trade_slot(
 
     # ── 15m Conviction Guard: Prefer 5m trades unless 15m has high conviction (score >= 0.70) ──
     if _entry_source in ("SIG", "SIGNAL") and timeframe == "15m" and score < 0.70:
-        log.info("[SIG-15M-GUARD] %s/15m: SIG score %.2f < 0.70 — skip 15m to prefer 5m",
+        log.debug("[SIG-15M-GUARD] %s/15m: SIG score %.2f < 0.70 — skip 15m to prefer 5m",
                  asset, score)
         context.log_skip("sig_15m_conviction_guard", asset, timeframe)
         return False, {"skip_reason": "sig_15m_conviction_guard"}
@@ -359,7 +356,7 @@ async def _validate_trade_slot(
                 
         # Block if BOTH leaders are against the trade...
         if leaders_checked == 2 and leaders_against == 2:
-            log.info(
+            log.debug(
                 "[LEADER-GUARD] %s/%s %s: blocked because BOTH leaders (BTC & ETH) are against the trade direction",
                 asset, timeframe, direction
             )
@@ -371,7 +368,7 @@ async def _validate_trade_slot(
         elif leaders_checked == 2 and leaders_confirming == 2:
             _boosted = max(float(signal.get("corroboration_multiplier", 1.0)), 1.3)
             signal["corroboration_multiplier"] = _boosted
-            log.info(
+            log.debug(
                 "[LEADER-PROP] %s/%s %s: BOTH leaders (BTC & ETH) confirm — propagating conviction (corr×%.1f)",
                 asset, timeframe, direction, _boosted,
             )
@@ -394,7 +391,7 @@ async def _validate_trade_slot(
             for p in open_positions
         )
         if _active_fv_on_asset:
-            log.info(
+            log.debug(
                 "[FV-ACTIVE-DEDUP] %s/%s: active FV position on %s — skip (prev candle still live)",
                 asset, timeframe, asset
             )
@@ -723,7 +720,12 @@ def log_unified_sig_lifecycle(
             asset_display, direction, entry_price, rsi, cvd, obi, details.get("bet_usd", 2.50), tp_target, regime
         )
     else:
-        reason = skip_reason or "no_signal"
+        reason = (signal.get("skip_reason") if signal else None) or skip_reason or "no_signal"
+        if reason == "sig_15m_conviction_guard":
+            reason = f"sig_15m_conviction_guard (score={score:.2f} < threshold=0.70)"
+        elif reason == "leader_corroboration_guard":
+            reason = "leader_corroboration_guard (BTC & ETH against)"
+
         log.info(
             "\033[90m[Skip] %s [%s]: Skipped (%s) | RSI=%.1f CVD=%+.2f OBI=%+.2f\033[0m",
             asset_display, direction, reason, rsi, cvd, obi
@@ -871,11 +873,32 @@ async def asset_loop(
                     sast_now = utc_now + timedelta(hours=2)
                     utc_str = utc_now.strftime("%H:%M:%S")
                     sast_str = sast_now.strftime("%H:%M:%S")
+                    # Ingest background health check
+                    clob_status = "OFFLINE"
+                    try:
+                        from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
+                        clob_lag = time.time() - polymarket_l2_gateway.last_msg_ts
+                        clob_status = f"HEALTHY ({clob_lag:.1f}s lag)" if clob_lag < 30.0 else f"LAGGING ({clob_lag:.1f}s)"
+                    except Exception as e:
+                        clob_status = f"ERROR ({e})"
+
+                    rtds_status = "OFFLINE"
+                    try:
+                        from core.engine.polymarket_rtds_ingest import polymarket_rtds_ingest
+                        rtds_lag = time.time() - polymarket_rtds_ingest.last_msg_ts
+                        rtds_status = f"HEALTHY ({rtds_lag:.1f}s lag)" if rtds_lag < 60.0 else f"LAGGING ({rtds_lag:.1f}s)"
+                    except Exception as e:
+                        rtds_status = f"ERROR ({e})"
+
                     log.info(
                         "\033[1;97m================================================================================\n"
                         "██████████████ [CANDLE BOUNDARY: %s UTC / %s SAST] ██████████████\n"
                         "================================================================================\033[0m",
                         utc_str, sast_str
+                    )
+                    log.info(
+                        "\033[90m[HEALTH] CLOB-WS: %s | RTDS-WS: %s | Staging: ACTIVE\033[0m",
+                        clob_status, rtds_status
                     )
 
             log.debug("[5m Candle Check] %s/%s: Evaluating indicators...", asset, timeframe)
@@ -1160,6 +1183,11 @@ async def _zombie_cleanup_loop() -> None:
 
 
 async def main() -> None:
+    log.info(
+        "\033[1;97m================================================================================\n"
+        "██████████████ [BOT STARTUP / RESTART INITIATED] ██████████████\n"
+        "================================================================================\033[0m"
+    )
     # Initialize persistent account state explicitly during bot startup (Issue E fix)
     initialize_state()
     
@@ -1190,11 +1218,11 @@ async def main() -> None:
             warnings.append("Missing Telegram configuration (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID)")
             
         if warnings:
-            log.warning("[STARTUP-WARN] Paper trading startup credentials check:")
+            log.debug("[STARTUP-INFO] Paper trading startup credentials check:")
             for w in warnings:
-                log.warning("  - %s", w)
+                log.debug("  - %s", w)
     except Exception as _ce:
-        log.warning("[STARTUP-CHECK] Credentials verification error: %s", _ce)
+        log.debug("[STARTUP-CHECK] Credentials verification skipped/debug: %s", _ce)
 
     # Clean up any zombie positions from prior session at startup
     try:
@@ -1329,7 +1357,11 @@ if __name__ == "__main__":
         try:
             asyncio.run(main())
         except KeyboardInterrupt:
-            log.info("[MAIN] Shutdown requested")
+            log.info(
+                "\033[1;97m================================================================================\n"
+                "██████████████ [BOT SHUTDOWN REQUESTED / GRACEFUL EXIT] ██████████████\n"
+                "================================================================================\033[0m"
+            )
             sys.exit(0)
         except Exception as e:
             log.exception("[MAIN] Engine crashed, restarting in 5s: %s", e)

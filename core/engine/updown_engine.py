@@ -982,7 +982,7 @@ class UpDownEngine:
                 log.warning("Failed to write initial gate matrix: %s", me)
 
             # Raw direction from the shared signal core
-            def make_neutral_signal():
+            def make_neutral_signal(reason="no_signal"):
                 return {
                     "asset": self.asset,
                     "timeframe": self.timeframe,
@@ -1005,6 +1005,7 @@ class UpDownEngine:
                     "fv_archetype": "moderate",
                     "whale_aligned": True,
                     "confluence_score": 2,
+                    "skip_reason": reason,
                 }
 
             from core.engine.signal_core import decide_signal
@@ -1046,7 +1047,7 @@ class UpDownEngine:
 
                 if not flipped:
                     log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
-                    return make_neutral_signal()
+                    return make_neutral_signal(reason=_dec.get("reason", "spot_ofi_divergence"))
             if _dec["is_reversal"]:
                 log.warning("[REVERSAL] %s/%s RSI=%.2f reversal-snipe %s.", self.asset, self.timeframe, rsi, raw_dir)
             elif raw_dir is None:
@@ -1072,7 +1073,7 @@ class UpDownEngine:
                             self.asset, self.timeframe, (up_price + dn_price), raw_dir,
                         )
                     else:
-                        return make_neutral_signal()
+                        return make_neutral_signal(reason=_dec.get("reason", "neutral_rsi"))
 
                 # Apply regime (fade weak momentum in mean-reversion; follow strong trends)
                 direction = apply_regime(raw_dir, regime, mom=mom)
@@ -1290,7 +1291,7 @@ class UpDownEngine:
         #     return None
 
         if score < 0.55 and not is_dual_eligible:
-            return make_neutral_signal()
+            return make_neutral_signal(reason=f"score={score:.2f} < threshold=0.55")
 
 
 
@@ -1341,7 +1342,7 @@ class UpDownEngine:
                                 "[TREND-FREEZE] %s midpoint entry frozen. Alignment=%d/4, ADX=%.1f. Bypassing entry to avoid drawdown.",
                                 self.asset, alignment_score, adx
                             )
-                            return make_neutral_signal()
+                            return make_neutral_signal(reason="trend_freeze")
                 except Exception as e:
                     log.warning("[ENGINE] Failed to evaluate Overlay B: %s", e)
 
@@ -1384,6 +1385,7 @@ class UpDownEngine:
             "fast_cvd":     fast_cvd,
             "slow_cvd":     slow_cvd,
             "binance_obi":  binance_obi,
+            "skip_reason":  "confirm",
         }
 
 

@@ -1210,11 +1210,11 @@ def main():
             # Render based on fullscreen mode
             if fs_mode == 'logs':
                 layout_logs["header"].update(build_header_panel())
-                layout_logs["logs_panel"].update(build_logs_panel(num_lines=32))
+                layout_logs["logs_panel"].update(build_logs_panel(num_lines=45))
                 live.update(layout_logs)
             elif fs_mode == 'closed':
                 layout_closed["header"].update(build_header_panel())
-                layout_closed["closed_panel"].update(build_closed_positions_panel(num_lines=30))
+                layout_closed["closed_panel"].update(build_closed_positions_panel(num_lines=40))
                 live.update(layout_closed)
             elif fs_mode == 'active':
                 layout_active["header"].update(build_header_panel())

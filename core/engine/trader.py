@@ -1273,6 +1273,15 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 )
                 
                 # Reduce active position sizing by half for remaining Tranche B
+                record_tranche_close(
+                    pos,
+                    tranche_name="A",
+                    exit_price=exit_price,
+                    exit_reason="TRANCHE_A_TARGET",
+                    profit=profit_a,
+                    shares_closed=shares_a,
+                    cost_closed=cost_a
+                )
                 pos["shares_acquired"] = round(shares * 0.5, 4)
                 pos["amount_spent"] = round(amount_spent * 0.5, 2)
                 pos["tranche_a_profit"] = profit_a
@@ -1599,13 +1608,33 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
 
     title_short = (pos.get("event_title") or order_id)[:50]
 
+    tranche_a_profit = pos.get("tranche_a_profit", 0.0)
+    tranche_a_closed = pos.get("tranche_a_closed", False)
+    total_profit = round(tranche_a_profit + profit, 2)
+
+    # If this position was split, record Tranche B here!
+    if tranche_a_closed:
+        record_tranche_close(
+            pos,
+            tranche_name="B",
+            exit_price=current_price,
+            exit_reason=exit_reason,
+            profit=profit,
+            shares_closed=shares,
+            cost_closed=entry_value
+        )
+
     update_trade_record(order_id, exit_data)
     persist_positions()
 
     # Balance is already updated by persist_positions() above — just read it back
     new_balance = get_current_balance()
     try:
-        update_balance(new_balance, reason=f"Trade {order_id} closed with ${profit:+.2f}")
+        if tranche_a_closed:
+            reason = f"Tranche B of {order_id} closed at {current_price:.3f} (+${profit:+.2f}, Total PnL: +${total_profit:+.2f})"
+        else:
+            reason = f"Trade {order_id} closed with ${profit:+.2f}"
+        update_balance(new_balance, reason=reason)
     except Exception as exc:
         log.error("Failed to update balance after trade %s: %s", order_id, exc)
 
@@ -1718,6 +1747,72 @@ def get_position_summary() -> dict:
     }
 
 
+def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_reason: str, profit: float, shares_closed: float, cost_closed: float):
+    try:
+        from pathlib import Path
+        import json
+        out_path = Path(__file__).parent.parent.parent / "data" / "positions_state.json"
+        if not out_path.exists():
+            return
+        
+        # Load existing data
+        data = json.loads(out_path.read_text(encoding="utf-8"))
+        closed_list = data.setdefault("closed", [])
+        
+        # Check if this specific tranche record was already written (to prevent duplicate writes on restarts)
+        tranche_order_id = f"{pos['order_id']}_tranche_{tranche_name.lower()}"
+        if any(item.get("order_id") == tranche_order_id for item in closed_list):
+            return
+            
+        now = datetime.now(timezone.utc)
+        open_time = pos.get("open_time", now)
+        if isinstance(open_time, str):
+            try:
+                clean_time = open_time.replace("Z", "+00:00")
+                open_time = datetime.fromisoformat(clean_time)
+            except Exception:
+                open_time = now
+                
+        hold_min = round((now - open_time).total_seconds() / 60, 1) if isinstance(open_time, datetime) else 0
+        title = pos.get("event_title") or pos.get("event_id", pos.get("market_id", "Unknown"))
+        
+        tranche_record = {
+            "order_id":         tranche_order_id,
+            "parent_order_id":  pos["order_id"],
+            "tranche":          tranche_name,
+            "market":           pos.get("market", "POLYMARKET"),
+            "market_id":        pos.get("market_id", ""),
+            "event_id":         pos.get("event_id", ""),
+            "event_title":      title,
+            "direction":        pos.get("direction", "?"),
+            "entry_price":      round(pos.get("entry_price", 0.0), 4),
+            "exit_price":       round(exit_price, 4),
+            "size":             round(cost_closed, 2),
+            "realized_pnl":     round(profit, 2),
+            "realized_pnl_pct": round((profit / cost_closed * 100) if cost_closed else 0.0, 2),
+            "exit_reason":      exit_reason,
+            "hold_hours":       round(hold_min / 60, 2),
+            "entry_time":       open_time.isoformat() if isinstance(open_time, datetime) else str(open_time),
+            "exit_time":        now.isoformat(),
+            "expiry_ts":        pos.get("expiry_ts", 0),
+            "entry_type":       pos.get("entry_type", "SIGNAL"),
+            "trade_type":       _derive_trade_type(pos.get("entry_type","SIGNAL")),
+            "regime":           pos.get("regime", "UNKNOWN"),
+            "entry_spot":       pos.get("entry_spot", 0.0),
+        }
+        
+        closed_list.insert(0, tranche_record)
+        
+        # Save back to file under a lock or directly
+        tmp = out_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        import os
+        os.replace(tmp, out_path)
+        log.info("[HISTORY] Persisted Tranche %s for %s to positions_state.json", tranche_name, pos["order_id"])
+    except Exception as e:
+        log.error("Failed to record tranche close: %s", e)
+
+
 def persist_positions() -> None:
     """
     Write current open and closed Polymarket positions to positions_state.json.
@@ -1747,6 +1842,8 @@ def persist_positions() -> None:
             title       = pos.get("event_title") or pos.get("event_id", pos.get("market_id", "Unknown"))
 
             if status in ("CLOSED", "CANCELLED"):
+                if pos.get("tranche_a_closed"):
+                    continue
                 closed.append({
                     "order_id":         order_id,
                     "market":           pos.get("market", "POLYMARKET"),
@@ -1768,6 +1865,7 @@ def persist_positions() -> None:
                     "trade_type":       _derive_trade_type(pos.get("entry_type","SIGNAL")),
                     "regime":           pos.get("regime", "UNKNOWN"),
                     "entry_spot":       pos.get("entry_spot", 0.0),
+                    "tranche":          "SINGLE",
                 })
             else:
                 current_price = pos.get("current_price", entry_price)

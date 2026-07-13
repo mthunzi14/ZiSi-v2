@@ -200,10 +200,12 @@ def decide_signal(
 
         if ofi < -_block_magnitude(rsi, timeframe, p):
             res["blocked"] = True
+            res["reason"] = f"ofi_divergence (ofi={ofi:+.3f} < block={-_block_magnitude(rsi, timeframe, p):+.3f})"
             return res
         rsi_eff = max(rsi, rsi_up_eff)
         res["direction"] = "UP"
         res["score"] = min(0.85, 0.50 + (rsi_eff - rsi_up_eff) / max(1.0, 100.0 - rsi_up_eff) * 0.35)
+        res["reason"] = "confirm"
         return res
 
     if dn_trigger:
@@ -219,11 +221,41 @@ def decide_signal(
 
         if ofi > _block_magnitude(rsi, timeframe, p):
             res["blocked"] = True
+            res["reason"] = f"ofi_divergence (ofi={ofi:+.3f} > block={_block_magnitude(rsi, timeframe, p):+.3f})"
             return res
         rsi_eff = min(rsi, rsi_dn_eff)
         res["direction"] = "DOWN"
         res["score"] = min(0.85, 0.50 + (rsi_dn_eff - rsi_eff) / max(1.0, rsi_dn_eff) * 0.35)
+        res["reason"] = "confirm"
         return res
 
+    res["reason"] = _get_skip_detail_reason(rsi, mom, ofi, rsi_up_eff, rsi_up_soft_eff, rsi_dn_eff, rsi_dn_soft_eff, p)
     return res
+
+
+def _get_skip_detail_reason(rsi, mom, ofi, rsi_up_eff, rsi_up_soft_eff, rsi_dn_eff, rsi_dn_soft_eff, p) -> str:
+    if rsi > 50.0:
+        if rsi <= rsi_up_soft_eff:
+            return f"RSI={rsi:.1f} <= soft_trigger={rsi_up_soft_eff:.1f}"
+        if rsi > rsi_up_soft_eff and rsi <= rsi_up_eff:
+            if mom < p["mom_up_soft"]:
+                return f"RSI={rsi:.1f} (soft), but Mom={mom:.4f} < soft_trigger={p['mom_up_soft']:.4f}"
+            if ofi <= p["ofi_confirm_up"]:
+                return f"RSI={rsi:.1f} (soft), but OFI={ofi:+.2f} <= trigger={p['ofi_confirm_up']:+.2f}"
+        if rsi > rsi_up_eff:
+            if mom < p["mom_up"]:
+                return f"RSI={rsi:.1f} > trigger={rsi_up_eff:.1f}, but Mom={mom:.4f} < trigger={p['mom_up']:.4f}"
+        return f"RSI={rsi:.1f} < trigger={rsi_up_eff:.1f}"
+    else:
+        if rsi >= rsi_dn_soft_eff:
+            return f"RSI={rsi:.1f} >= soft_trigger={rsi_dn_soft_eff:.1f}"
+        if rsi < rsi_dn_soft_eff and rsi >= rsi_dn_eff:
+            if mom > p["mom_dn_soft"]:
+                return f"RSI={rsi:.1f} (soft), but Mom={mom:.4f} > soft_trigger={p['mom_dn_soft']:.4f}"
+            if ofi >= p["ofi_confirm_dn"]:
+                return f"RSI={rsi:.1f} (soft), but OFI={ofi:+.2f} >= trigger={p['ofi_confirm_dn']:+.2f}"
+        if rsi < rsi_dn_eff:
+            if mom > p["mom_dn"]:
+                return f"RSI={rsi:.1f} < trigger={rsi_dn_eff:.1f}, but Mom={mom:.4f} > trigger={p['mom_dn']:.4f}"
+        return f"RSI={rsi:.1f} > trigger={rsi_dn_eff:.1f}"
 

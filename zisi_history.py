@@ -44,6 +44,7 @@ def main():
     table.add_column("Asset", style="bold light_steel_blue")
     table.add_column("TF", justify="center", style="grey70")
     table.add_column("Strategy", justify="center", style="grey70")
+    table.add_column("Tranche", justify="center", style="bold magenta")
     table.add_column("Dir", justify="center")
     table.add_column("Size", justify="right", style="grey70")
     table.add_column("Entry Token", justify="right", style="grey70")
@@ -89,6 +90,7 @@ def main():
             asset,
             tf,
             pos.get("entry_type", "SIG"),
+            pos.get("tranche", "SINGLE"),
             f"[{dir_color}]{direction}[/{dir_color}]",
             f"${pos.get('size', 0.0):.2f}",
             f"${pos.get('entry_price', 0.0):.3f}",
