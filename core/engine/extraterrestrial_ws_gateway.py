@@ -138,17 +138,7 @@ class ExtraterrestrialWSGateway:
         candles = token_candles.get(sec, [])
         return candles[-limit:]
 
-    async def _ping_sender(self, ws):
-        """Rule 4: Send string literal 'PING' every 10 seconds to keepalive."""
-        try:
-            while self.is_active and not ws.closed:
-                await asyncio.sleep(10)
-                if not ws.closed:
-                    await ws.send_str("PING")
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            log.warning(f"[GOD-WS] Ping error: {e}")
+
 
     async def _connection_watchdog(self, ws):
         """Hard 30-second timeout for reconnects; quiet 3-second REST pull to keep cache fresh."""
@@ -217,7 +207,7 @@ class ExtraterrestrialWSGateway:
                 self._session = aiohttp.ClientSession(headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 })
-                async with self._session.ws_connect(self.feed_url) as ws:
+                async with self._session.ws_connect(self.feed_url, heartbeat=10.0) as ws:
                     self._ws = ws
                     log.info("[GOD-WS] Connected to Polymarket CLOB WebSocket")
                     backoff = 3.0
@@ -230,7 +220,6 @@ class ExtraterrestrialWSGateway:
                         }
                         await ws.send_json(msg)
 
-                    ping_task = asyncio.create_task(self._ping_sender(ws))
                     watchdog_task = asyncio.create_task(self._connection_watchdog(ws))
                     
                     try:
@@ -248,7 +237,6 @@ class ExtraterrestrialWSGateway:
                             elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
                                 break
                     finally:
-                        ping_task.cancel()
                         watchdog_task.cancel()
             except Exception as e:
                 log.error(f"[GOD-WS] WebSocket connection exception: {e}")

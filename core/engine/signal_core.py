@@ -166,20 +166,7 @@ def decide_signal(
     if rsi is None:
         return res
 
-    # ── Primary Order Flow Trigger (CVD & OBI) ──
-    if fast_cvd is not None and binance_obi is not None:
-        flow_bullish = fast_cvd > 0 and binance_obi > 0.10
-        flow_bearish = fast_cvd < 0 and binance_obi < -0.10
 
-        if flow_bullish and rsi < 85.0 and mom >= -0.01:
-            res["direction"] = "UP"
-            res["score"] = min(0.85, 0.50 + abs(binance_obi) * 0.35)
-            return res
-        elif flow_bearish and rsi > 15.0 and mom <= 0.01:
-            res["direction"] = "DOWN"
-            res["score"] = min(0.85, 0.50 + abs(binance_obi) * 0.35)
-            return res
-        return res
 
     # 1. Pre-momentum reversal sniping gets absolute priority at extreme RSI values
     if rsi < p["reversal_lo"]:

@@ -716,8 +716,8 @@ def log_unified_sig_lifecycle(
         bet_usd = details.get("bet_usd", 2.50)
         score = signal.get("score", 0.0)
         log.info(
-            "[SIG-EDGE] %s/%s [%s]: Score %.2f -> %.2f | Kelly Sizer: %.2f USDC",
-            asset, timeframe, signal.get("direction", "UP"), score, score, bet_usd
+            "\033[37m[5m Confirm] %s/%s [%s]: Score %.2f | Kelly Sizer: %.2f USDC\033[0m",
+            asset, timeframe, signal.get("direction", "UP"), score, bet_usd
         )
     elif signal and outcome == "SKIP":
         log.debug(
@@ -738,13 +738,13 @@ def log_unified_sig_lifecycle(
             tp_target = 0.72 if is_5m else 0.88
             
         log.info(
-            "[SIG-ENTER] %s/%s [%s]: Entered at %.3f | Size: %.2f USDC | TP Target: %.3f (%s)",
+            "\033[1;97m[5m Execution] %s/%s [%s]: Entered at %.3f | Size: %.2f USDC | TP: %.3f (%s)\033[0m",
             asset, timeframe, direction, entry_price, details.get("bet_usd", 2.50), tp_target, regime
         )
     else:
         reason = skip_reason or "no_signal"
         log.info(
-            "[SIG-SKIP] %s/%s: Skipped (%s)",
+            "\033[90m[5m Skip] %s/%s: Skipped (%s)\033[0m",
             asset, timeframe, reason
         )
 
@@ -884,6 +884,20 @@ async def asset_loop(
                 _try_telegram("HALT ZiSi: daily loss halt triggered — trading paused for today")
                 await asyncio.sleep(3600)
                 continue
+
+            # Print a single consolidated candle boundary header per cycle
+            current_candle_ts = int(time.time() // 300) * 300
+            async with context.pool_lock:
+                if not hasattr(context, "last_header_printed") or context.last_header_printed != current_candle_ts:
+                    context.last_header_printed = current_candle_ts
+                    from datetime import datetime, timezone, timedelta
+                    utc_now = datetime.now(timezone.utc)
+                    sast_now = utc_now + timedelta(hours=2)
+                    utc_str = utc_now.strftime("%H:%M:%S")
+                    sast_str = sast_now.strftime("%H:%M:%S")
+                    log.info("\033[97m─── [CANDLE BOUNDARY: %s UTC / %s SAST] ──────────────────────────────────────────\033[0m", utc_str, sast_str)
+
+            log.info("\033[37m[5m Candle Check] %s/%s: Evaluating indicators...\033[0m", asset, timeframe)
 
             # 1. Evaluate Market Signals
             signal = await _evaluate_market_signals(engine, session, interval_minutes, asset, timeframe)

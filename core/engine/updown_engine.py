@@ -1560,7 +1560,7 @@ class UpDownEngine:
                                 if k > now_ts - 3600
                             }
                             if is_new:
-                                log.info(
+                                log.debug(
                                     "[ENGINE] %s/%s: Upcoming market pre-fetched & WS subscribed! Yes=%s No=%s",
                                     self.asset, self.timeframe, up_tk[:10], dn_tk[:10]
                                 )
