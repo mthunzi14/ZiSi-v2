@@ -578,12 +578,18 @@ def place_order(
             }
 
             tp, sl = _calculate_exit_targets_fallback(entry_price, actual_cost, _display_title, direction)
+            tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
+            tranche_b_target = tp if tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
             _open_positions[order_id] = {
                 **order,
                 "target_price": tp,
                 "stop_loss": sl,
                 "open_time": datetime.now(timezone.utc),
                 "hold_to_expiry": hold_to_expiry,
+                "tranche_a_target": tranche_a_target,
+                "tranche_b_target": tranche_b_target,
+                "tranche_a_closed": False,
+                "tranche_b_closed": False,
             }
             persist_positions()
             log.info("Kalshi Order placed: %s status=%s", order["order_id"], order["status"])
@@ -623,7 +629,8 @@ def place_order(
 
         tp, sl = _calculate_exit_targets_fallback(entry_price, actual_cost, _display_title, direction)
         pillar, t_type = _derive_pillar_and_type(_display_title)
-        tranche_a_target = min(0.99, round(entry_price + 0.07, 4))
+        tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
+        tranche_b_target = tp if tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
         _open_positions[order_id] = {
             **order,
             "target_price": tp,
@@ -635,6 +642,7 @@ def place_order(
             "type": t_type,
             "hold_to_expiry": hold_to_expiry,
             "tranche_a_target": tranche_a_target,
+            "tranche_b_target": tranche_b_target,
             "tranche_a_closed": False,
             "tranche_b_closed": False,
         }
@@ -701,7 +709,8 @@ def place_order(
 
     tp, sl = _calculate_exit_targets_fallback(entry_price, amount_dollars, event_title, direction)
     pillar, t_type = _derive_pillar_and_type(event_title or "")
-    tranche_a_target = min(0.99, round(entry_price + 0.07, 4))
+    tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
+    tranche_b_target = tp if tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
     _open_positions[order["order_id"]] = {
         **order,
         "event_title":  event_title or event_id,
@@ -713,6 +722,7 @@ def place_order(
         "pillar":       pillar,
         "type":         t_type,
         "tranche_a_target": tranche_a_target,
+        "tranche_b_target": tranche_b_target,
         "tranche_a_closed": False,
         "tranche_b_closed": False,
         **({"expiry_ts": expiry_ts} if expiry_ts else {}),
@@ -967,10 +977,11 @@ def get_current_position(order_id: str) -> Optional[dict]:
         log.warning("No position found for order_id %s", order_id)
         return None
 
-    current_price = pos.get("current_price", pos["entry_price"])
-    shares = pos["shares_acquired"]
+    shares = pos.get("shares_acquired", pos.get("shares", 1.0))
+    entry_price = pos.get("entry_price", 0.50)
+    current_price = pos.get("current_price", entry_price)
     current_value = round(shares * current_price, 2)
-    entry_value = pos["amount_spent"]
+    entry_value = pos.get("amount_spent", shares * entry_price)
     unrealised_pnl = round(current_value - entry_value, 2)
     unrealised_pct = round((unrealised_pnl / entry_value) * 100, 2) if entry_value else 0
 
@@ -1227,11 +1238,13 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         # Evaluate tranches exit targets
         tranche_a_target = pos.get("tranche_a_target")
         if not tranche_a_target:
-            tranche_a_target = min(0.99, round(entry_price + 0.07, 4))
+            tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
             pos["tranche_a_target"] = tranche_a_target
         
-        tranche_b_target = pos.get("tranche_b_target") or pos.get("target_price") or target_price
-        if not pos.get("tranche_b_target"):
+        tranche_b_target = pos.get("tranche_b_target")
+        if not tranche_b_target:
+            ref_tp = pos.get("target_price") or target_price
+            tranche_b_target = ref_tp if ref_tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
             pos["tranche_b_target"] = tranche_b_target
 
         tranche_a_closed = pos.get("tranche_a_closed", False)
@@ -1243,7 +1256,8 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 pos["tranche_a_closed"] = True
                 
                 shares_a = shares * 0.5
-                cost_a = pos["amount_spent"] * 0.5
+                amount_spent = pos.get("amount_spent", shares * entry_price)
+                cost_a = amount_spent * 0.5
                 exit_val_a = round(shares_a * exit_price, 2)
                 profit_a = round(exit_val_a - cost_a, 2)
                 
@@ -1260,7 +1274,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 
                 # Reduce active position sizing by half for remaining Tranche B
                 pos["shares_acquired"] = round(shares * 0.5, 4)
-                pos["amount_spent"] = round(pos["amount_spent"] * 0.5, 2)
+                pos["amount_spent"] = round(amount_spent * 0.5, 2)
                 pos["tranche_a_profit"] = profit_a
                 persist_positions()
 
@@ -1428,8 +1442,9 @@ def check_exit_condition(
         if _price_fetched:
             _open_positions[order_id]["current_price"] = current_price
 
-    shares = pos["shares_acquired"]
-    entry_value = pos["amount_spent"]
+    shares = pos.get("shares_acquired", pos.get("shares", 1.0))
+    entry_price = pos.get("entry_price", 0.50)
+    entry_value = pos.get("amount_spent", shares * entry_price)
     current_value = shares * current_price
     pnl = round(current_value - entry_value, 2)
     pnl_pct = round((pnl / entry_value) * 100, 2) if entry_value else 0
@@ -1513,8 +1528,9 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
         log.debug("Cannot exit: order %s not found in open positions (likely pre-restart ghost)", order_id)
         return None
 
-    shares = pos["shares_acquired"]
-    entry_value = pos["amount_spent"]
+    shares = pos.get("shares_acquired", pos.get("shares", 1.0))
+    entry_price = pos.get("entry_price", 0.50)
+    entry_value = pos.get("amount_spent", shares * entry_price)
     exit_value = round(shares * current_price, 2)
     profit = round(exit_value - entry_value, 2)
     profit_pct = round((profit / entry_value) * 100, 2) if entry_value else 0

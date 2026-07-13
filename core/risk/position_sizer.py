@@ -194,21 +194,21 @@ class PositionSizer:
             # Apply Kelly fraction by Strategy Pillar
             if pillar == "CORE_SNIPER":
                 kelly_fraction = full_kelly * 0.25
-                log.info("[KELLY-PILLAR-1] Quarter-Kelly (full=%.4f, fraction=%.4f)", full_kelly, kelly_fraction)
+                log.debug("[KELLY-PILLAR-1] Quarter-Kelly (full=%.4f, fraction=%.4f)", full_kelly, kelly_fraction)
             elif pillar == "ASYMMETRIC_BARBELL":
                 # Entry price > 0.20 -> Half-Kelly
                 kelly_fraction = full_kelly * 0.50
-                log.info("[KELLY-PILLAR-2] Half-Kelly (full=%.4f, fraction=%.4f)", full_kelly, kelly_fraction)
+                log.debug("[KELLY-PILLAR-2] Half-Kelly (full=%.4f, fraction=%.4f)", full_kelly, kelly_fraction)
             elif pillar == "LATENCY_ARBITRAGE":
                 # Full Kelly scaled by target asset beta scaling factors
                 beta_factor = {"BTC": 1.0, "ETH": 1.0, "SOL": 0.75, "XRP": 0.50, "DOGE": 0.50}.get(_asset, 1.0)
                 kelly_fraction = full_kelly * beta_factor
-                log.info("[KELLY-PILLAR-3] Full Kelly scaled by beta %.2fx (full=%.4f, fraction=%.4f)", beta_factor, full_kelly, kelly_fraction)
+                log.debug("[KELLY-PILLAR-3] Full Kelly scaled by beta %.2fx (full=%.4f, fraction=%.4f)", beta_factor, full_kelly, kelly_fraction)
             else:
                 kelly_fraction = full_kelly * 0.25
 
             if kelly_fraction <= 0:
-                log.info("[KELLY] Negative or zero Kelly fraction (%.4f) - Edge insufficient. Terminating size computation.", kelly_fraction)
+                log.debug("[KELLY] Negative or zero Kelly fraction (%.4f) - Edge insufficient. Terminating size computation.", kelly_fraction)
                 return 0.0
 
             # Step 7: Apply all multipliers
@@ -256,7 +256,7 @@ class PositionSizer:
         self._capital_used += size
         self._trades += 1
 
-        log.info(
+        log.debug(
             "[KELLY] Trigger=%s | WR=%.1f%% payout=%.2f kelly_fraction=%.4f | "
             "regime*%.2f anti*%.2f heat*%.2f whale*%.2f | "
             "-> $%.2f | cycle=$%.2f/%d trades",

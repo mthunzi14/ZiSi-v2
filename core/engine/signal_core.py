@@ -168,13 +168,13 @@ def decide_signal(
 
 
 
-    # 1. Pre-momentum reversal sniping gets absolute priority at extreme RSI values
-    if rsi < p["reversal_lo"]:
-        res.update(direction="UP", score=p["reversal_score"], is_reversal=True)
-        return res
-    elif rsi > p["reversal_hi"]:
-        res.update(direction="DOWN", score=p["reversal_score"], is_reversal=True)
-        return res
+    # 1. Pre-momentum reversal sniping is disabled for pure SIG isolation
+    # if rsi < p["reversal_lo"]:
+    #     res.update(direction="UP", score=p["reversal_score"], is_reversal=True)
+    #     return res
+    # elif rsi > p["reversal_hi"]:
+    #     res.update(direction="DOWN", score=p["reversal_score"], is_reversal=True)
+    #     return res
 
 
 

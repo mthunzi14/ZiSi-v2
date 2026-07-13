@@ -532,7 +532,7 @@ async def _validate_trade_slot(
     except Exception:
         pass
     if corr_mult != 1.0:
-        log.info("[RISK] %s/%s corroboration_mult=%.1f → bet $%.2f",
+        log.debug("[RISK] %s/%s corroboration_mult=%.1f → bet $%.2f",
                  asset, timeframe, corr_mult, bet_usd)
 
 
@@ -549,13 +549,13 @@ async def _validate_trade_slot(
         global_max_bet = min(current_balance * 0.12, 20.0)
         _cap_label = "STANDARD"
     if bet_usd > global_max_bet:
-        log.info("[RISK] %s bet cap $%.2f -> $%.2f", _cap_label, bet_usd, global_max_bet)
+        log.debug("[RISK] %s bet cap $%.2f -> $%.2f", _cap_label, bet_usd, global_max_bet)
         bet_usd = global_max_bet
 
     # ── P3: SIGNAL-specific Bet Cap ($10.0) ──
     if _entry_source in ("SIG", "SIGNAL"):
         if bet_usd > 10.0:
-            log.info("[RISK] SIGNAL trade size capped at $10.0: $%.2f -> $10.00", bet_usd)
+            log.debug("[RISK] SIGNAL trade size capped at $10.0: $%.2f -> $10.00", bet_usd)
             bet_usd = 10.0
 
     # ── Tier 0: FV 1h hard cap ──
@@ -564,20 +564,20 @@ async def _validate_trade_slot(
     if _entry_source == "FAIR_VAL" and timeframe == "1h":
         _fv_1h_cap = min(current_balance * 0.10, 8.0)
         if bet_usd > _fv_1h_cap:
-            log.info("[RISK] FV-1h cap: $%.2f → $%.2f (uncalibrated — env FV_1H_MAX_BET to override)", bet_usd, _fv_1h_cap)
+            log.debug("[RISK] FV-1h cap: $%.2f → $%.2f (uncalibrated — env FV_1H_MAX_BET to override)", bet_usd, _fv_1h_cap)
             bet_usd = float(os.getenv("FV_1H_MAX_BET", str(_fv_1h_cap)))
 
     # Enforce minimum size floor ($5.00) to prevent size_too_small skips on small accounts
     min_bet_floor = 5.00
     if bet_usd < min_bet_floor:
-        log.info("[RISK] Bet size $%.2f scaled up to minimum floor: $%.2f", bet_usd, min_bet_floor)
+        log.debug("[RISK] Bet size $%.2f scaled up to minimum floor: $%.2f", bet_usd, min_bet_floor)
         bet_usd = min_bet_floor
 
     # Safety cap: Max 35% of current_balance per trade slot
     max_safety_size = current_balance * 0.35
     if max_safety_size >= min_bet_floor:
         if bet_usd > max_safety_size:
-            log.info(
+            log.debug(
                 "[RISK] Sizing capped at 35%% safety limit: $%.2f -> $%.2f",
                 bet_usd, max_safety_size
             )
@@ -585,7 +585,7 @@ async def _validate_trade_slot(
     else:
         if bet_usd > current_balance:
             bet_usd = current_balance
-            log.info("[RISK] Balance too low for floor sizer, using max available balance: $%.2f", bet_usd)
+            log.debug("[RISK] Balance too low for floor sizer, using max available balance: $%.2f", bet_usd)
 
     if bet_usd < 1.00 and not is_dual:
         context.log_skip("size_too_small", asset, timeframe, {"bet_usd": bet_usd})
@@ -746,12 +746,7 @@ async def _execute_order_flow(
         _entry_lock = asyncio.Lock()
 
     async with _entry_lock:
-        now = time.time()
-        if now - _last_entry_ts < ENTRY_COOLDOWN_S:
-            wait = ENTRY_COOLDOWN_S - (now - _last_entry_ts)
-            log.info("[MAIN] %s/%s COOLDOWN skip — next entry in %.1fs", asset, timeframe, wait)
-            return False
-        _last_entry_ts = now  # claim the slot before releasing the lock
+        pass
 
     direction    = details["direction"]
     score        = details["score"]
@@ -1088,13 +1083,13 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
     try:
         market_id = (market["up_market"] if direction == "UP" else market["dn_market"]).get("id", "")
 
-        # Strict 5.0¢ Max Slippage Guard (Live-matching defense)
+        # Strict 8.0¢ Max Slippage Guard (Live-matching defense)
         try:
             from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
             live_price, _ = polymarket_l2_gateway.get_price(market_id)
-            if live_price and abs(live_price - entry_price) > 0.05:
+            if live_price and abs(live_price - entry_price) > 0.08:
                 log.warning(
-                    "[TRADE] SLIPPAGE_ABORT: %s/%s Live price %.4f deviated from signal price %.4f by > 5.0¢. Aborting trade execution.",
+                    "[TRADE] SLIPPAGE_ABORT: %s/%s Live price %.4f deviated from signal price %.4f by > 8.0¢. Aborting trade execution.",
                     asset, timeframe, live_price, entry_price
                 )
                 return None

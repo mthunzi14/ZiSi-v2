@@ -1488,7 +1488,7 @@ class UpDownEngine:
         
         gamma_url = "https://gamma-api.polymarket.com/events"
         try:
-            log.info("[ENGINE] %s/%s: Pre-fetching upcoming market slug: %s", self.asset, self.timeframe, slug)
+            log.debug("[ENGINE] %s/%s: Pre-fetching upcoming market slug: %s", self.asset, self.timeframe, slug)
             async with session.get(gamma_url, params={"slug": slug}, timeout=5) as r:
                 if r.status == 200:
                     raw = await r.json()
@@ -1786,7 +1786,7 @@ class UpDownEngine:
                     session_params = TradingSessionManager.get_active_session_params()
                     session_sizing_mult = session_params.get("sizing_mult", 1.0)
                     usd_size *= session_sizing_mult
-                    log.info("[SIZE] Adaptive Kelly scaled by session multiplier %.2fx -> $%.2f", session_sizing_mult, usd_size)
+                    log.debug("[SIZE] Adaptive Kelly scaled by session multiplier %.2fx -> $%.2f", session_sizing_mult, usd_size)
                 except Exception as e:
                     log.warning("[SIZE] Failed to scale by session multiplier: %s", e)
 
@@ -1794,10 +1794,10 @@ class UpDownEngine:
                 price_scalar = 1.0
                 if price > 0.65 and price <= 0.78:
                     price_scalar = 0.70  # REBUILD: softened 0.40->0.70 (confidence gate handles the 70c trap)
-                    log.info("[SIZE] Price %.4f in 70c zone -> x0.70 scaling", price)
+                    log.debug("[SIZE] Price %.4f in 70c zone -> x0.70 scaling", price)
                 elif price > 0.78:
                     price_scalar = 0.50  # REBUILD: softened 0.25->0.50 — mentors size near-certainty up
-                    log.info("[SIZE] Price %.4f expensive -> x0.50 scaling", price)
+                    log.debug("[SIZE] Price %.4f expensive -> x0.50 scaling", price)
                 usd_size *= price_scalar
 
                 # REBUILD: removed the blanket 50-65c x0.65 haircut — confidence-tiered _bk_frac
@@ -1816,7 +1816,7 @@ class UpDownEngine:
                 _asset_w = {"BTC": 1.0, "ETH": 1.0, "SOL": 1.0, "XRP": 1.0, "DOGE": 1.0}.get(self.asset, 1.0)
                 usd_size *= _asset_w
 
-                log.info("[SIZE] Adaptive Kelly cost $%.2f (conf=%.2f, asset_w=%.2f)", usd_size, conf, _asset_w)
+                log.debug("[SIZE] Adaptive Kelly cost $%.2f (conf=%.2f, asset_w=%.2f)", usd_size, conf, _asset_w)
                 return usd_size
             except Exception as e:
                 log.warning("[SIZE] Failed to compute adaptive Kelly size, falling back: %s", e)
