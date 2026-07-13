@@ -125,11 +125,11 @@ class PolymarketRTDSIngest:
         connected_once = False
         while self.running:
             try:
-                log.info("[RTDS-WS] Connecting to %s...", self.ws_url)
+                log.debug("[RTDS-WS] Connecting to %s...", self.ws_url)
                 connector = aiohttp.TCPConnector(enable_cleanup_closed=True)
                 async with aiohttp.ClientSession(connector=connector) as session:
                     async with session.ws_connect(self.ws_url, heartbeat=10.0) as ws:
-                        log.info("[RTDS-WS] Connected to Polymarket RTDS")
+                        log.debug("[RTDS-WS] Connected to Polymarket RTDS")
                         backoff = 10.0  # reset on successful connect
                         connected_once = True
                         self.last_msg_ts = time.time()
@@ -147,7 +147,7 @@ class PolymarketRTDSIngest:
                             "subscriptions": subscriptions
                         }
                         await ws.send_json(sub_msg)
-                        log.info("[RTDS-WS] Subscribed to topics: crypto_prices_chainlink and crypto_prices (BTCUSDT)")
+                        log.debug("[RTDS-WS] Subscribed to topics: crypto_prices_chainlink and crypto_prices (BTCUSDT)")
 
                         ping_task = asyncio.create_task(self._ping_sender(ws))
                         watchdog_task = asyncio.create_task(self._connection_watchdog(ws))

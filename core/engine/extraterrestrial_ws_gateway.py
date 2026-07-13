@@ -209,7 +209,7 @@ class ExtraterrestrialWSGateway:
                 })
                 async with self._session.ws_connect(self.feed_url, heartbeat=10.0) as ws:
                     self._ws = ws
-                    log.info("[GOD-WS] Connected to Polymarket CLOB WebSocket")
+                    log.debug("[GOD-WS] Connected to Polymarket CLOB WebSocket")
                     backoff = 3.0
                     
                     if self.subscriptions:
