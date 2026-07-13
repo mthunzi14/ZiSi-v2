@@ -683,7 +683,7 @@ def build_spot_prices_panel() -> Panel:
     return Panel(table, title=f"[bold {COLOR_LABEL}]Spot & Oracle Price Matrix[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
-def build_regime_panel() -> Panel:
+def build_regime_panel(fullscreen: bool = False) -> Panel:
     """Build the current regime classifications and indicators."""
     with g_state.lock:
         reg = dict(g_state.regime_state)
@@ -861,7 +861,10 @@ def build_regime_panel() -> Panel:
     panel_content.add_row("")  # Spacer
     panel_content.add_row(f"[bold {COLOR_LABEL}]Setup Alerts:[/bold {COLOR_LABEL}] {setup_str}")
 
-    return Panel(panel_content, title=f"[bold {COLOR_LABEL}]Market Regime & Analytics[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
+    # Title with key guide
+    title_guide = "R or H to Minimize" if fullscreen else "R to Fullscreen"
+    title_str = f"Market Regime & Analytics [{title_guide}]"
+    return Panel(panel_content, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_active_positions_panel() -> Panel:
@@ -1115,6 +1118,9 @@ def run_keyboard_listener():
                 elif ch.lower() == 'p':  # Toggle active positions fullscreen
                     with g_state.lock:
                         g_state.fullscreen_mode = 'active' if g_state.fullscreen_mode != 'active' else None
+                elif ch.lower() == 'r':  # Toggle regime/analytics fullscreen
+                    with g_state.lock:
+                        g_state.fullscreen_mode = 'regime' if g_state.fullscreen_mode != 'regime' else None
                 elif ch.lower() == 'h':  # Reset to default layout
                     with g_state.lock:
                         g_state.fullscreen_mode = None
@@ -1140,8 +1146,8 @@ def make_layout() -> Layout:
     
     layout["upper_body"].split_row(
         Layout(name="metrics", ratio=2),
-        Layout(name="prices", ratio=4),  # Increased ratio for wider YES/NO price columns
-        Layout(name="regime", ratio=2)
+        Layout(name="prices", ratio=3),
+        Layout(name="regime", ratio=3)
     )
     
     return layout
@@ -1182,6 +1188,12 @@ def main():
         Layout(name="active_panel", ratio=1)
     )
     
+    layout_regime = Layout()
+    layout_regime.split_column(
+        Layout(name="header", size=3),
+        Layout(name="regime_panel", ratio=1)
+    )
+    
     # 3Hz fluid rendering loop (3 updates per second) to eliminate SSH buffer lag and enable instant loading
     with Live(layout_default, refresh_per_second=3, screen=True) as live:
         while True:
@@ -1208,12 +1220,16 @@ def main():
                 layout_active["header"].update(build_header_panel())
                 layout_active["active_panel"].update(build_active_positions_panel())
                 live.update(layout_active)
+            elif fs_mode == 'regime':
+                layout_regime["header"].update(build_header_panel())
+                layout_regime["regime_panel"].update(build_regime_panel(fullscreen=True))
+                live.update(layout_regime)
             else:
                 # Default layout
                 layout_default["header"].update(build_header_panel())
                 layout_default["metrics"].update(build_metrics_panel())
                 layout_default["prices"].update(build_spot_prices_panel())
-                layout_default["regime"].update(build_regime_panel())
+                layout_default["regime"].update(build_regime_panel(fullscreen=False))
                 layout_default["active_panel"].update(build_active_positions_panel())
                 layout_default["closed_panel"].update(build_closed_positions_panel(num_lines=15))
                 layout_default["logs_panel"].update(build_logs_panel(num_lines=8))

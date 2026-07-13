@@ -1405,8 +1405,8 @@ class UpDownEngine:
         polymarket_l2_gateway.subscribe(up_tk)
         polymarket_l2_gateway.subscribe(dn_tk)
 
-        # Always allow any spread to prevent skipping - CAP REMOVAL
-        effective_max_spread = 1.0
+        # Re-enable strict spread limit (15c) to protect capital on illiquid books
+        effective_max_spread = max_spread
 
         up_price, dn_price = None, None
         attempts = 2 if is_latency_scan else 4
@@ -1628,7 +1628,8 @@ class UpDownEngine:
                 dn_tk = cached_market["dn_market"]["id"]
                 resolved = await self._resolve_l2_prices(session, up_tk, dn_tk, is_latency_scan=is_latency_scan)
                 if not resolved:
-                    resolved = await self._get_oracle_fallback_prices(up_tk, dn_tk)
+                    log.warning("[ENGINE] %s/%s: L2 book is illiquid or empty (spread > 15c) — skipping trade", self.asset, self.timeframe)
+                    return None
                 if resolved:
                     up_price, dn_price, spread = resolved
                     market = dict(cached_market)

@@ -281,64 +281,8 @@ async def _validate_trade_slot(
         except Exception as _corr_err:
             log.error("[FV-CORR-CAP] Error checking correlated exposure: %s", _corr_err)
 
-    # SIG 40¢ floor: below 40¢ the crowd is >60% against the signal — momentum lag can't overcome
-    # that consensus. Raised from 20¢ after two clean-slate losses at 24.5¢ and 40¢ NO entries.
-    # CORR trades (already vetted by lead asset) and FV/NCS are exempt.
-    if _entry_source not in ("FAIR_VAL", "CLOSE-SNIPE", "CORR") and entry_price < 0.40:
-        log.info("[SIG-FLOOR] %s/%s: SIG %.4f < 0.40 — crowd >60%% against signal — skip",
-                 asset, timeframe, entry_price)
-        context.log_skip("sig_floor_40c", asset, timeframe)
-        return False, {"skip_reason": "sig_floor_40c"}
-
-    # Coin-flip band block: block momentum SIG entries in the 0.60 to 0.70 range
-    if _entry_source in ("SIG", "SIGNAL") and 0.60 <= entry_price <= 0.70:
-        log.info("[SIG-ZONE-BLOCK] %s/%s: SIG %.4f in 0.60-0.70 coin-flip band — block momentum entry",
-                 asset, timeframe, entry_price)
-        context.log_skip("sig_coinflip_zone", asset, timeframe)
-        return False, {"skip_reason": "sig_coinflip_zone"}
-
-    # P5: SIG price ceiling — block buying the expensive side of an overextended market.
-    # SIG/YES (UP) at >60¢ on 5m or >65¢ on 15m means market already priced it heavily;
-    # edge evaporates and losses at 65¢ have confirmed this repeatedly.
-    if _entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "CORR"):
-        _sig_ceil = 0.60 if timeframe == "5m" else 0.65
-        if entry_price > _sig_ceil:
-            log.info("[SIG-CEIL] %s/%s: SIG %.4f > %.4f ceiling — overextended — skip",
-                     asset, timeframe, entry_price, _sig_ceil)
-            context.log_skip("sig_ceiling", asset, timeframe)
-            return False, {"skip_reason": "sig_ceiling"}
-
-    # SIG mid-range quality guard (REBUILD Phase 4): the deleted dead zone let weak
-    # cheap/contrarian SIG back in (26.5c NO -$4.08, 57.5c NO -$0.52). Re-protect the
-    # 35-57c band — only allow SIG here on a strong score; FV carries direction at ATM.
-    # BTC↔ETH corroboration bypass: if the correlated pair is already in a same-direction
-    # same-timeframe position, the MIDGUARD score bar is dropped — both assets move together
-    # and the open position is live confirmation of the edge.
-    if (_entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "T2_SWEEPER", "REVERSAL_STREAK", "CORR")
-            and 0.35 < entry_price < 0.57 and score < 0.70):
-        _corr_bypass = False
-        _corr_pair = {"BTC": "ETH", "ETH": "BTC"}.get(asset.upper())
-        if _corr_pair:
-            try:
-                from core.engine.state_manager import get_open_positions as _get_open_positions
-                for _p in _get_open_positions():
-                    _pt = _p.get("event_title", "")
-                    if (_corr_pair in _pt
-                            and f"[{timeframe}]" in _pt
-                            and _p.get("direction", "").upper() == direction.upper()):
-                        _corr_bypass = True
-                        log.info(
-                            "[SIG-CORROBORATE] %s/%s: %s open same-dir %s — MIDGUARD bypassed",
-                            asset, timeframe, _corr_pair, direction,
-                        )
-                        break
-            except Exception:
-                pass
-        if not _corr_bypass:
-            log.info("[SIG-MIDGUARD] %s/%s: SIG %.4f in 0.35-0.57 with weak score %.2f < 0.70 — skip",
-                     asset, timeframe, entry_price, score)
-            context.log_skip("sig_midrange_guard", asset, timeframe)
-            return False, {"skip_reason": "sig_midrange_guard"}
+    # PBot-6 SIG momentum execution path - All static bounds removed as requested.
+    # The Confluence RiskManager holds the sole decision edge.
 
     # ── 15m Conviction Guard: Prefer 5m trades unless 15m has high conviction (score >= 0.70) ──
     if _entry_source in ("SIG", "SIGNAL") and timeframe == "15m" and score < 0.70:

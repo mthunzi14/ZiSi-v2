@@ -14,11 +14,12 @@ class ExtraterrestrialWSGateway:
     Polymarket CLOB WebSocket Gateway (Real L2 Orderbook Subscriptions).
     Refactored to separate ingestion (Thread A) from processing (Thread B) via Queue
     to prevent skipped frames. Builds synthetic midpoint candles and implements
-    len-1 best bid index lookup, 10s ping, and 15s reconnection watchdog.
     """
     def __init__(self, feed_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"):
         self.feed_url = feed_url
         self.subscriptions = set()
+        # Track last read timestamp for each token_id to manage active pulls and pruning
+        self.last_read_ts: Dict[str, float] = {}
         
         # In-memory L2 orderbook cache: token_id -> {"bid": float, "ask": float, "ts": float, "bids": [], "asks": [], "obi": float}
         self.l2_cache: Dict[str, dict] = {}
@@ -110,6 +111,7 @@ class ExtraterrestrialWSGateway:
 
     def get_price(self, token_id: str) -> tuple[Optional[float], Optional[float]]:
         """Returns (mid_price, spread) from in-memory cache."""
+        self.last_read_ts[token_id] = time.time()
         data = self.l2_cache.get(token_id)
         if not data:
             return None, None
@@ -122,6 +124,7 @@ class ExtraterrestrialWSGateway:
 
     def get_obi(self, token_id: str) -> float:
         """Returns computed OBI from in-memory cache."""
+        self.last_read_ts[token_id] = time.time()
         data = self.l2_cache.get(token_id)
         if not data:
             return 0.0
@@ -149,6 +152,7 @@ class ExtraterrestrialWSGateway:
 
     async def _connection_watchdog(self, ws):
         """Hard 30-second timeout for reconnects; quiet 3-second REST pull to keep cache fresh."""
+        last_prune_ts = time.time()
         try:
             while self.is_active and not ws.closed:
                 await asyncio.sleep(0.5)
@@ -161,6 +165,17 @@ class ExtraterrestrialWSGateway:
                     # Reset last_msg_ts to prevent spamming REST requests
                     self.last_msg_ts = now
                 
+                # Prune inactive subscriptions every 30 seconds
+                if now - last_prune_ts > 30.0:
+                    last_prune_ts = now
+                    for token_id in list(self.subscriptions):
+                        # If a token hasn't been read/queried in the last 300 seconds, prune it
+                        if now - self.last_read_ts.get(token_id, 0) > 300.0:
+                            log.info("[GOD-WS] Pruning expired subscription: %s", token_id[:10])
+                            self.subscriptions.discard(token_id)
+                            self.l2_cache.pop(token_id, None)
+                            self.candle_cache.pop(token_id, None)
+                
                 # Only reconnect if lag exceeds 30.0s (genuinely dead connection)
                 if lag > 30.0:
                     log.warning("[GOD-WS] Watchdog: 30s silent lag timeout reached — triggering reconnect.")
@@ -170,11 +185,16 @@ class ExtraterrestrialWSGateway:
             pass
 
     async def _pull_rest_snapshots(self):
-        """Pull REST L2 orderbook snapshot for all subscribed tokens to prevent data gaps."""
-        if not self.subscriptions:
+        """Pull REST L2 orderbook snapshot only for tokens actively queried in the last 60s."""
+        now = time.time()
+        active_tokens = [
+            t for t in list(self.subscriptions)
+            if now - self.last_read_ts.get(t, 0) <= 60.0
+        ]
+        if not active_tokens:
             return
-        log.info("[GOD-WS] Pulling REST snapshots for %d subscribed tokens...", len(self.subscriptions))
-        for token_id in list(self.subscriptions):
+            
+        for token_id in active_tokens:
             try:
                 url = "https://clob.polymarket.com/book"
                 async with aiohttp.ClientSession() as session:
@@ -283,7 +303,7 @@ class ExtraterrestrialWSGateway:
         if event_type == "price_change":
             for change in data.get("price_changes", []):
                 aid = change.get("asset_id")
-                if not aid:
+                if not aid or aid not in self.subscriptions:
                     continue
                 best_bid = change.get("best_bid")
                 best_ask = change.get("best_ask")
@@ -295,7 +315,7 @@ class ExtraterrestrialWSGateway:
             return
 
         asset_id = data.get("asset_id") or data.get("token_id")
-        if not asset_id:
+        if not asset_id or asset_id not in self.subscriptions:
             return
 
         # best_bid_ask: direct best_bid/best_ask fields
