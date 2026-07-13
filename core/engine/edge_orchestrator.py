@@ -278,7 +278,7 @@ class EdgeOrchestrator:
             4,
         )
 
-        log.info(
+        log.debug(
             "[EDGE] %s %s | regime=%s(×%.2f) confluence=%d(+%.2f) "
             "heat=%.2f anti=%.2f whale=%.2f sentiment=%.2f → boost=%.3f",
             asset, direction,

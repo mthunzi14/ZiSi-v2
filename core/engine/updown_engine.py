@@ -557,7 +557,7 @@ class UpDownEngine:
                     boost = edge_ctx.get("combined_confidence_boost", 0.0)
                     if boost != 0.0:
                         score = max(0.10, min(1.0, score + boost))
-                        log.info("[EDGE] %s/%s Score adjusted by boost: %.2f (boost=%+.2f)", self.asset, self.timeframe, score, boost)
+                        log.debug("[EDGE] %s/%s Score adjusted by boost: %.2f (boost=%+.2f)", self.asset, self.timeframe, score, boost)
                     
                     regime = edge_ctx.get("regime_name", regime)
                 except Exception as e:
@@ -866,16 +866,16 @@ class UpDownEngine:
                 log.info("[ENGINE] %s/%s: volume gate fail (current vol %.1f < floor %.1f or < 30%% of avg %.1f)", self.asset, self.timeframe, cur_vol, floor, avg_vol)
                 return None
                 
-            # Volume Climax Detector
-            vol_climax_threshold = 6.0 if self.timeframe == "5m" else 3.0
+            # Volume Climax Detector - disabled by setting threshold very high
+            vol_climax_threshold = 999.0
             if cur_vol > vol_climax_threshold * avg_vol:
                 log.info("[ENGINE] %s/%s: Volume climax detected (current vol %.1f > %.1fx avg %.1f). Blocking trade to avoid blow-off top/bottom.", self.asset, self.timeframe, cur_vol, vol_climax_threshold, avg_vol)
                 return None
 
-            # Volume surge block
+            # Volume surge block - disabled by setting threshold very high
             if len(volumes) >= 7:
                 _roll_avg_vol = sum(volumes[-7:-2]) / 5
-                if _roll_avg_vol > 0 and cur_vol > 4.0 * _roll_avg_vol:
+                if _roll_avg_vol > 0 and cur_vol > 999.0 * _roll_avg_vol:
                     log.info(
                         "[VOL-SURGE] %s/%s: spike %.0f > 4x avg %.0f — 2-candle pause",
                         self.asset, self.timeframe, cur_vol, _roll_avg_vol,
@@ -1142,7 +1142,7 @@ class UpDownEngine:
                             elif conf_res["decision"] in ("INVERT", "FADE"):
                                 score_base = min(0.90, 0.50 + abs(conf_res["flow_pressure"]) * 0.35)
                             
-                            log.info(
+                            log.debug(
                                 "[CONFLUENCE] %s/%s: rsi=%.1f mom=%.3f flow_pressure=%.2f cvd=%.2f obi=%.2f nic=%.2f | decision=%s path=%s",
                                 self.asset, self.timeframe, rsi, mom, conf_res["flow_pressure"],
                                 conf_res["cvd_score"], conf_res["obi_score"], conf_res["nic_score"],
@@ -1270,7 +1270,7 @@ class UpDownEngine:
             if boost != 0.0:
                 old_score = score
                 score = max(0.10, min(1.0, score + boost))
-                log.info("[EDGE] %s/%s Score adjusted by boost: %.2f -> %.2f (boost=%+.2f)", self.asset, self.timeframe, old_score, score, boost)
+                log.debug("[EDGE] %s/%s Score adjusted by boost: %.2f -> %.2f (boost=%+.2f)", self.asset, self.timeframe, old_score, score, boost)
             
             regime = edge_ctx.get("regime_name", regime)
             
@@ -1636,7 +1636,7 @@ class UpDownEngine:
                     market["up_price"] = up_price
                     market["dn_price"] = dn_price
                     market["spread"] = spread
-                    log.info(
+                    log.debug(
                         "[ENGINE] %s/%s: [PRE-FETCH HIT] %s up=%.4f dn=%.4f spread=%.4f (poll=%d)",
                         self.asset, self.timeframe, market["slug"],
                         up_price, dn_price, spread, poll_attempt

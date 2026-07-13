@@ -171,7 +171,7 @@ class ExtraterrestrialWSGateway:
                     for token_id in list(self.subscriptions):
                         # If a token hasn't been read/queried in the last 300 seconds, prune it
                         if now - self.last_read_ts.get(token_id, 0) > 300.0:
-                            log.info("[GOD-WS] Pruning expired subscription: %s", token_id[:10])
+                            log.debug("[GOD-WS] Pruning expired subscription: %s", token_id[:10])
                             self.subscriptions.discard(token_id)
                             self.l2_cache.pop(token_id, None)
                             self.candle_cache.pop(token_id, None)

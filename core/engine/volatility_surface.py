@@ -131,7 +131,7 @@ class VolatilitySurface:
         }
         self._results[asset_key] = result
 
-        log.info(
+        log.debug(
             "[VolSurface] %s → bias=%s strength=%.3f oi=%s sentiment=%.3f modifier=%.3f",
             asset_key,
             funding_bias,

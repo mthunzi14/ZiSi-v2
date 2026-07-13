@@ -61,15 +61,6 @@ def apply_regime(direction: str, regime: str, is_momentum: bool = True, mom: flo
     is_momentum=False (fair-value / reversal signals) is returned unchanged — those
     already encode their own directional edge and must not be double-flipped.
     """
-    if not is_momentum:
-        return direction
-    if regime == "MEAN_REVERSION":
-        fade_max_mom = float(os.getenv("SIG_FADE_MAX_MOM", "0.0015"))
-        if mom is not None and abs(mom) >= fade_max_mom:
-            return direction  # strong trend — follow, do not fade
-        faded = "DOWN" if direction == "UP" else "UP"
-        log.info("[REGIME-FADE] mean-reversion + weak momentum (mom=%.4f) — fading %s -> %s",
-                 (mom if mom is not None else 0.0), direction, faded)
-        return faded
+    # Pure momentum follows trend direction directly without fading/flipping
     return direction
 

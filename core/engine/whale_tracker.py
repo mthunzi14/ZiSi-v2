@@ -160,7 +160,7 @@ class WhaleTracker:
                 "count": whale_count,
             })
 
-        log.info(
+        log.debug(
             "[WhaleTracker] %s → pressure=%.3f dir=%s whales=%d "
             "buy_vol=%.0f sell_vol=%.0f multiplier=%.3f",
             asset_key,

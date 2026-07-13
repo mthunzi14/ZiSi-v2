@@ -705,12 +705,12 @@ def log_unified_sig_lifecycle(
         except Exception:
             pass
 
-        log.info(
+        log.debug(
             "[SIG-EVAL] %s/%s [%s Path] | CVD=%+.2f, OBI=%+.2f, OFI=%+.2f | RSI=%.1f, Mom=%.3f | Whales: %s | Score: %.2f",
             asset, timeframe, direction, cvd, obi, ofi, rsi, mom, whales_str, score
         )
     else:
-        log.info("[SIG-EVAL] %s/%s [NEUTRAL] | CVD=0.00, OBI=0.00 | RSI=50.0 | Score: 0.00", asset, timeframe)
+        log.debug("[SIG-EVAL] %s/%s [NEUTRAL] | CVD=0.00, OBI=0.00 | RSI=50.0 | Score: 0.00", asset, timeframe)
 
     if signal and outcome == "ENTER" and details:
         bet_usd = details.get("bet_usd", 2.50)
@@ -720,12 +720,12 @@ def log_unified_sig_lifecycle(
             asset, timeframe, signal.get("direction", "UP"), score, score, bet_usd
         )
     elif signal and outcome == "SKIP":
-        log.info(
+        log.debug(
             "[SIG-EDGE] %s/%s [%s]: Edge skipped",
             asset, timeframe, signal.get("direction", "NEUTRAL")
         )
     else:
-        log.info("[SIG-EDGE] %s/%s [NEUTRAL]: No edge", asset, timeframe)
+        log.debug("[SIG-EDGE] %s/%s [NEUTRAL]: No edge", asset, timeframe)
 
     if outcome == "ENTER" and details:
         direction = details.get("direction", "UP")
