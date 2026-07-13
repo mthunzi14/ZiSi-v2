@@ -720,7 +720,7 @@ def log_unified_sig_lifecycle(
             asset_display, direction, entry_price, rsi, cvd, obi, details.get("bet_usd", 2.50), tp_target, regime
         )
     else:
-        reason = (signal.get("skip_reason") if signal else None) or skip_reason or "no_signal"
+        reason = skip_reason if (skip_reason and skip_reason != "no_signal") else ((signal.get("skip_reason") if signal else None) or "no_signal")
         if reason == "sig_15m_conviction_guard":
             reason = f"sig_15m_conviction_guard (score={score:.2f} < threshold=0.70)"
         elif reason == "leader_corroboration_guard":
