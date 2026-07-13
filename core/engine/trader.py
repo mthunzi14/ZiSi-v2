@@ -1222,6 +1222,8 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 exit_price = round(_stored, 4)
                 log.debug("[LIVE-EXIT] Using stored price %.4f for %s (live fetch unavailable)", exit_price, order_id)
 
+        shares = pos.get("shares_acquired", pos.get("shares", 0.0))
+
         # Evaluate tranches exit targets
         tranche_a_target = pos.get("tranche_a_target")
         if not tranche_a_target:
