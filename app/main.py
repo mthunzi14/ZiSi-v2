@@ -914,9 +914,9 @@ async def asset_loop(
                     # Check staged markets cache
                     staging_status = "\033[91mEMPTY\033[90m"
                     try:
-                        from core.engine.updown_engine import _staged_markets_cache
-                        if _staged_markets_cache:
-                            staging_status = f"\033[92mACTIVE\033[90m ({len(_staged_markets_cache)} markets)"
+                        staging_count = sum(len(eng._prefetched_markets) for eng in context.engines.values())
+                        if staging_count > 0:
+                            staging_status = f"\033[92mACTIVE\033[90m ({staging_count} staged)"
                     except Exception:
                         pass
 
