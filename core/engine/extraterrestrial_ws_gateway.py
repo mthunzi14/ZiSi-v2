@@ -168,7 +168,7 @@ class ExtraterrestrialWSGateway:
                 
                 # Only reconnect if lag exceeds 30.0s (genuinely dead connection)
                 if lag > 30.0:
-                    log.warning("[GOD-WS] Watchdog: 30s silent lag timeout reached — triggering reconnect.")
+                    log.debug("[GOD-WS] Watchdog: 30s silent lag timeout reached — triggering reconnect.")
                     await ws.close()
                     break
         except asyncio.CancelledError:
@@ -247,7 +247,7 @@ class ExtraterrestrialWSGateway:
             self._ws = None
 
             if self.is_active:
-                log.warning(f"[GOD-WS] Disconnected. Reconnecting in {backoff} seconds...")
+                log.debug(f"[GOD-WS] Disconnected. Reconnecting in {backoff} seconds...")
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60.0)
 

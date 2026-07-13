@@ -1331,12 +1331,12 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
             result["profit"] = total_profit
             if total_profit >= 0.0:
                 log.info(
-                    "\033[1;97m[5m Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (WIN) | reason=%s\033[0m",
+                    "\033[1;97m[Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (WIN) | reason=%s\033[0m",
                     order_id, age_minutes, exit_price, total_profit, exit_reason,
                 )
             else:
                 log.info(
-                    "\033[90m[5m Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (LOSS) | reason=%s\033[0m",
+                    "\033[90m[Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (LOSS) | reason=%s\033[0m",
                     order_id, age_minutes, exit_price, total_profit, exit_reason,
                 )
             closed.append({"order_id": order_id, **result})

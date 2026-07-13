@@ -1050,7 +1050,7 @@ class UpDownEngine:
             if _dec["is_reversal"]:
                 log.warning("[REVERSAL] %s/%s RSI=%.2f reversal-snipe %s.", self.asset, self.timeframe, rsi, raw_dir)
             elif raw_dir is None:
-                log.info("[ENGINE] %s/%s: RSI=%.2f Mom=%.4f -> NEUTRAL (dual-only path).", self.asset, self.timeframe, rsi, mom)
+                log.debug("[ENGINE] %s/%s: RSI=%.2f Mom=%.4f -> NEUTRAL (dual-only path).", self.asset, self.timeframe, rsi, mom)
 
             if _dec["is_reversal"]:
                 # Reversal-snipe gets priority in non-FV
@@ -1392,7 +1392,7 @@ class UpDownEngine:
         session: aiohttp.ClientSession,
         up_tk: str,
         dn_tk: str,
-        max_spread: float = 0.15,
+        max_spread: float = 0.35,
         is_latency_scan: bool = False,
     ) -> Optional[tuple[float, float, float]]:
         """Return (up_price, dn_price, spread) or None if book invalid."""

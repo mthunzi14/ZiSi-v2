@@ -114,7 +114,7 @@ class PolymarketRTDSIngest:
             while self.running and not ws.closed:
                 await asyncio.sleep(1.0)
                 if time.time() - self.last_msg_ts > 180.0:
-                    log.warning("[RTDS-WS] Watchdog: 180s timeout reached with no messages — triggering reconnect.")
+                    log.debug("[RTDS-WS] Watchdog: 180s timeout reached with no messages — triggering reconnect.")
                     await ws.close()
                     break
         except asyncio.CancelledError:

@@ -686,49 +686,30 @@ def log_unified_sig_lifecycle(
     outcome: str,
     skip_reason: str = None
 ) -> None:
-    """Logs the clean, 3-line plain-text evaluation lifecycle per asset."""
+    """Logs the clean, plain-text evaluation lifecycle per asset using colored themes without timeframe suffixes."""
+    asset_display = asset.upper()
+
+    rsi = 50.0
+    cvd = 0.0
+    obi = 0.0
+    score = 0.0
+    direction = "NEUTRAL"
+    
     if signal:
         rsi = signal.get("rsi") or 50.0
-        mom = signal.get("momentum") or 0.0
-        ofi = signal.get("ofi") or 0.0
         cvd = signal.get("fast_cvd") or 0.0
         obi = signal.get("binance_obi") or 0.0
         score = signal.get("score") or 0.0
-        regime = signal.get("regime") or "MEAN_REVERTING"
-        direction = signal.get("direction") or "UP"
-        
-        whales_str = "neutral"
-        try:
-            ec = signal.get("edge_context") or {}
-            whales = ec.get("whale_count_dict", {})
-            whales_str = f"{whales.get('buy', 0)} buy, {whales.get('sell', 0)} sell"
-        except Exception:
-            pass
-
-        log.debug(
-            "[SIG-EVAL] %s/%s [%s Path] | CVD=%+.2f, OBI=%+.2f, OFI=%+.2f | RSI=%.1f, Mom=%.3f | Whales: %s | Score: %.2f",
-            asset, timeframe, direction, cvd, obi, ofi, rsi, mom, whales_str, score
-        )
-    else:
-        log.debug("[SIG-EVAL] %s/%s [NEUTRAL] | CVD=0.00, OBI=0.00 | RSI=50.0 | Score: 0.00", asset, timeframe)
+        direction = signal.get("direction") or "NEUTRAL"
 
     if signal and outcome == "ENTER" and details:
         bet_usd = details.get("bet_usd", 2.50)
-        score = signal.get("score", 0.0)
         log.info(
-            "\033[37m[5m Confirm] %s/%s [%s]: Score %.2f | Kelly Sizer: %.2f USDC\033[0m",
-            asset, timeframe, signal.get("direction", "UP"), score, bet_usd
+            "\033[37m[Confirm] %s [%s]: Score %.2f | Kelly Sizer: %.2f USDC\033[0m",
+            asset_display, direction, score, bet_usd
         )
-    elif signal and outcome == "SKIP":
-        log.debug(
-            "[SIG-EDGE] %s/%s [%s]: Edge skipped",
-            asset, timeframe, signal.get("direction", "NEUTRAL")
-        )
-    else:
-        log.debug("[SIG-EDGE] %s/%s [NEUTRAL]: No edge", asset, timeframe)
 
     if outcome == "ENTER" and details:
-        direction = details.get("direction", "UP")
         entry_price = details.get("entry_price", 0.50)
         regime = signal.get("regime") or "MEAN_REVERTING"
         is_5m = "5m" in timeframe.lower()
@@ -738,14 +719,14 @@ def log_unified_sig_lifecycle(
             tp_target = 0.72 if is_5m else 0.88
             
         log.info(
-            "\033[1;97m[5m Execution] %s/%s [%s]: Entered at %.3f | Size: %.2f USDC | TP: %.3f (%s)\033[0m",
-            asset, timeframe, direction, entry_price, details.get("bet_usd", 2.50), tp_target, regime
+            "\033[1;97m[Execution] %s [%s]: Entered at %.3f | RSI=%.1f CVD=%+.2f OBI=%+.2f | Size: %.2f USDC | TP: %.3f (%s)\033[0m",
+            asset_display, direction, entry_price, rsi, cvd, obi, details.get("bet_usd", 2.50), tp_target, regime
         )
     else:
         reason = skip_reason or "no_signal"
         log.info(
-            "\033[90m[5m Skip] %s/%s: Skipped (%s)\033[0m",
-            asset, timeframe, reason
+            "\033[90m[Skip] %s [%s]: Skipped (%s) | RSI=%.1f CVD=%+.2f OBI=%+.2f\033[0m",
+            asset_display, direction, reason, rsi, cvd, obi
         )
 
 
@@ -895,9 +876,14 @@ async def asset_loop(
                     sast_now = utc_now + timedelta(hours=2)
                     utc_str = utc_now.strftime("%H:%M:%S")
                     sast_str = sast_now.strftime("%H:%M:%S")
-                    log.info("\033[97m─── [CANDLE BOUNDARY: %s UTC / %s SAST] ──────────────────────────────────────────\033[0m", utc_str, sast_str)
+                    log.info(
+                        "\033[1;97m================================================================================\n"
+                        "██████████████ [CANDLE BOUNDARY: %s UTC / %s SAST] ██████████████\n"
+                        "================================================================================\033[0m",
+                        utc_str, sast_str
+                    )
 
-            log.info("\033[37m[5m Candle Check] %s/%s: Evaluating indicators...\033[0m", asset, timeframe)
+            log.debug("[5m Candle Check] %s/%s: Evaluating indicators...", asset, timeframe)
 
             # 1. Evaluate Market Signals
             signal = await _evaluate_market_signals(engine, session, interval_minutes, asset, timeframe)
