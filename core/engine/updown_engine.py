@@ -1385,7 +1385,7 @@ class UpDownEngine:
             "fast_cvd":     fast_cvd,
             "slow_cvd":     slow_cvd,
             "binance_obi":  binance_obi,
-            "skip_reason":  "confirm",
+            "skip_reason":  (conf_res.get("decision_path") if (direction == "NEUTRAL" and 'conf_res' in locals()) else "confirm"),
         }
 
 
