@@ -1543,7 +1543,7 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
     _hold_m = round(hold_hours * 60)
     _hold_s = f"{_hold_m}m" if _hold_m < 60 else f"{_hold_m // 60}h {_hold_m % 60}m"
 
-    log.info(
+    log.debug(
         "[TRADE CLOSED] %s/%s %s | %s | entry=%.0f¢ exit=%.0f¢ | pnl=%+.2f$ (%.1f%%) | %s | held=%s",
         _asset, _tf, _dir, _result,
         pos.get("entry_price", 0) * 100, current_price * 100,
@@ -1599,7 +1599,7 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
         outcome = "⚖️ BREAKEVEN"
     else:
         outcome = "❌ LOSS"
-    log.info(
+    log.debug(
         "[EXIT] %s | %s | %s @ %.4f | pnl=$%+.2f | bal=$%.2f",
         outcome, title_short, exit_reason, current_price, profit, new_balance,
     )

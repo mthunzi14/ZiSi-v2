@@ -117,7 +117,7 @@ class AntifragileRecovery:
         self._evaluate_tier()
         self._persist_state()
 
-        log.info(
+        log.debug(
             "[Antifragile] trade recorded pnl=$%.2f → tier=%s "
             "aggression=%.2f streak W%d/L%d recovery=%s",
             pnl, self._tier, self._aggression,
