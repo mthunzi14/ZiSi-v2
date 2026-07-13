@@ -874,21 +874,68 @@ async def asset_loop(
                     utc_str = utc_now.strftime("%H:%M:%S")
                     sast_str = sast_now.strftime("%H:%M:%S")
                     # Ingest background health check
-                    clob_status = "OFFLINE"
+                    clob_status = "\033[91mOFFLINE\033[90m"
+                    clob_lag = 999.0
                     try:
                         from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
                         clob_lag = time.time() - polymarket_l2_gateway.last_msg_ts
-                        clob_status = f"HEALTHY ({clob_lag:.1f}s lag)" if clob_lag < 30.0 else f"LAGGING ({clob_lag:.1f}s)"
+                        if clob_lag < 30.0:
+                            clob_status = f"\033[92mHEALTHY\033[90m ({clob_lag:.1f}s)"
+                        else:
+                            clob_status = f"\033[93mLAGGING\033[90m ({clob_lag:.1f}s)"
                     except Exception as e:
-                        clob_status = f"ERROR ({e})"
+                        clob_status = f"\033[91mERROR\033[90m ({e})"
 
-                    rtds_status = "OFFLINE"
+                    rtds_status = "\033[91mOFFLINE\033[90m"
+                    rtds_lag = 999.0
                     try:
                         from core.engine.polymarket_rtds_ingest import polymarket_rtds_ingest
                         rtds_lag = time.time() - polymarket_rtds_ingest.last_msg_ts
-                        rtds_status = f"HEALTHY ({rtds_lag:.1f}s lag)" if rtds_lag < 60.0 else f"LAGGING ({rtds_lag:.1f}s)"
+                        if rtds_lag < 60.0:
+                            rtds_status = f"\033[92mHEALTHY\033[90m ({rtds_lag:.1f}s)"
+                        else:
+                            rtds_status = f"\033[93mLAGGING\033[90m ({rtds_lag:.1f}s)"
                     except Exception as e:
-                        rtds_status = f"ERROR ({e})"
+                        rtds_status = f"\033[91mERROR\033[90m ({e})"
+
+                    hft_status = "\033[91mOFFLINE\033[90m"
+                    hft_lag = 999.0
+                    try:
+                        from core.engine.spot_websocket_ingest import _market_books
+                        last_spot_ts = max(book.get("timestamp", 0.0) for book in _market_books.values()) if _market_books else 0.0
+                        hft_lag = time.time() - last_spot_ts if last_spot_ts > 0 else 999.0
+                        if hft_lag < 5.0:
+                            hft_status = f"\033[92mHEALTHY\033[90m ({hft_lag:.1f}s)"
+                        else:
+                            hft_status = f"\033[93mLAGGING\033[90m ({hft_lag:.1f}s)"
+                    except Exception as e:
+                        hft_status = f"\033[91mERROR\033[90m ({e})"
+
+                    # Check staged markets cache
+                    staging_status = "\033[91mEMPTY\033[90m"
+                    try:
+                        from core.engine.updown_engine import _staged_markets_cache
+                        if _staged_markets_cache:
+                            staging_status = f"\033[92mACTIVE\033[90m ({len(_staged_markets_cache)} markets)"
+                    except Exception:
+                        pass
+
+                    # Detect lag recoveries
+                    clob_is_lagging = (clob_lag >= 30.0)
+                    rtds_is_lagging = (rtds_lag >= 60.0)
+                    hft_is_lagging = (hft_lag >= 5.0)
+                    
+                    recoveries = []
+                    if hasattr(context, "clob_was_lagging") and context.clob_was_lagging and not clob_is_lagging:
+                        recoveries.append("CLOB-WS")
+                    if hasattr(context, "rtds_was_lagging") and context.rtds_was_lagging and not rtds_is_lagging:
+                        recoveries.append("RTDS-WS")
+                    if hasattr(context, "hft_was_lagging") and context.hft_was_lagging and not hft_is_lagging:
+                        recoveries.append("HFT-WS")
+                        
+                    context.clob_was_lagging = clob_is_lagging
+                    context.rtds_was_lagging = rtds_is_lagging
+                    context.hft_was_lagging = hft_is_lagging
 
                     log.info(
                         "\033[1;97m================================================================================\n"
@@ -897,9 +944,11 @@ async def asset_loop(
                         utc_str, sast_str
                     )
                     log.info(
-                        "\033[90m[HEALTH] CLOB-WS: %s | RTDS-WS: %s | Staging: ACTIVE\033[0m",
-                        clob_status, rtds_status
+                        "\033[90m[HEALTH] CLOB-WS: %s | RTDS-WS: %s | HFT-WS: %s | Staging: %s\033[0m",
+                        clob_status, rtds_status, hft_status, staging_status
                     )
+                    if recoveries:
+                        log.info("\033[92m[HEALTH] Lag resolved on: %s\033[0m", ", ".join(recoveries))
 
             log.debug("[5m Candle Check] %s/%s: Evaluating indicators...", asset, timeframe)
 

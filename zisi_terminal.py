@@ -114,6 +114,9 @@ def fetch_asset_slug(asset: str, ts: int) -> tuple[str, dict]:
         with urllib.request.urlopen(req, timeout=3) as r:
             data = json.loads(r.read())
             if data and isinstance(data, list) and len(data) > 0:
+                event_slug = data[0].get("slug", "")
+                if event_slug.lower() != slug.lower():
+                    return asset, None
                 markets = data[0].get("markets", [])
                 if markets:
                     clob_token_ids = markets[0].get("clobTokenIds")
@@ -515,10 +518,10 @@ def build_header_panel() -> Panel:
     liveness_status = "[red]OFFLINE[/red]"
     if LOG_FILE.exists():
         mtime = os.path.getmtime(LOG_FILE)
-        if now - mtime < 60:
-            liveness_status = "[blink green]● ACTIVE[/blink green]"
+        if now - mtime < 360.0:
+            liveness_status = "[bold green]● ACTIVE[/bold green]"
         else:
-            liveness_status = "[yellow]● STANDBY[/yellow]"
+            liveness_status = "[bold yellow]● STANDBY[/bold yellow]"
 
     header_text = Text.assemble(
         ("ZiSi-v2 ", f"bold {COLOR_LABEL}"),  # Naming alignment: ZiSi-v2 in Titanium Gray
@@ -540,6 +543,25 @@ def build_header_panel() -> Panel:
     )
     
     return Panel(Align.center(header_text), box=ROUNDED, style="bright_black")
+
+
+def make_sparkline(values: list[float]) -> str:
+    if not values:
+        return ""
+    if len(values) == 1:
+        return "█"
+    points = values[-12:]
+    min_val = min(points)
+    max_val = max(points)
+    val_range = max_val - min_val
+    if val_range == 0:
+        return "▄" * len(points)
+    spark_chars = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+    sparkline = []
+    for val in points:
+        idx = int((val - min_val) / val_range * (len(spark_chars) - 1))
+        sparkline.append(spark_chars[idx])
+    return "".join(sparkline)
 
 
 def build_metrics_panel() -> Panel:
@@ -584,9 +606,28 @@ def build_metrics_panel() -> Panel:
     metrics_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=21)
     metrics_table.add_column("Value", justify="right")
 
+    # Calculate cumulative P&L sparkline
+    closed_pos = g_state.positions_state.get("closed", [])
+    spark_str = "[grey70]No closed trades[/grey70]"
+    if closed_pos:
+        try:
+            sorted_closed = sorted(closed_pos, key=lambda x: x.get("exit_time", ""))
+            cum_pnl = 0.0
+            pnl_history = [0.0]
+            for p in sorted_closed:
+                cum_pnl += float(p.get("realized_pnl", 0.0))
+                pnl_history.append(cum_pnl)
+            
+            spark = make_sparkline(pnl_history)
+            trend_color = "green" if (pnl_history[-1] >= pnl_history[-2] if len(pnl_history) >= 2 else True) else "red"
+            spark_str = f"[{trend_color}]{spark}[/{trend_color}]"
+        except Exception:
+            pass
+
     metrics_table.add_row("Start Capital:", f"[{COLOR_LABEL}]${start_bal:,.2f} USDC[/{COLOR_LABEL}]")
     metrics_table.add_row("Live Capital:", f"[{COLOR_LABEL}]${live_balance:,.2f} USDC[/{COLOR_LABEL}]")
     metrics_table.add_row("Realized P&L:", f"[{real_color}]${realized:+,.2f} ({realized_roi:+.2f}%)[/{real_color}]" if realized != 0 else f"[{COLOR_LABEL}]$0.00 (0.00%)[/{COLOR_LABEL}]")
+    metrics_table.add_row("P&L Sparkline:", spark_str)
     metrics_table.add_row("Live Unrealized P&L:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]" if total_live_unrealized != 0 else f"[{COLOR_LABEL}]$0.00[/{COLOR_LABEL}]")
     metrics_table.add_row("Total Trades:", f"[green]{wins}W[/green] / [red]{losses}L[/red] ([{COLOR_LABEL}]{win_rate:.1f}% WR[/{COLOR_LABEL}])")
 
@@ -923,7 +964,8 @@ def build_active_positions_panel() -> Panel:
             # Fetch WebSocket token price (market_id is the token ID)
             live_entry = g_state.clob_prices.get(market_id)
             if live_entry:
-                mark_token = live_entry["yes_price"]
+                yes_price = live_entry["yes_price"]
+                mark_token = yes_price if direction in ("YES", "UP") else (1.0 - yes_price)
                 unreal = (float(pos.get("shares", 0.0)) * mark_token) - size
             else:
                 mark_token = float(pos.get("current_price", entry_token))
@@ -1196,6 +1238,7 @@ def main():
     
     # 3Hz fluid rendering loop (3 updates per second) to eliminate SSH buffer lag and enable instant loading
     with Live(layout_default, refresh_per_second=3, screen=True) as live:
+        last_fs_mode = None
         while True:
             now = time.time()
             
@@ -1206,6 +1249,10 @@ def main():
                 
             with g_state.lock:
                 fs_mode = g_state.fullscreen_mode
+                
+            if fs_mode != last_fs_mode:
+                live.console.clear()
+                last_fs_mode = fs_mode
                 
             # Render based on fullscreen mode
             if fs_mode == 'logs':

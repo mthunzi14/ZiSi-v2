@@ -1293,14 +1293,22 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         is_time_decay_hit = is_updown and not _is_short_tf and not is_expired and age_minutes >= 0.7 * effective_max_minutes
         is_salvage_exit = False
 
-        # 80% drawdown stop-loss
+        # 80% drawdown stop-loss (enabled for all timeframes)
         _drawdown_floor = entry_price * 0.20
-        if not _is_short_tf and not is_expired and exit_price is not None and 0.005 < exit_price <= _drawdown_floor:
+        if not is_expired and exit_price is not None and 0.005 < exit_price <= _drawdown_floor:
             log.info(
-                "[STOP-LOSS] %s: %.0fc <= 20%% of entry %.0fc - early exit saving 80%% of remaining stake",
-                order_id, exit_price * 100, entry_price * 100
+                "[NETTING-EXIT] %s 80%% DRAWDOWN TRIGGERED! Price fell to %.2f (entry %.2f). Cutting losses risk free.",
+                order_id, exit_price, entry_price
             )
-            is_stop_hit = True
+            is_salvage_exit = True
+
+        # 4-minute OTM salvage exit
+        if _is_short_tf and not is_expired and age_minutes >= 4.0 and exit_price is not None and exit_price <= 0.20:
+            log.info(
+                "[SALVAGE-EXIT] %s Deep OTM at 4m (price %.2fc <= 20c). Salvaging capital.",
+                order_id, exit_price * 100
+            )
+            is_salvage_exit = True
 
         if not (is_expired or is_target_hit or is_stop_hit or is_time_decay_hit or is_salvage_exit):
             # Update local current_price in memory and continue
@@ -1751,7 +1759,7 @@ def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_r
     try:
         from pathlib import Path
         import json
-        out_path = Path(__file__).parent.parent.parent / "data" / "positions_state.json"
+        out_path = (Path(__file__).parent.parent.parent / "data" / "positions_state.json").resolve()
         if not out_path.exists():
             return
         
@@ -1898,7 +1906,7 @@ def persist_positions() -> None:
         closed.sort(key=lambda p: p.get("exit_time", ""), reverse=True)
 
         # Merge with existing positions file
-        out_path = Path(__file__).parent.parent.parent / "data" / "positions_state.json"
+        out_path = (Path(__file__).parent.parent.parent / "data" / "positions_state.json").resolve()
         kalshi_active: list[dict] = []
         kalshi_closed: list[dict] = []
         existing_poly_closed: list[dict] = []
@@ -2143,7 +2151,7 @@ def _recover_active_positions_from_disk() -> None:
     from positions_state.json back into the in-memory _open_positions store
     so the bot doesn't orphan/abandon them upon restart.
     """
-    out_path = Path(__file__).parent.parent.parent / "data" / "positions_state.json"
+    out_path = (Path(__file__).parent.parent.parent / "data" / "positions_state.json").resolve()
     if not out_path.exists():
         return
     try:
