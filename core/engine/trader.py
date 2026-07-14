@@ -1261,15 +1261,16 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 exit_val_a = round(shares_a * exit_price, 2)
                 profit_a = round(exit_val_a - cost_a, 2)
                 
+                trade_desc = _get_trade_desc(pos)
                 new_bal = get_current_balance() + exit_val_a
                 try:
-                    update_balance(new_bal, reason=f"Tranche A of {order_id} closed at {exit_price} (+${profit_a:+.2f})")
+                    update_balance(new_bal, reason=f"Tranche A of {trade_desc} ({order_id}) closed at {format_cents(exit_price)} (+${profit_a:+.2f})")
                 except Exception as ex:
                     log.error("Failed to update balance for Tranche A exit: %s", ex)
                 
                 log.info(
-                    "[TRANCHE-A-EXIT] %s Tranche A (50%%) Scalped at %.2fc (entry %.2fc) | PnL = %+.2f$",
-                    order_id, exit_price * 100, entry_price * 100, profit_a
+                    "[TRANCHE-A-EXIT] %s (%s) Tranche A (50%%) Scalped at %s (entry %s) | PnL = %+.2f$ | Tranche B still open (awaiting target %s)",
+                    trade_desc, order_id, format_cents(exit_price), format_cents(entry_price), profit_a, format_cents(tranche_b_target)
                 )
                 
                 # Reduce active position sizing by half for remaining Tranche B
@@ -1637,11 +1638,12 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
 
     # Balance is already updated by persist_positions() above — just read it back
     new_balance = get_current_balance()
+    trade_desc = _get_trade_desc(pos)
     try:
         if tranche_a_closed:
-            reason = f"Tranche B of {order_id} closed at {current_price:.3f} (+${profit:+.2f}, Total PnL: +${total_profit:+.2f})"
+            reason = f"Tranche B of {trade_desc} ({order_id}) closed at {format_cents(current_price)} (+${profit:+.2f}, Total PnL: +${total_profit:+.2f})"
         else:
-            reason = f"Trade {order_id} closed with ${profit:+.2f}"
+            reason = f"Trade {trade_desc} ({order_id}) closed with ${profit:+.2f}"
         update_balance(new_balance, reason=reason)
     except Exception as exc:
         log.error("Failed to update balance after trade %s: %s", order_id, exc)
@@ -1653,8 +1655,8 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
     else:
         outcome = "❌ LOSS"
     log.debug(
-        "[EXIT] %s | %s | %s @ %.4f | pnl=$%+.2f | bal=$%.2f",
-        outcome, title_short, exit_reason, current_price, profit, new_balance,
+        "[EXIT] %s | %s (%s) | %s @ %s | pnl=$%+.2f | bal=$%.2f",
+        outcome, trade_desc, order_id, exit_reason, format_cents(current_price), profit, new_balance,
     )
 
     # Circuit breaker + inversion feedback per asset/timeframe engine
@@ -1755,6 +1757,30 @@ def get_position_summary() -> dict:
     }
 
 
+def format_cents(val: float) -> str:
+    if val is None or val == 0:
+        return "-"
+    cents = round(val * 100, 2)
+    if cents == int(cents):
+        return f"{int(cents)}¢"
+    s = f"{cents:.2f}"
+    if s.endswith("0"):
+        s = s[:-1]
+    return f"{s}¢"
+
+
+def _get_trade_desc(pos: dict) -> str:
+    title = pos.get("event_title", "")
+    asset = "UNKNOWN"
+    for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+        if f"[{possible}]" in title.upper() or possible in title.upper():
+            asset = possible
+            break
+    direction = pos.get("direction", "YES")
+    dir_str = "UP" if direction in ("YES", "UP") else "DOWN"
+    return f"{asset} [{dir_str}]"
+
+
 def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_reason: str, profit: float, shares_closed: float, cost_closed: float):
     try:
         from pathlib import Path
@@ -1811,11 +1837,12 @@ def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_r
         
         closed_list.insert(0, tranche_record)
         
-        # Save back to file under a lock or directly
-        tmp = out_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        import os
-        os.replace(tmp, out_path)
+        # Save back to file under a lock
+        with GLOBAL_POSITIONS_LOCK:
+            tmp = out_path.with_name(f"positions_state_{uuid.uuid4().hex}.tmp")
+            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            import os
+            os.replace(tmp, out_path)
         log.info("[HISTORY] Persisted Tranche %s for %s to positions_state.json", tranche_name, pos["order_id"])
     except Exception as e:
         log.error("Failed to record tranche close: %s", e)
@@ -1994,7 +2021,7 @@ def persist_positions() -> None:
 
         with GLOBAL_POSITIONS_LOCK:
             try:
-                tmp_path = out_path.with_suffix(".tmp")
+                tmp_path = out_path.with_name(f"positions_state_{uuid.uuid4().hex}.tmp")
                 tmp_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
                 import os as _os
                 _os.replace(tmp_path, out_path)

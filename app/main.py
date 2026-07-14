@@ -355,17 +355,18 @@ async def _validate_trade_slot(
                 log.warning("[LEADER-GUARD] Failed to check leader %s correlation: %s", leader, e)
                 
         # Block if BOTH leaders are against the trade...
-        if leaders_checked == 2 and leaders_against == 2:
-            log.debug(
-                "[LEADER-GUARD] %s/%s %s: blocked because BOTH leaders (BTC & ETH) are against the trade direction",
-                asset, timeframe, direction
-            )
-            context.log_skip("leader_corroboration_guard", asset, timeframe)
-            return False, {"skip_reason": "leader_corroboration_guard"}
+        # (Disabled per user request to allow alts to trade independently)
+        # if leaders_checked == 2 and leaders_against == 2:
+        #     log.debug(
+        #         "[LEADER-GUARD] %s/%s %s: blocked because BOTH leaders (BTC & ETH) are against the trade direction",
+        #         asset, timeframe, direction
+        #     )
+        #     context.log_skip("leader_corroboration_guard", asset, timeframe)
+        #     return False, {"skip_reason": "leader_corroboration_guard"}
         # ...but PROPAGATE when both leaders CONFIRM (REBUILD Phase 5): Bonereaper fires the
         # same direction across BTC/ETH/SOL/XRP/DOGE on a macro move. Boost the alt's conviction
         # (corroboration multiplier) so sizing scales with the cross-asset signal.
-        elif leaders_checked == 2 and leaders_confirming == 2:
+        if leaders_checked == 2 and leaders_confirming == 2:
             _boosted = max(float(signal.get("corroboration_multiplier", 1.0)), 1.3)
             signal["corroboration_multiplier"] = _boosted
             log.debug(
@@ -914,7 +915,12 @@ async def asset_loop(
                     # Check staged markets cache
                     staging_status = "\033[91mEMPTY\033[90m"
                     try:
-                        staging_count = sum(len(eng._prefetched_markets) for eng in context.engines.values())
+                        current_boundary = int(time.time() // 300) * 300
+                        staging_count = sum(
+                            1 for eng in context.engines.values()
+                            for k in eng._prefetched_markets.keys()
+                            if k >= current_boundary
+                        )
                         if staging_count > 0:
                             staging_status = f"\033[92mACTIVE\033[90m ({staging_count} staged)"
                     except Exception:
@@ -938,8 +944,8 @@ async def asset_loop(
                     context.hft_was_lagging = hft_is_lagging
 
                     log.info(
-                        "\033[1;97m================================================================================\n"
-                        "██████████████ [CANDLE BOUNDARY: %s UTC / %s SAST] ██████████████\n"
+                        "\033[90m================================================================================\n"
+                        "███████████████████████ \033[90m[ \033[38;5;153m%s UTC \033[90m│ \033[38;5;153m%s SAST \033[90m] \033[90m████████████████████████\n"
                         "================================================================================\033[0m",
                         utc_str, sast_str
                     )
@@ -1155,13 +1161,13 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
     try:
         market_id = (market["up_market"] if direction == "UP" else market["dn_market"]).get("id", "")
 
-        # Strict 8.0¢ Max Slippage Guard (Live-matching defense)
+        # Asymmetric 12.0¢ Max Slippage Guard (allows favorable drops, protects against paying too much)
         try:
             from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
             live_price, _ = polymarket_l2_gateway.get_price(market_id)
-            if live_price and abs(live_price - entry_price) > 0.08:
+            if live_price and (live_price - entry_price) > 0.12:
                 log.warning(
-                    "[TRADE] SLIPPAGE_ABORT: %s/%s Live price %.4f deviated from signal price %.4f by > 8.0¢. Aborting trade execution.",
+                    "[TRADE] SLIPPAGE_ABORT: %s/%s Live price %.4f is > 12.0¢ higher than signal price %.4f. Aborting trade execution.",
                     asset, timeframe, live_price, entry_price
                 )
                 return None

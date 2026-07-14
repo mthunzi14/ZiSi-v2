@@ -530,10 +530,10 @@ def build_header_panel() -> Panel:
         Text.from_markup(liveness_status),
         (" │ ", "bright_black"),
         ("UTC: ", f"bold {COLOR_LABEL}"),
-        (utc_str, "yellow"),            # Yellow UTC Clock
+        (utc_str, "light_steel_blue"),
         (" │ ", "bright_black"),
         ("SAST: ", f"bold {COLOR_LABEL}"),
-        (sast_str, "yellow"),           # Yellow SAST Clock
+        (sast_str, "light_steel_blue"),
         (" │ ", "bright_black"),
         ("5m Candle: ", f"bold {COLOR_LABEL}"),
         (cd_5m_str, style_5m),
@@ -543,6 +543,18 @@ def build_header_panel() -> Panel:
     )
     
     return Panel(Align.center(header_text), box=ROUNDED, style="bright_black")
+
+
+def format_cents(val: float) -> str:
+    if val is None or val == 0:
+        return "-"
+    cents = round(val * 100, 2)
+    if cents == int(cents):
+        return f"{int(cents)}¢"
+    s = f"{cents:.2f}"
+    if s.endswith("0"):
+        s = s[:-1]
+    return f"{s}¢"
 
 
 def make_sparkline(values: list[float]) -> str:
@@ -704,20 +716,20 @@ def build_spot_prices_panel() -> Panel:
             spread = g_state.clob_spreads.get(yes_tk)
             if live_entry:
                 yes_val = live_entry["yes_price"]
-                yes_price_str = f"${yes_val:.3f}"
+                yes_price_str = format_cents(yes_val)
                 if spread is not None:
                     spread_str = f"{spread * 100:.1f}¢"
                 # Infer NO price mathematically if not yet directly populated
-                no_price_str = f"${(1.0 - yes_val):.3f}"
+                no_price_str = format_cents(1.0 - yes_val)
                 
         if no_tk:
             live_entry_no = g_state.clob_prices.get(no_tk)
             if live_entry_no:
                 no_val = live_entry_no["yes_price"]
-                no_price_str = f"${no_val:.3f}"
+                no_price_str = format_cents(no_val)
                 # Infer YES price mathematically if not yet directly populated
                 if yes_price_str == "-":
-                    yes_price_str = f"${(1.0 - no_val):.3f}"
+                    yes_price_str = format_cents(1.0 - no_val)
 
         table.add_row(asset, spot_str, cl_str, pyth_str, yes_price_str, no_price_str, spread_str)
 
@@ -995,9 +1007,9 @@ def build_active_positions_panel() -> Panel:
                 f"${size:,.2f}",
                 entry_spot_str,
                 mark_spot_str,
-                f"${entry_token:.3f}",
-                f"${mark_token:.3f}",
-                f"${float(pos.get('target_price', 0.99)):.3f}",
+                format_cents(entry_token),
+                format_cents(mark_token),
+                format_cents(float(pos.get('target_price', 0.99))),
                 formatted_entry_ts,
                 hold_str,
                 f"[{unreal_color}]${unreal:+.2f}[/{unreal_color}]"

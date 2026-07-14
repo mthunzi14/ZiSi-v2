@@ -17,6 +17,18 @@ except ImportError:
     print("Error: 'rich' library is required. Install it using: pip install rich")
     sys.exit(1)
 
+def format_cents(val: float) -> str:
+    if val is None or val == 0:
+        return "-"
+    cents = round(val * 100, 2)
+    if cents == int(cents):
+        return f"{int(cents)}¢"
+    s = f"{cents:.2f}"
+    if s.endswith("0"):
+        s = s[:-1]
+    return f"{s}¢"
+
+
 def main():
     console = Console()
     project_root = Path(__file__).resolve().parent
@@ -93,8 +105,8 @@ def main():
             pos.get("tranche", "SINGLE"),
             f"[{dir_color}]{direction}[/{dir_color}]",
             f"${pos.get('size', 0.0):.2f}",
-            f"${pos.get('entry_price', 0.0):.3f}",
-            f"${pos.get('exit_price', 0.0):.3f}",
+            format_cents(float(pos.get('entry_price', 0.0))),
+            format_cents(float(pos.get('exit_price', 0.0))),
             f"{hold_hours * 60:.1f}m",
             reason_str,
             f"[{pnl_color}]${pnl:+.2f}[/{pnl_color}]"
