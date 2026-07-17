@@ -750,6 +750,8 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
     # Win/Loss breakdown and P&L by asset
     asset_stats = {}
     regime_stats = {}
+    session_stats = {}
+    hourly_stats = {}
     half_stats = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
     runner_stats = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
     ls_stats = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
@@ -858,6 +860,55 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         else:
             band_stats[band_key]["breakevens"] += 1
 
+        # Timezone conversions & session/hourly breakdown
+        try:
+            from datetime import datetime, timezone, timedelta
+            if pos.get("entry_time"):
+                dt_utc = datetime.fromisoformat(pos.get("entry_time").replace('Z', '+00:00'))
+                
+                # Session classifier
+                def get_session_name(dt) -> str:
+                    hour = dt.hour
+                    if 8 <= hour < 13:
+                        return "London Session"
+                    elif 13 <= hour < 16:
+                        return "London/NY Overlap"
+                    elif 16 <= hour < 21:
+                        return "New York Session"
+                    elif 21 <= hour < 24:
+                        return "Pacific/Sydney Session"
+                    else:
+                        return "Asian/Tokyo Session"
+                
+                sess_name = get_session_name(dt_utc)
+                if sess_name not in session_stats:
+                    session_stats[sess_name] = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+                session_stats[sess_name]["pnl"] += pnl
+                session_stats[sess_name]["hold_secs"].append(hold_sec)
+                if pnl > 0.01:
+                    session_stats[sess_name]["wins"] += 1
+                elif pnl < -0.01:
+                    session_stats[sess_name]["losses"] += 1
+                else:
+                    session_stats[sess_name]["breakevens"] += 1
+                
+                # Hourly SAST (UTC+2) classifier
+                tz_sast = timezone(timedelta(hours=2))
+                dt_sast = dt_utc.astimezone(tz_sast)
+                hr_key = f"{dt_sast.hour:02d}:00 SAST"
+                if hr_key not in hourly_stats:
+                    hourly_stats[hr_key] = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+                hourly_stats[hr_key]["pnl"] += pnl
+                hourly_stats[hr_key]["hold_secs"].append(hold_sec)
+                if pnl > 0.01:
+                    hourly_stats[hr_key]["wins"] += 1
+                elif pnl < -0.01:
+                    hourly_stats[hr_key]["losses"] += 1
+                else:
+                    hourly_stats[hr_key]["breakevens"] += 1
+        except Exception:
+            pass
+
     if asset_stats:
         metrics_table.add_row("", "")
         metrics_table.add_row("[bold grey70]Asset Breakdown:[/bold grey70]", "")
@@ -917,6 +968,23 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
     metrics_table.add_row("[bold grey70]Regime Breakdown:[/bold grey70]", "")
     for regime_name, stats_r in sorted(regime_stats.items()):
         metrics_table.add_row(f"  {regime_name.replace('_', ' ')}:", format_breakdown_line(stats_r))
+
+    # Session Breakdown Display
+    if session_stats:
+        metrics_table.add_row("", "")
+        metrics_table.add_row("[bold grey70]Session Breakdown:[/bold grey70]", "")
+        sess_order = ["Asian/Tokyo Session", "London Session", "London/NY Overlap", "New York Session", "Pacific/Sydney Session"]
+        for sess_name in sess_order:
+            if sess_name in session_stats and (session_stats[sess_name]["wins"] + session_stats[sess_name]["losses"]) > 0:
+                metrics_table.add_row(f"  {sess_name}:", format_breakdown_line(session_stats[sess_name]))
+
+    # Hourly Breakdown Display
+    if hourly_stats:
+        metrics_table.add_row("", "")
+        metrics_table.add_row("[bold grey70]Hourly Breakdown (SAST):[/bold grey70]", "")
+        for hr_key in sorted(hourly_stats.keys()):
+            if (hourly_stats[hr_key]["wins"] + hourly_stats[hr_key]["losses"]) > 0:
+                metrics_table.add_row(f"  {hr_key}:", format_breakdown_line(hourly_stats[hr_key]))
 
     title_str = "Performance Summary (M or H to Minimize)" if fullscreen else "Performance Summary (M to Fullscreen)"
     return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
