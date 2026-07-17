@@ -39,6 +39,7 @@ _ASSET_MAP: dict[str, str] = {
     "ETH": "ETHUSDT",
     "SOL": "SOLUSDT",
     "XRP": "XRPUSDT",
+    "DOGE": "DOGEUSDT",
 }
 
 # ── Constants ─────────────────────────────────────────────────────────────────

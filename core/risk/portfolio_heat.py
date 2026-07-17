@@ -43,7 +43,7 @@ _POSITIONS_FILE = _PROJECT_ROOT / "data" / "positions_state.json"
 _HEAT_STATE_FILE = _PROJECT_ROOT / "data" / "portfolio_heat_state.json"
 
 # ── Constants ────────────────────────────────────────────────────────────────
-_TRACKED_ASSETS: list[str] = ["BTC", "ETH", "SOL", "XRP"]
+_TRACKED_ASSETS: list[str] = ["BTC", "ETH", "SOL", "XRP", "DOGE"]
 _ROLLING_WINDOW: int = 60  # 1 hour of minute-level samples (≈ 60 ticks)
 _DAMPENING_THRESHOLDS: list[tuple[float, float]] = [
     # (heat_threshold, multiplier)   — checked high-to-low

@@ -101,6 +101,7 @@ class GlobalDashboardState:
         self.potential_trades = {}
         self.closed_scroll_offset = 0
         self.logs_scroll_offset = 0
+        self.metrics_scroll_offset = 0
         self.fullscreen_mode = None
         self.redraw_event = threading.Event()
         
@@ -909,9 +910,11 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         except Exception:
             pass
 
+    breakdown_rows = []
+
     if asset_stats:
-        metrics_table.add_row("", "")
-        metrics_table.add_row("[bold grey70]Asset Breakdown:[/bold grey70]", "")
+        breakdown_rows.append(("", ""))
+        breakdown_rows.append(("[bold grey70]Asset Breakdown:[/bold grey70]", ""))
         for asset, stats in sorted(asset_stats.items()):
             pnl_val = stats["pnl"]
             pnl_color = COLOR_PASTEL_GREEN if pnl_val >= 0.01 else (COLOR_PASTEL_RED if pnl_val < -0.01 else COLOR_LABEL)
@@ -926,10 +929,10 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
                 
             tot = stats['wins'] + stats['losses'] + stats['breakevens']
             wr = (stats['wins'] / tot * 100) if tot > 0 else 0.0
-            metrics_table.add_row(
+            breakdown_rows.append((
                 f"  [{COLOR_ASSET}]{asset}:[/{COLOR_ASSET}]",
                 f"[grey70]{tot}T[/grey70] | [#8ae28a]{stats['wins']}W[/#8ae28a] / [#ff746c]{stats['losses']}L[/#ff746c] / [grey50]{stats['breakevens']}BE[/grey50] ({wr:.1f}% WR) | ([{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}], [{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]) | avg hold: {avg_hold_str}"
-            )
+            ))
 
     def format_breakdown_line(stats_dict):
         w = stats_dict["wins"]
@@ -950,43 +953,56 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         return f"[grey70]{total}T[/grey70] | [#8ae28a]{w}W[/#8ae28a] / [#ff746c]{l}L[/#ff746c] / [grey50]{be}BE[/grey50] ({wr:.1f}% WR) | [{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}] ([{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]) | avg hold: {avg_hold_str}"
 
     # Scale Breakdown Display
-    metrics_table.add_row("", "")
-    metrics_table.add_row("[bold grey70]Scale Breakdown:[/bold grey70]", "")
-    metrics_table.add_row(f"  Early Scalping ([bold {COLOR_ES}]ES[/bold {COLOR_ES}]):", format_breakdown_line(half_stats))
-    metrics_table.add_row(f"  Extended Execution ([bold {COLOR_EX}]EX[/bold {COLOR_EX}]):", format_breakdown_line(runner_stats))
+    breakdown_rows.append(("", ""))
+    breakdown_rows.append(("[bold grey70]Scale Breakdown:[/bold grey70]", ""))
+    breakdown_rows.append((f"  Early Scalping ([bold {COLOR_ES}]ES[/bold {COLOR_ES}]):", format_breakdown_line(half_stats)))
+    breakdown_rows.append((f"  Extended Execution ([bold {COLOR_EX}]EX[/bold {COLOR_EX}]):", format_breakdown_line(runner_stats)))
 
     # Entry Bands Display
-    metrics_table.add_row("", "")
-    metrics_table.add_row("[bold grey70]Entry Bands:[/bold grey70]", "")
+    breakdown_rows.append(("", ""))
+    breakdown_rows.append(("[bold grey70]Entry Bands:[/bold grey70]", ""))
     for band_name in ["0-19¢", "20-39¢", "40-59¢", "60-79¢", "80-99¢"]:
         stats_b = band_stats[band_name]
         if (stats_b["wins"] + stats_b["losses"]) > 0:
-            metrics_table.add_row(f"  {band_name}:", format_breakdown_line(stats_b))
+            breakdown_rows.append((f"  {band_name}:", format_breakdown_line(stats_b)))
 
     # Regime Breakdown Display
-    metrics_table.add_row("", "")
-    metrics_table.add_row("[bold grey70]Regime Breakdown:[/bold grey70]", "")
+    breakdown_rows.append(("", ""))
+    breakdown_rows.append(("[bold grey70]Regime Breakdown:[/bold grey70]", ""))
     for regime_name, stats_r in sorted(regime_stats.items()):
-        metrics_table.add_row(f"  {regime_name.replace('_', ' ')}:", format_breakdown_line(stats_r))
+        breakdown_rows.append((f"  {regime_name.replace('_', ' ')}:", format_breakdown_line(stats_r)))
 
     # Session Breakdown Display
     if session_stats:
-        metrics_table.add_row("", "")
-        metrics_table.add_row("[bold grey70]Session Breakdown:[/bold grey70]", "")
+        breakdown_rows.append(("", ""))
+        breakdown_rows.append(("[bold grey70]Session Breakdown:[/bold grey70]", ""))
         sess_order = ["Asian/Tokyo Session", "London Session", "London/NY Overlap", "New York Session", "Pacific/Sydney Session"]
         for sess_name in sess_order:
             if sess_name in session_stats and (session_stats[sess_name]["wins"] + session_stats[sess_name]["losses"]) > 0:
-                metrics_table.add_row(f"  {sess_name}:", format_breakdown_line(session_stats[sess_name]))
+                breakdown_rows.append((f"  {sess_name}:", format_breakdown_line(session_stats[sess_name])))
 
     # Hourly Breakdown Display
     if hourly_stats:
-        metrics_table.add_row("", "")
-        metrics_table.add_row("[bold grey70]Hourly Breakdown (SAST):[/bold grey70]", "")
+        breakdown_rows.append(("", ""))
+        breakdown_rows.append(("[bold grey70]Hourly Breakdown (SAST):[/bold grey70]", ""))
         for hr_key in sorted(hourly_stats.keys()):
             if (hourly_stats[hr_key]["wins"] + hourly_stats[hr_key]["losses"]) > 0:
-                metrics_table.add_row(f"  {hr_key}:", format_breakdown_line(hourly_stats[hr_key]))
+                breakdown_rows.append((f"  {hr_key}:", format_breakdown_line(hourly_stats[hr_key])))
 
-    title_str = "Performance Summary (M or H to Minimize)" if fullscreen else "Performance Summary (M to Fullscreen)"
+    # Read offset and console height to slice visible rows
+    with g_state.lock:
+        offset = g_state.metrics_scroll_offset
+    
+    h = console.height or 40
+    max_lines = max(5, h - 10) if fullscreen else 14
+    
+    # Append sliced rows to layout table
+    for r in breakdown_rows[offset : offset + max_lines]:
+        metrics_table.add_row(*r)
+
+    # Dynamic scroll indicator in panel title
+    scroll_indicator = f" [Scroll: -{offset}]" if offset > 0 else ""
+    title_str = f"Performance Summary{scroll_indicator} (K/J to Scroll, M or H to Minimize)" if fullscreen else f"Performance Summary{scroll_indicator} (K/J to Scroll, M to Fullscreen)"
     return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
@@ -1588,10 +1604,17 @@ def run_keyboard_listener():
                 elif ch.lower() == 's':  # Scroll logs DOWN (newer)
                     with g_state.lock:
                         g_state.logs_scroll_offset = max(0, g_state.logs_scroll_offset - 1)
-                elif ch.lower() == 'u':  # Reset both offsets to live real-time view
+                elif ch.lower() == 'k':  # Scroll metrics UP (older)
+                    with g_state.lock:
+                        g_state.metrics_scroll_offset += 1
+                elif ch.lower() == 'j':  # Scroll metrics DOWN (newer)
+                    with g_state.lock:
+                        g_state.metrics_scroll_offset = max(0, g_state.metrics_scroll_offset - 1)
+                elif ch.lower() == 'u':  # Reset offsets to live real-time view
                     with g_state.lock:
                         g_state.closed_scroll_offset = 0
                         g_state.logs_scroll_offset = 0
+                        g_state.metrics_scroll_offset = 0
                 elif ch.lower() == 'l':  # Toggle logs fullscreen
                     with g_state.lock:
                         g_state.fullscreen_mode = 'logs' if g_state.fullscreen_mode != 'logs' else None
@@ -1610,6 +1633,7 @@ def run_keyboard_listener():
                 elif ch.lower() == 'h':  # Reset to default layout
                     with g_state.lock:
                         g_state.fullscreen_mode = None
+                        g_state.metrics_scroll_offset = 0
                 
                 # Instantly notify main loop to wake up and redraw
                 g_state.redraw_event.set()
