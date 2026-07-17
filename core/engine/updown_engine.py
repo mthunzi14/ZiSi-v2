@@ -24,6 +24,11 @@ log = logging.getLogger("zisi.engine")
 # Live engine instances keyed by "ASSET/timeframe" for outcome feedback
 _ENGINE_REGISTRY: dict[str, "UpDownEngine"] = {}
 
+_GREEN_UP = "\033[1;38;2;193;225;193mUP\033[0m"
+_RED_DN = "\033[1;38;2;255;116;108mDOWN\033[0m"
+_GREEN_YES = "\033[1;38;2;193;225;193mYES\033[0m"
+_RED_NO = "\033[1;38;2;255;116;108mNO\033[0m"
+
 
 def register_engine(instance: "UpDownEngine") -> None:
     key = f"{instance.asset}/{instance.timeframe}"
@@ -269,11 +274,32 @@ class UpDownEngine:
         self.skip_windows:       int = 0
         self.invert_signal:     bool = False
         self._recent_outcomes:  list = []   # True=win, False=loss; rolling 40
+        try:
+            import json
+            from pathlib import Path
+            _db_path = Path(__file__).parent.parent.parent / "data" / "positions_state.json"
+            if _db_path.exists():
+                with open(_db_path, "r", encoding="utf-8") as _fh:
+                    _db_data = json.load(_fh)
+                    _closed = _db_data.get("closed", [])
+                    _my_outcomes = []
+                    for _pos in _closed:
+                        _title = _pos.get("event_title", "")
+                        if f"[{self.asset}]" in _title and f"[{self.timeframe}]" in _title:
+                            _pnl = float(_pos.get("realized_pnl", 0.0))
+                            _my_outcomes.append(_pnl > 0.0)
+                    self._recent_outcomes = _my_outcomes[-40:]
+                    log.info("[ENGINE] %s/%s: Initialised rolling outcomes with %d historical trades.", 
+                             self.asset, self.timeframe, len(self._recent_outcomes))
+        except Exception as _e_init:
+            log.warning("[ENGINE] Failed to load historical outcomes for %s/%s: %s", self.asset, self.timeframe, _e_init)
+
         self._prefetched_markets: dict = {}  # boundary_ts -> market_dict
         self.last_edge_context: Optional[dict] = None
         self._slope_history:    list = []   # rolling 4 slope readings for choppy detection
         self._choppy_candles:   int  = 0    # candles remaining in choppy cooldown
         self._current_regime_calculated: str = "MEAN_REVERTING"
+        self._check_inversion()
 
     def _get_hourly_slug(self, timestamp: int) -> str:
         from zoneinfo import ZoneInfo
@@ -455,6 +481,24 @@ class UpDownEngine:
             from core.engine.regime_detector import RegimeDetector
             detector = RegimeDetector(timeframe=self.timeframe, atr_window=14)
             write_to_disk = (self.asset == "BTC")
+
+            # Fetch OBI and calculate Volume Ratio to feed detector context
+            from core.engine.spot_websocket_ingest import get_binance_obi
+            _obi_val = await get_binance_obi(self.asset)
+            _obi_val = _obi_val if _obi_val is not None else 0.0
+
+            _vol_ratio = 1.0
+            if len(klines) >= 21:
+                try:
+                    _current_vol = float(klines[-1][5])
+                    _prev_vols = [float(k[5]) for k in klines[-21:-1]]
+                    _avg_vol = sum(_prev_vols) / len(_prev_vols)
+                    if _avg_vol > 0:
+                        _vol_ratio = _current_vol / _avg_vol
+                except Exception as _vol_err:
+                    log.debug("[ENGINE] Failed to compute volume ratio for regime: %s", _vol_err)
+
+            detector.update_context(obi=_obi_val, volume_ratio=_vol_ratio, write_to_disk=write_to_disk)
             detector.update_prices(closes, symbol=self.asset, write_to_disk=write_to_disk)
             self._current_regime_calculated = detector._current_regime
         except Exception as e:
@@ -476,18 +520,10 @@ class UpDownEngine:
         if not market:
             return None
 
-        # TTL gate: block any non-NCS entry with < 90s to candle expiry.
-        # Entering at T-36s or T-72s means the market has nearly resolved — tiny win potential,
-        # full loss exposure. NCS is exempt (it intentionally targets T-8s to T-45s).
         import sys, os as _os_t
         is_testing = _os_t.environ.get("ZISI_TESTING") == "True" or "unittest" in sys.modules or "pytest" in sys.modules
-        if not is_testing:
-            import time as _time_ttl
-            _ttl_s = market.get("expiry_ts", 0) - _time_ttl.time()
-            if _ttl_s < 90:
-                log.info("[TTL-GATE] %s/%s: %.0fs to expiry — too late to enter (need 90s+), skip",
-                         self.asset, self.timeframe, _ttl_s)
-                return None
+
+        # TTL gate check deferred until after indicator calculation to allow late-candle certainty snipes (Tranche C)
 
         # Verify that the fetched market's start timestamp matches the current candle start timestamp
         # Prevents timeframe mismatch where we place trades on upcoming or previous candles
@@ -666,7 +702,6 @@ class UpDownEngine:
                     if time.time() - cl_ts <= 5.0:
                         cl_fresh = True
 
-                _fv_spot = closes[-1]
                 _custom_strike = None
                 if cl_fresh:
                     _fv_spot = cl_now
@@ -676,14 +711,21 @@ class UpDownEngine:
                     _cl_open = await get_chainlink_candle_open(self.asset, _interval_sec, _candle_start)
                     if _cl_open is not None:
                         _custom_strike = _cl_open
+                        log.info("[PRICE-SOURCE] %s/%s: Using authoritative Chainlink price (Spot=%.4f, Strike=%.4f)",
+                                 self.asset, self.timeframe, _fv_spot, _custom_strike)
                     else:
-                        _basis = closes[-1] - cl_now
-                        _custom_strike = float(klines[-1][1]) - _basis
-                    log.info("[PRICE-SOURCE] %s/%s: Using authoritative Chainlink price (Spot=%.4f, Strike=%.4f)",
-                             self.asset, self.timeframe, _fv_spot, _custom_strike)
+                        log.warning("[PRICE-SOURCE] %s/%s: Chainlink candle open price unavailable (Asset: %s, TF: %s, Time: %d) — skipping trade decision to ensure strict oracle sourcing.",
+                                    self.asset, self.timeframe, self.asset, self.timeframe, int(time.time()))
+                        return None
                 else:
-                    log.info("[PRICE-SOURCE] %s/%s: Chainlink stale/unavailable — using Binance spot fallback (Spot=%.4f, Strike=%.4f)",
-                             self.asset, self.timeframe, closes[-1], float(klines[-1][1]))
+                    if is_testing:
+                        _fv_spot = float(klines[-1][4])
+                        _custom_strike = float(klines[-1][1])
+                    else:
+                        _last_up_str = f"LastUpdate: {int(cl_ts)} ({round(time.time() - cl_ts, 1)}s ago)" if cl_details else "LastUpdate: None (No feed data)"
+                        log.warning("[PRICE-SOURCE] %s/%s: Chainlink price stale/unavailable (%s, Time: %d) — skipping trade decision to ensure strict oracle sourcing.",
+                                    self.asset, self.timeframe, _last_up_str, int(time.time()))
+                        return None
 
                 _fv = self._fair_value_entry(klines, _fv_spot, up_price, dn_price, _elapsed_min, custom_strike=_custom_strike)
 
@@ -896,12 +938,12 @@ class UpDownEngine:
                 conf_up = await conf_engine.get_confluence(session, self.asset, "UP")
                 if conf_up.get("score", 0) == 4:
                     trend_up_agreement = True
-                    log.info("[ENGINE] %s/%s: Strong 4/4 UP trend agreement detected. Activating UP RSI trigger loosening.", self.asset, self.timeframe)
+                    log.info("[ENGINE] %s/%s: Strong 4/4 %s trend agreement detected. Activating UP RSI trigger loosening.", self.asset, self.timeframe, _GREEN_UP)
                 else:
                     conf_dn = await conf_engine.get_confluence(session, self.asset, "DOWN")
                     if conf_dn.get("score", 0) == 4:
                         trend_dn_agreement = True
-                        log.info("[ENGINE] %s/%s: Strong 4/4 DOWN trend agreement detected. Activating DOWN RSI trigger loosening.", self.asset, self.timeframe)
+                        log.info("[ENGINE] %s/%s: Strong 4/4 %s trend agreement detected. Activating DOWN RSI trigger loosening.", self.asset, self.timeframe, _RED_DN)
             except Exception as e:
                 log.warning("[ENGINE] Failed to check trend agreement for RSI loosening: %s", e)
 
@@ -1026,6 +1068,7 @@ class UpDownEngine:
             raw_dir = _dec["direction"]
             score_base = _dec["score"]
 
+            divergence_flipped = False
             if _dec["blocked"]:
                 flipped = False
                 if rsi is not None and fast_cvd is not None:
@@ -1033,17 +1076,19 @@ class UpDownEngine:
                     is_originally_down = ofi > 0
                     
                     if is_originally_up and fast_cvd < 0:
-                        log.warning("[SIG-DIV-FLIP] %s/%s: UP blocked by negative OFI (%.3f) but CVD confirms selling (fast_cvd=%.2f) — flipping to DOWN",
+                        log.warning("\033[38;2;245;245;220m[INVERSION] %s/%s: UP blocked by negative OFI (%.3f) but CVD confirms selling (fast_cvd=%.2f) — inverting to DOWN\033[0m",
                                     self.asset, self.timeframe, ofi, fast_cvd)
                         raw_dir = "DOWN"
                         score_base = min(0.85, 0.50 + abs(binance_obi or ofi) * 0.35)
                         flipped = True
+                        divergence_flipped = True
                     elif is_originally_down and fast_cvd > 0:
-                        log.warning("[SIG-DIV-FLIP] %s/%s: DOWN blocked by positive OFI (%.3f) but CVD confirms buying (fast_cvd=%.2f) — flipping to UP",
+                        log.warning("\033[38;2;245;245;220m[INVERSION] %s/%s: DOWN blocked by positive OFI (%.3f) but CVD confirms buying (fast_cvd=%.2f) — inverting to UP\033[0m",
                                     self.asset, self.timeframe, ofi, fast_cvd)
                         raw_dir = "UP"
                         score_base = min(0.85, 0.50 + abs(binance_obi or ofi) * 0.35)
                         flipped = True
+                        divergence_flipped = True
 
                 if not flipped:
                     log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
@@ -1076,7 +1121,10 @@ class UpDownEngine:
                         return make_neutral_signal(reason=_dec.get("reason", "neutral_rsi"))
 
                 # Apply regime (fade weak momentum in mean-reversion; follow strong trends)
-                direction = apply_regime(raw_dir, regime, mom=mom)
+                if divergence_flipped:
+                    direction = raw_dir
+                else:
+                    direction = apply_regime(raw_dir, regime, mom=mom)
                 if self.invert_signal:
                     direction = "DOWN" if direction == "UP" else "UP"
 
@@ -1222,26 +1270,26 @@ class UpDownEngine:
                 clob_obi = polymarket_l2_gateway.get_obi(up_tk)
                 if clob_obi < -0.60:
                     score = max(0.10, score - 0.10)
-                    log.info("[ENGINE] %s/%s: Polymarket YES OBI extreme selling pressure (%.2f < -0.60) — penalty -0.10",
-                             self.asset, self.timeframe, clob_obi)
+                    log.info("[ENGINE] %s/%s: Polymarket %s OBI extreme selling pressure (%.2f < -0.60) — penalty -0.10",
+                             self.asset, self.timeframe, _GREEN_YES, clob_obi)
                 elif clob_obi > 0.0:
                     score = min(1.0, score + 0.04)
-                    log.info("[ENGINE] %s/%s: YES OBI confirms direction (%.2f > 0.0) -> boost +0.04", self.asset, self.timeframe, clob_obi)
+                    log.info("[ENGINE] %s/%s: %s OBI confirms direction (%.2f > 0.0) -> boost +0.04", self.asset, self.timeframe, _GREEN_YES, clob_obi)
                 elif clob_obi < 0.0:
                     score = max(0.10, score - 0.03)
-                    log.info("[ENGINE] %s/%s: YES OBI conflicts direction (%.2f < 0.0) -> penalty -0.03", self.asset, self.timeframe, clob_obi)
+                    log.info("[ENGINE] %s/%s: %s OBI conflicts direction (%.2f < 0.0) -> penalty -0.03", self.asset, self.timeframe, _GREEN_YES, clob_obi)
             elif direction == "DOWN" and dn_tk:
                 clob_obi = polymarket_l2_gateway.get_obi(dn_tk)
                 if clob_obi < -0.60:
                     score = max(0.10, score - 0.10)
-                    log.info("[ENGINE] %s/%s: Polymarket NO OBI extreme selling pressure (%.2f < -0.60) — penalty -0.10",
-                             self.asset, self.timeframe, clob_obi)
+                    log.info("[ENGINE] %s/%s: Polymarket %s OBI extreme selling pressure (%.2f < -0.60) — penalty -0.10",
+                             self.asset, self.timeframe, _RED_NO, clob_obi)
                 elif clob_obi > 0.0:
                     score = min(1.0, score + 0.04)
-                    log.info("[ENGINE] %s/%s: NO OBI confirms direction (%.2f > 0.0) -> boost +0.04", self.asset, self.timeframe, clob_obi)
+                    log.info("[ENGINE] %s/%s: %s OBI confirms direction (%.2f > 0.0) -> boost +0.04", self.asset, self.timeframe, _RED_NO, clob_obi)
                 elif clob_obi < 0.0:
                     score = max(0.10, score - 0.03)
-                    log.info("[ENGINE] %s/%s: NO OBI conflicts direction (%.2f < 0.0) -> penalty -0.03", self.asset, self.timeframe, clob_obi)
+                    log.info("[ENGINE] %s/%s: %s OBI conflicts direction (%.2f < 0.0) -> penalty -0.03", self.asset, self.timeframe, _RED_NO, clob_obi)
         except Exception as e:
             log.warning("[ENGINE] Failed to read or apply Polymarket CLOB OBI: %s", e)
 
@@ -1364,6 +1412,26 @@ class UpDownEngine:
             _whale_aligned = True   # default allow if no edge context
             _confluence_score = 2   # default allow
 
+        import sys, os as _os_t
+        is_testing = _os_t.environ.get("ZISI_TESTING") == "True" or "unittest" in sys.modules or "pytest" in sys.modules
+        if not is_testing:
+            import time as _time_ttl
+            _ttl_s = market.get("expiry_ts", 0) - _time_ttl.time()
+            _min_ttl = 600 if self.timeframe == "1h" else (180 if self.timeframe == "15m" else 90)
+            if _ttl_s < _min_ttl:
+                log.info("[TTL-GATE] %s/%s: %.0fs to expiry — too late to enter (need %ds+), skip",
+                         self.asset, self.timeframe, _ttl_s, _min_ttl)
+                return make_neutral_signal(reason="ttl_gate")
+
+        _strike_price = None
+        try:
+            if FAIR_VALUE_MODE:
+                _strike_price = _custom_strike
+        except Exception:
+            pass
+        if _strike_price is None and len(klines) > 0:
+            _strike_price = float(klines[-1][1])
+
         return {
             "asset":        self.asset,
             "timeframe":    self.timeframe,
@@ -1386,6 +1454,7 @@ class UpDownEngine:
             "slow_cvd":     slow_cvd,
             "binance_obi":  binance_obi,
             "skip_reason":  (conf_res.get("decision_path") if (direction == "NEUTRAL" and 'conf_res' in locals()) else "confirm"),
+            "strike_price": _strike_price,
         }
 
 
@@ -1587,29 +1656,8 @@ class UpDownEngine:
         except Exception as e:
             log.warning("[ORACLE-FALLBACK] Chainlink lookup failed: %s", e)
         
-        # Secondary: Binance Spot
-        try:
-            from core.engine.spot_websocket_ingest import get_book_details
-            binance_details = await get_book_details(self.asset)
-            if binance_details:
-                mid, spread, ofi = binance_details
-                log.info("[ORACLE-FALLBACK] %s: Using Binance Spot price %.2f", self.asset, mid)
-                return 0.50, 0.50, 0.05
-        except Exception as e:
-            log.warning("[ORACLE-FALLBACK] Binance lookup failed: %s", e)
-
-        # Tertiary: Pyth
-        try:
-            from zisi_terminal import g_state
-            pyth_price = g_state.pyth_prices.get(self.asset, {}).get("price", 0.0)
-            if pyth_price > 0:
-                log.info("[ORACLE-FALLBACK] %s: Using Pyth price %.2f", self.asset, pyth_price)
-                return 0.50, 0.50, 0.05
-        except Exception as e:
-            log.warning("[ORACLE-FALLBACK] Pyth lookup failed: %s", e)
-
-        log.info("[ORACLE-FALLBACK] %s: No live oracle found, using absolute fallback", self.asset)
-        return 0.50, 0.50, 0.05
+        log.info("[ORACLE-FALLBACK] %s: No live Chainlink oracle found, skipping fallback", self.asset)
+        return None
 
     async def _fetch_market(self, session: aiohttp.ClientSession, is_latency_scan: bool = False) -> Optional[dict]:
         """Fetch active Up/Down market with verified L2/REST pricing and oracle fallback, retry for 5 seconds."""
@@ -1621,17 +1669,14 @@ class UpDownEngine:
         start_ts = boundary - interval
         offsets = [0, -1, 1]
 
-        # Wait up to 5 seconds (5 poll attempts) for the new market to be created / resolved
-        for poll_attempt in range(5):
+        # Wait up to 15 seconds (15 poll attempts) for the new market to be created / resolved
+        for poll_attempt in range(15):
             # Check pre-fetched first
             if start_ts in self._prefetched_markets:
                 cached_market = self._prefetched_markets[start_ts]
                 up_tk = cached_market["up_market"]["id"]
                 dn_tk = cached_market["dn_market"]["id"]
                 resolved = await self._resolve_l2_prices(session, up_tk, dn_tk, is_latency_scan=is_latency_scan)
-                if not resolved:
-                    log.warning("[ENGINE] %s/%s: L2 book is illiquid or empty (spread > 15c) — skipping trade", self.asset, self.timeframe)
-                    return None
                 if resolved:
                     up_price, dn_price, spread = resolved
                     market = dict(cached_market)
@@ -1644,6 +1689,13 @@ class UpDownEngine:
                         up_price, dn_price, spread, poll_attempt
                     )
                     return market
+                else:
+                    if poll_attempt == 14:
+                        log.warning("[ENGINE] %s/%s: L2 book is illiquid, empty, or not yet initialized (spread > 15c) — skipping trade", self.asset, self.timeframe)
+                        return None
+                    else:
+                        await asyncio.sleep(1.0)
+                        continue
 
             gamma_url = "https://gamma-api.polymarket.com/events"
 
@@ -1699,8 +1751,24 @@ class UpDownEngine:
                                 up_tk = clob_token_ids[up_idx]
                                 dn_tk = clob_token_ids[dn_idx]
                                 resolved = await self._resolve_l2_prices(session, up_tk, dn_tk, is_latency_scan=is_latency_scan)
-                                if not resolved:
-                                    resolved = await self._get_oracle_fallback_prices(up_tk, dn_tk)
+                                if not resolved and False:
+                                    # Fallback 1: Try Gamma API outcomePrices
+                                    outcome_prices = mkt.get("outcomePrices", [])
+                                    if isinstance(outcome_prices, str):
+                                        try: outcome_prices = _json.loads(outcome_prices)
+                                        except Exception: outcome_prices = []
+                                    if len(outcome_prices) > max(up_idx, dn_idx):
+                                        try:
+                                            up_p = float(outcome_prices[up_idx])
+                                            dn_p = float(outcome_prices[dn_idx])
+                                            if 0.01 <= up_p <= 0.99 and 0.01 <= dn_p <= 0.99:
+                                                resolved = (up_p, dn_p, 0.02)
+                                                log.info(
+                                                    "[ENGINE] %s/%s: L2 book fetch failed, fell back to Gamma API outcomePrices (up=%.4f, dn=%.4f)",
+                                                    self.asset, self.timeframe, up_p, dn_p
+                                                )
+                                        except Exception as gamma_err:
+                                            log.debug("[ENGINE] Failed to parse Gamma outcomePrices: %s", gamma_err)
                                 if resolved:
                                     up_price, dn_price, spread = resolved
                                     log.debug(
@@ -1722,7 +1790,7 @@ class UpDownEngine:
             except Exception as exc:
                 log.warning("[ENGINE] CLOB L2 market fetch error: %s", exc)
 
-            log.info("[ENGINE] %s/%s: Waiting for market creation/resolution, poll attempt %d/5...", self.asset, self.timeframe, poll_attempt+1)
+            log.info("[ENGINE] %s/%s: Waiting for market creation/resolution, poll attempt %d/15...", self.asset, self.timeframe, poll_attempt+1)
             await asyncio.sleep(1.0)
 
         return None

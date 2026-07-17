@@ -27,17 +27,16 @@ BINANCE_API     = "https://api.binance.com/api/v3"
 # Score 0.75–0.85 = good: 3% of balance, 10% cap
 # Score 0.62–0.75 = acceptable: 1.5% of balance, 5% cap
 # Score < 0.62 = skip
-UPDOWN_KELLY_HIGH  = 0.040   # 4% Kelly for high-conviction entries
-UPDOWN_KELLY_MED   = 0.030   # 3% Kelly for good entries
-UPDOWN_KELLY_LOW   = 0.015   # 1.5% Kelly for acceptable entries
-UPDOWN_CAP_HIGH    = 0.150   # 15% of balance max (prevents runaway at high balance)
-UPDOWN_CAP_MED     = 0.100   # 10% of balance max
-UPDOWN_CAP_LOW     = 0.050   # 5% of balance max
-UPDOWN_MIN_USD     = 1.00
-
+UPDOWN_KELLY_HIGH  = 0.060   # 6% Kelly for high-conviction entries (was 4%)
+UPDOWN_KELLY_MED   = 0.045   # 4.5% Kelly for good entries (was 3%)
+UPDOWN_KELLY_LOW   = 0.025   # 2.5% Kelly for acceptable entries (was 1.5%)
+UPDOWN_CAP_HIGH    = 0.200   # 20% of balance max (was 15%)
+UPDOWN_CAP_MED     = 0.150   # 15% of balance max (was 10%)
+UPDOWN_CAP_LOW     = 0.080   # 8% of balance max (was 5%)
+UPDOWN_MIN_USD     = 2.00
 # Legacy: used as fallback only
-UPDOWN_KELLY_BASE  = 0.022
-UPDOWN_MAX_USD     = 10.00
+UPDOWN_KELLY_BASE  = 0.035
+UPDOWN_MAX_USD     = 15.00
 
 # Volume gate: current candle volume must be >= this fraction of 20-period avg
 VOLUME_GATE_RATIO = 0.30
@@ -1767,9 +1766,14 @@ def run_updown_cycle(
                 dur_label = f"{secs_left // 60}m{secs_left % 60}s"
 
                 # Change C: minimum time-to-expiry check
+                is_snipe = False
                 if secs_left < 90:
-                    log.info("[UPDOWN] %s | <90s to expiry (%ds) — skipping", coin, secs_left)
-                    continue
+                    if 15 <= secs_left < 90 and _comp_score >= 0.85 and (entry_price <= 0.30 or entry_price >= 0.85):
+                        is_snipe = True
+                        log.info("[SNIPE-GATE] %s | Late-candle Certainty Snipe activated! secs_left=%ds price=%.3f score=%.2f", coin, secs_left, entry_price, _comp_score)
+                    else:
+                        log.info("[UPDOWN] %s | <90s to expiry (%ds) — skipping", coin, secs_left)
+                        continue
 
                 # Change G: direction-aligned entry price check (skip when expensive)
                 if direction == "UP" and entry_price > 0.58:
@@ -1810,7 +1814,7 @@ def run_updown_cycle(
 
                 # ── Position ladder: split entry for high-conviction trades ─────
                 _ladder_size = size
-                if _comp_score >= _LADDER_SCORE_THRESHOLD and event_id not in _ladder_pending:
+                if not is_snipe and _comp_score >= _LADDER_SCORE_THRESHOLD and event_id not in _ladder_pending:
                     _ladder_size = round(size * 0.60, 2)
                     _ladder_pending[event_id] = {
                         "coin":           coin,
@@ -1831,8 +1835,9 @@ def run_updown_cycle(
                     amount_dollars=_ladder_size,
                     direction=direction,
                     entry_price=entry_price,
-                    event_title=f"[UPDOWN] {best['title']}",
+                    event_title=f"[UPDOWN][SNIPE] {best['title']}" if is_snipe else f"[UPDOWN] {best['title']}",
                     expiry_ts=best.get("expiry_ts", 0),
+                    is_snipe=is_snipe,
                 )
 
                 if order:

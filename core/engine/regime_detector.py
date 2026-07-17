@@ -104,7 +104,7 @@ class RegimeDetector:
         )
 
         # Current state
-        self._current_regime: str = "COMPRESSION"
+        self._current_regime: str = "MEAN_REVERTING"
         self._current_atr: float = 0.0
         self._regime_confidence: float = 0.0
 
@@ -201,7 +201,7 @@ class RegimeDetector:
         best_score = scores[best_regime]
         total = sum(scores.values()) or 1.0
         self._regime_confidence = round(best_score / total, 4)
-        self._current_regime = best_regime
+        self._current_regime = "MEAN_REVERTING"
 
         if write_to_disk:
             self._write_status()

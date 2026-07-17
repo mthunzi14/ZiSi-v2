@@ -14,7 +14,7 @@ log = logging.getLogger("zisi.state")
 _STATE_FILE       = Path(__file__).parent.parent.parent / "data" / "account_state.json"
 _POSITIONS_FILE   = Path(__file__).parent.parent.parent / "data" / "positions_state.json"
 _DEFAULT_BALANCE  = 50.0
-_lock             = threading.Lock()
+_lock             = threading.RLock()
 GLOBAL_POSITIONS_LOCK = threading.Lock()
 _balance: float          = _DEFAULT_BALANCE
 _starting_balance: float = _DEFAULT_BALANCE
@@ -91,16 +91,17 @@ def initialize_state() -> float:
         return _balance
 
 
-def update_balance(new_balance: float, reason: str = "") -> None:
+def update_balance(new_balance: float, reason: str = "", silent: bool = False) -> None:
     """Save updated balance to disk and update in-memory value."""
     global _balance
     with _lock:
         _balance = round(new_balance, 2)
         _write_state(reason)
-    log.info(
-        "Account balance updated: $%.2f%s",
-        _balance, f" ({reason})" if reason else "",
-    )
+    if not silent:
+        log.info(
+            "Account balance updated: $%.2f%s",
+            _balance, f" ({reason})" if reason else "",
+        )
 
 
 def get_gas_balance() -> float:
@@ -116,25 +117,26 @@ def get_gas_balance() -> float:
 
 def decrement_gas(amount: float = 0.005) -> float:
     """Decrement gas balance by amount (default 0.005 POL per order)."""
-    existing = {}
-    if _STATE_FILE.exists():
-        try:
-            existing = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    gas = float(existing.get("gas_balance", 10.00))
-    gas = max(0.0, round(gas - amount, 5))
-    existing["gas_balance"] = gas
-    
-    # Log warning if < 2 POL
-    if gas < 2.0:
-        log.warning("[GAS-WARN] Mock POL gas balance is low: %.4f POL (warning < 2 POL)", gas)
-    
-    import os
-    tmp_file = _STATE_FILE.with_suffix(".tmp")
-    tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    os.replace(tmp_file, _STATE_FILE)
-    return gas
+    with _lock:
+        existing = {}
+        if _STATE_FILE.exists():
+            try:
+                existing = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        gas = float(existing.get("gas_balance", 10.00))
+        gas = max(0.0, round(gas - amount, 5))
+        existing["gas_balance"] = gas
+        
+        # Log warning if < 2 POL
+        if gas < 2.0:
+            log.warning("[GAS-WARN] Mock POL gas balance is low: %.4f POL (warning < 2 POL)", gas)
+        
+        import os
+        tmp_file = _STATE_FILE.with_suffix(".tmp")
+        tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        os.replace(tmp_file, _STATE_FILE)
+        return gas
 
 
 def get_current_balance() -> float:
@@ -234,29 +236,30 @@ def _record_history(balance: float, pnl: float) -> None:
 
 def _write_state(reason: str = "") -> None:
     global _balance
-    # Merge with existing file so we never lose fields written by other functions
-    existing: dict = {}
-    if _STATE_FILE.exists():
-        try:
-            existing = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    starting = float(existing.get("starting_balance", _starting_balance))
+    with _lock:
+        # Merge with existing file so we never lose fields written by other functions
+        existing: dict = {}
+        if _STATE_FILE.exists():
+            try:
+                existing = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        starting = float(existing.get("starting_balance", _starting_balance))
 
-    # Derive balance from positions_state.json (single source of truth).
-    # Keeps disk in sync even if _balance drifted due to a removed market.
-    computed = _balance_from_positions()
-    if computed is not None:
-        _balance = computed   # keep in-memory value authoritative too
+        # Derive balance from positions_state.json (single source of truth).
+        # Keeps disk in sync even if _balance drifted due to a removed market.
+        computed = _balance_from_positions()
+        if computed is not None:
+            _balance = computed   # keep in-memory value authoritative too
 
-    existing["balance"] = _balance
-    existing["pnl"]     = round(_balance - starting, 2)
-    existing["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    existing["last_change_reason"] = reason
-    import os
-    tmp_file = _STATE_FILE.with_suffix(".tmp")
-    tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    os.replace(tmp_file, _STATE_FILE)
+        existing["balance"] = _balance
+        existing["pnl"]     = round(_balance - starting, 2)
+        existing["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        existing["last_change_reason"] = reason
+        import os
+        tmp_file = _STATE_FILE.with_suffix(".tmp")
+        tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        os.replace(tmp_file, _STATE_FILE)
     _record_history(_balance, round(_balance - starting, 2))
 
 
@@ -281,7 +284,7 @@ def initialize_runtime_tracking() -> bool:
                 log.info("[RUNTIME] Repaired missing start_time in tracking file")
         except Exception as e:
             log.warning("[RUNTIME] Failed to repair start_time: %s", e)
-        log.info("[RUNTIME] Tracking file found — resuming runtime timer")
+        log.info("[RUNTIME] Resuming runtime timer")
         return False
 
     now = datetime.now(timezone.utc)
@@ -423,7 +426,21 @@ def cleanup_expired_positions() -> int:
             return 0
 
         active = data.get("active", [])
-        zombies = [p for p in active if 0 < p.get("expiry_ts", float("inf")) < cutoff]
+        zombies = []
+        for p in active:
+            expiry = p.get("expiry_ts", 0)
+            if not expiry or expiry == float("inf"):
+                continue
+            market_type = str(p.get("market", "")).upper()
+            if market_type == "POLYMARKET":
+                # For Polymarket, wait 2 hours (7200 seconds) to allow true oracle resolution.
+                if expiry < (now - 7200.0):
+                    zombies.append(p)
+            else:
+                # For Kalshi/other positions, clean up after 10 minutes (600 seconds)
+                if expiry < (now - 600.0):
+                    zombies.append(p)
+
         if not zombies:
             return 0
 
@@ -472,7 +489,7 @@ def cleanup_expired_positions() -> int:
             )
 
         data["active"] = survivors
-        data["closed"] = closed_list[:300]
+        data["closed"] = closed_list[:10000]
         summary = data.get("summary", {})
         summary["active_count"] = len(survivors)
         data["summary"] = summary

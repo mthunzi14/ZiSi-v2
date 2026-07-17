@@ -93,6 +93,7 @@ class ExtraterrestrialWSGateway:
         """Subscribe to token feed. Thread-safe."""
         if token_id not in self.subscriptions:
             self.subscriptions.add(token_id)
+            self.last_read_ts[token_id] = time.time()  # Initialize to prevent immediate watchdog pruning
             if self._ws and not self._ws.closed and hasattr(self, "loop"):
                 # Run subscription message on Thread A loop
                 asyncio.run_coroutine_threadsafe(self._send_sub(token_id), self.loop)

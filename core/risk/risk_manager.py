@@ -886,9 +886,24 @@ _SCORE_TO_WR = [
 
 def entry_price_gate(price: float, score: float, is_dual: bool = False) -> bool:
     """
-    Bypassed all caps and constraints (Bonereaper-mode).
+    Enforce score-tiered entry price ceiling matching the prime session parameters:
+    - Weak signals (0.62 <= score < 0.75): max 65¢ (0.65)
+    - Medium signals (0.75 <= score < 0.85): max 75¢ (0.75)
+    - Strong signals (score >= 0.85): max 80¢ (0.80)
     """
-    return 0.0 < price < 1.0
+    if is_dual:
+        return 0.0 < price < 1.0
+
+    if score >= 0.85:
+        max_p = 0.80
+    elif score >= 0.75:
+        max_p = 0.75
+    elif score >= 0.62:
+        max_p = 0.65
+    else:
+        max_p = 0.50
+
+    return price <= max_p
 
 
 # ── Exposure caps ─────────────────────────────────────────────────────────────

@@ -12,9 +12,9 @@ class TestRegimeFilter(unittest.TestCase):
         # REBUILD: momentum is FADED in MEAN_REVERSION, FOLLOWED in TREND.
         self.assertEqual(apply_regime("UP", "TREND"), "UP")
         self.assertEqual(apply_regime("DOWN", "TREND"), "DOWN")
-        # Disabled fading: UP stays UP, DOWN stays DOWN
-        self.assertEqual(apply_regime("UP", "MEAN_REVERSION"), "UP")
-        self.assertEqual(apply_regime("DOWN", "MEAN_REVERSION"), "DOWN")
+        # Fading: UP becomes DOWN, DOWN becomes UP
+        self.assertEqual(apply_regime("UP", "MEAN_REVERSION"), "DOWN")
+        self.assertEqual(apply_regime("DOWN", "MEAN_REVERSION"), "UP")
         # Fair-value / reversal signals (is_momentum=False) are never flipped:
         self.assertEqual(apply_regime("UP", "MEAN_REVERSION", is_momentum=False), "UP")
         self.assertEqual(apply_regime("DOWN", "TREND", is_momentum=False), "DOWN")
@@ -35,7 +35,6 @@ class TestRegimeFilter(unittest.TestCase):
         mock_file.return_value.read.return_value = json.dumps({"regime": "NORMAL"})
 
         mode = get_regime_mode()
-        # REBUILD: NORMAL/unknown now maps to TREND (follow), not MEAN_REVERSION (fade).
         self.assertEqual(mode, "TREND")
 
     @patch("os.path.exists")

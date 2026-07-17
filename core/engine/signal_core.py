@@ -39,8 +39,8 @@ REGIME_RSI_PARAMS = {
         "rsi_dn_soft": 46.0,
         "mom_dn_soft": -0.01,
         "ofi_confirm_dn": -0.45,
-        "reversal_lo": 15.0, # tightened reversal threshold in TRENDING to avoid falling knives
-        "reversal_hi": 85.0, # tightened reversal threshold in TRENDING to avoid falling knives
+        "reversal_lo": 20.0,
+        "reversal_hi": 80.0,
         "reversal_score": 0.70,
         "ofi_block_neutral": 0.35,
         "ofi_block_5m": 0.28,
@@ -179,12 +179,12 @@ def decide_signal(
 
 
     up_trigger = (
-        (rsi > rsi_up_eff and mom >= p["mom_up"])
-        or (rsi > rsi_up_soft_eff and mom >= p["mom_up_soft"] and ofi > p["ofi_confirm_up"])
+        (rsi > rsi_up_eff and rsi <= p["reversal_hi"] and mom >= p["mom_up"])
+        or (rsi > rsi_up_soft_eff and rsi <= p["reversal_hi"] and mom >= p["mom_up_soft"] and ofi > p["ofi_confirm_up"])
     )
     dn_trigger = (
-        (rsi < rsi_dn_eff and mom <= p["mom_dn"])
-        or (rsi < rsi_dn_soft_eff and mom <= p["mom_dn_soft"] and ofi < p["ofi_confirm_dn"])
+        (rsi < rsi_dn_eff and rsi >= p["reversal_lo"] and mom <= p["mom_dn"])
+        or (rsi < rsi_dn_soft_eff and rsi >= p["reversal_lo"] and mom <= p["mom_dn_soft"] and ofi < p["ofi_confirm_dn"])
     )
 
     if up_trigger:

@@ -56,6 +56,10 @@ class RiskManager:
         # Order flow pressure is composite of CVD, OBI, NIC
         flow_pressure = (cvd_score * 0.4) + (obi_score * 0.4) + (nic_score * 0.2)
         
+        # If we are in a mean-reverting regime, fade the base direction!
+        if regime == "MEAN_REVERTING" and base_dir != "NEUTRAL":
+            base_dir = "DOWN" if base_dir == "UP" else "UP"
+            
         direction = base_dir
         decision = "NEUTRAL"
         decision_path = "NO_SIGNAL"

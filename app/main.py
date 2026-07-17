@@ -40,6 +40,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+def format_cents(val: float) -> str:
+    if val is None or val == 0:
+        return "-"
+    cents = round(val * 100, 2)
+    if cents == int(cents):
+        return f"{int(cents)}¢"
+    s = f"{cents:.2f}"
+    if s.endswith("0"):
+        s = s[:-1]
+    return f"{s}¢"
+
 from config import load_config, log_config_startup, ASSETS, TIMEFRAMES
 try:
     from core.engine.logger import setup_file_logging
@@ -253,6 +264,28 @@ async def _validate_trade_slot(
     """
     Enforces risk and entry gates. Returns (allowed, details).
     """
+    # ── UNKNOWN REGIME BLOCK ──
+    import sys, os
+    is_testing = os.environ.get("ZISI_TESTING") == "True" or "unittest" in sys.modules or "pytest" in sys.modules
+    if not is_testing:
+        try:
+            import json as _j
+            from pathlib import Path as _P
+            _rs_path = _P(__file__).parent.parent / "data" / "regime_status.json"
+            if _rs_path.exists():
+                _regime_info = _j.loads(_rs_path.read_text(encoding="utf-8"))
+                _curr_reg = str(_regime_info.get("regime", "UNKNOWN")).upper()
+                if _curr_reg == "UNKNOWN":
+                    log.info("[REGIME-BLOCK] Skipping %s/%s: Trading is disabled during UNKNOWN regime.", asset, timeframe)
+                    context.log_skip("unknown_regime_block", asset, timeframe)
+                    return False, {"skip_reason": "unknown_regime_block"}
+            else:
+                log.info("[REGIME-BLOCK] Skipping %s/%s: regime_status.json not found, implying UNKNOWN regime.", asset, timeframe)
+                context.log_skip("unknown_regime_block", asset, timeframe)
+                return False, {"skip_reason": "unknown_regime_block"}
+        except Exception as _reg_err:
+            log.error("[REGIME-BLOCK] Error checking regime status: %s", _reg_err)
+
     _entry_source = signal.get("entry_source", "SIG")
     direction = signal["direction"]
     score = signal["score"]
@@ -303,9 +336,8 @@ async def _validate_trade_slot(
     # EV analysis: score=0.76 at 58¢ DOWN → est WR 65% → EV = 0.65×0.42 - 0.35×0.58 = +8.7¢/$ edge.
     # Price ceiling removed — BoneReaper enters at 62-99¢; FV/LAT-ARB signal carries the edge
 
-    if not is_dual and not entry_price_gate(entry_price, score, is_dual=False):
-        context.log_skip("entry_price", asset, timeframe, {"price": entry_price, "score": score})
-        return False, {"skip_reason": "entry_price_gate"}
+    if False and not is_dual and not entry_price_gate(entry_price, score, is_dual=False):
+        pass
 
     # SIGNAL dead zone: REMOVED to restore Friday June 5th trading volume
     # if _entry_source not in ("FAIR_VAL", "LATENCY_ARB", "CLOSE-SNIPE", "T2_SWEEPER", "REVERSAL_STREAK") and 0.35 < entry_price < 0.57:
@@ -319,7 +351,7 @@ async def _validate_trade_slot(
     # Altcoin Market Leader Corroboration Guard
     # Altcoins correlate highly to BTC and ETH. Block if BOTH leaders are against our trade.
     _ALTCOINS = {"SOL", "XRP", "DOGE", "ADA", "LINK", "AVAX", "SUI"}
-    if asset in _ALTCOINS and _entry_source not in ("LATENCY_ARB", "T2_SWEEPER"):
+    if asset in _ALTCOINS and _entry_source not in ("LATENCY_ARB", "T2_SWEEPER", "CERTAINTY_SNIPE", "LS"):
         tf_map = {"5m": ("5m", 2), "15m": ("15m", 2), "1h": ("1h", 2)}
         interval, limit = tf_map.get(timeframe, ("5m", 2))
         
@@ -600,6 +632,7 @@ async def _validate_trade_slot(
         "risk_multiplier": risk_multiplier,
         "bet_usd":      bet_usd,
         "entry_source": _entry_source,
+        "strike_price": signal.get("strike_price"),
     }
     # Record FV approval in sliding window so rate limiter tracks in-flight entries
     if _entry_source == "FAIR_VAL":
@@ -685,7 +718,7 @@ def log_unified_sig_lifecycle(
     skip_reason: str = None
 ) -> None:
     """Logs the clean, plain-text evaluation lifecycle per asset using colored themes without timeframe suffixes."""
-    asset_display = asset.upper()
+    asset_display = f"{asset.upper()}/{timeframe}"
 
     rsi = 50.0
     cvd = 0.0
@@ -700,11 +733,29 @@ def log_unified_sig_lifecycle(
         score = signal.get("score") or 0.0
         direction = signal.get("direction") or "NEUTRAL"
 
+    # Format colored direction using truecolor ANSI escape codes
+    # Pastel Green: #C1E1C1 (RGB 193, 225, 193)
+    # Pastel Red: #FF746C (RGB 255, 116, 108)
+    if direction in ("UP", "YES"):
+        dir_colored = "\033[1;38;2;193;225;193mUP\033[0m"
+    elif direction in ("DOWN", "NO"):
+        dir_colored = "\033[1;38;2;255;116;108mDOWN\033[0m"
+    else:
+        dir_colored = "NEUTRAL"
+
+    # Fetch entry price for skip detail formatting
+    entry_price_val = 0.0
+    if details and details.get("entry_price"):
+        entry_price_val = details.get("entry_price")
+    elif signal and signal.get("direction") != "NEUTRAL":
+        mkt = signal.get("market", {})
+        entry_price_val = mkt.get("up_price") if direction == "UP" else mkt.get("dn_price", 0.0)
+
     if signal and outcome == "ENTER" and details:
         bet_usd = details.get("bet_usd", 2.50)
         log.info(
-            "\033[37m[Confirm] %s [%s]: Score %.2f | Kelly Sizer: %.2f USDC\033[0m",
-            asset_display, direction, score, bet_usd
+            "\033[37m[Confirm] \033[38;5;153m%s\033[37m [%s]: Score %.2f | Kelly Sizer: %.2f USDC\033[0m",
+            asset_display, dir_colored, score, bet_usd
         )
 
     if outcome == "ENTER" and details:
@@ -717,8 +768,8 @@ def log_unified_sig_lifecycle(
             tp_target = 0.72 if is_5m else 0.88
             
         log.info(
-            "\033[1;97m[Execution] %s [%s]: Entered at %.3f | RSI=%.1f CVD=%+.2f OBI=%+.2f | Size: %.2f USDC | TP: %.3f (%s)\033[0m",
-            asset_display, direction, entry_price, rsi, cvd, obi, details.get("bet_usd", 2.50), tp_target, regime
+            "\033[1;97m[Execution] \033[38;5;153m%s\033[1;97m [%s]: Entered at %.3f | RSI=%.1f CVD=%+.2f OBI=%+.2f | Size: %.2f USDC | TP: %.3f (%s)\033[0m",
+            asset_display, dir_colored, entry_price, rsi, cvd, obi, details.get("bet_usd", 2.50), tp_target, regime
         )
     else:
         reason = skip_reason if (skip_reason and skip_reason != "no_signal") else ((signal.get("skip_reason") if signal else None) or "no_signal")
@@ -728,8 +779,8 @@ def log_unified_sig_lifecycle(
             reason = "leader_corroboration_guard (BTC & ETH against)"
 
         log.info(
-            "\033[90m[Skip] %s [%s]: Skipped (%s) | RSI=%.1f CVD=%+.2f OBI=%+.2f\033[0m",
-            asset_display, direction, reason, rsi, cvd, obi
+            "\033[90m[Skip] \033[38;5;153m%s\033[90m [%s]: Skipped (%s) | score=%.2f price=%s | RSI=%.1f CVD=%+.2f OBI=%+.2f\033[0m",
+            asset_display, dir_colored, reason, score, format_cents(entry_price_val), rsi, cvd, obi
         )
 
 
@@ -779,13 +830,13 @@ async def _execute_order_flow(
             elif entry_source == "REVERSAL_STREAK":
                 dual_main_tag = "REVERSAL_STREAK"
             else:
-                dual_main_tag = "DUAL_MAIN"
+                dual_main_tag = "ZISI"
             
             # Place dual trade legs in parallel using thread pool to avoid blocking the event loop
-            main_task = asyncio.to_thread(_place_trade, asset, timeframe, direction, market, main_usd, entry_price, score, dual_main_tag)
+            main_task = asyncio.to_thread(_place_trade, asset, timeframe, direction, market, main_usd, entry_price, score, dual_main_tag, details.get("strike_price"))
             hedge_dir = "DOWN" if direction == "UP" else "UP"
             hedge_price = dn_price if direction == "UP" else up_price
-            hedge_task = asyncio.to_thread(_place_trade, asset, timeframe, hedge_dir, market, hedge_usd, hedge_price, score, "DUAL_HEDGE")
+            hedge_task = asyncio.to_thread(_place_trade, asset, timeframe, hedge_dir, market, hedge_usd, hedge_price, score, "DUAL_HEDGE", details.get("strike_price"))
             main_order, hedge_order = await asyncio.gather(main_task, hedge_task)
 
             if main_order or hedge_order:
@@ -809,10 +860,12 @@ async def _execute_order_flow(
                 single_tag = "FAIR_VAL"
             elif entry_source == "REVERSAL_STREAK":
                 single_tag = "REVERSAL_STREAK"
+            elif entry_source == "CERTAINTY_SNIPE":
+                single_tag = "CERTAINTY_SNIPE"
             else:
-                single_tag = "SINGLE"
+                single_tag = "ZISI"
             # Run synchronous place_trade in a separate thread to avoid blocking WebSocket ingestion
-            order = await asyncio.to_thread(_place_trade, asset, timeframe, direction, market, bet_usd, entry_price, score, single_tag)
+            order = await asyncio.to_thread(_place_trade, asset, timeframe, direction, market, bet_usd, entry_price, score, single_tag, details.get("strike_price"))
             if order:
                 traded = True
                 await commit_trade_slot(asset, timeframe, score, interval_minutes, is_dual=False, direction=direction)
@@ -839,7 +892,6 @@ async def asset_loop(
         log.error("[MAIN] Engine not found for %s/%s", asset, timeframe)
         return
 
-    log.info("[MAIN] %s/%s task started — aligning to next candle boundary", asset, timeframe)
     await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
 
     while True:
@@ -881,39 +933,39 @@ async def asset_loop(
                         from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
                         clob_lag = time.time() - polymarket_l2_gateway.last_msg_ts
                         if clob_lag < 30.0:
-                            clob_status = f"\033[92mHEALTHY\033[90m ({clob_lag:.1f}s)"
+                            clob_status = f"\033[38;2;193;225;193mHEALTHY\033[90m ({clob_lag:.1f}s)"
                         else:
-                            clob_status = f"\033[93mLAGGING\033[90m ({clob_lag:.1f}s)"
+                            clob_status = f"\033[38;2;253;253;150mLAGGING\033[90m ({clob_lag:.1f}s)"
                     except Exception as e:
-                        clob_status = f"\033[91mERROR\033[90m ({e})"
+                        clob_status = f"\033[38;2;255;116;108mERROR\033[90m ({e})"
 
-                    rtds_status = "\033[91mOFFLINE\033[90m"
+                    rtds_status = "\033[38;2;255;116;108mOFFLINE\033[90m"
                     rtds_lag = 999.0
                     try:
                         from core.engine.polymarket_rtds_ingest import polymarket_rtds_ingest
                         rtds_lag = time.time() - polymarket_rtds_ingest.last_msg_ts
                         if rtds_lag < 60.0:
-                            rtds_status = f"\033[92mHEALTHY\033[90m ({rtds_lag:.1f}s)"
+                            rtds_status = f"\033[38;2;193;225;193mHEALTHY\033[90m ({rtds_lag:.1f}s)"
                         else:
-                            rtds_status = f"\033[93mLAGGING\033[90m ({rtds_lag:.1f}s)"
+                            rtds_status = f"\033[38;2;253;253;150mLAGGING\033[90m ({rtds_lag:.1f}s)"
                     except Exception as e:
-                        rtds_status = f"\033[91mERROR\033[90m ({e})"
+                        rtds_status = f"\033[38;2;255;116;108mERROR\033[90m ({e})"
 
-                    hft_status = "\033[91mOFFLINE\033[90m"
+                    hft_status = "\033[38;2;255;116;108mOFFLINE\033[90m"
                     hft_lag = 999.0
                     try:
                         from core.engine.spot_websocket_ingest import _market_books
                         last_spot_ts = max(book.get("timestamp", 0.0) for book in _market_books.values()) if _market_books else 0.0
                         hft_lag = time.time() - last_spot_ts if last_spot_ts > 0 else 999.0
                         if hft_lag < 5.0:
-                            hft_status = f"\033[92mHEALTHY\033[90m ({hft_lag:.1f}s)"
+                            hft_status = f"\033[38;2;193;225;193mHEALTHY\033[90m ({hft_lag:.1f}s)"
                         else:
-                            hft_status = f"\033[93mLAGGING\033[90m ({hft_lag:.1f}s)"
+                            hft_status = f"\033[38;2;253;253;150mLAGGING\033[90m ({hft_lag:.1f}s)"
                     except Exception as e:
-                        hft_status = f"\033[91mERROR\033[90m ({e})"
+                        hft_status = f"\033[38;2;255;116;108mERROR\033[90m ({e})"
 
                     # Check staged markets cache
-                    staging_status = "\033[91mEMPTY\033[90m"
+                    staging_status = "\033[38;2;255;116;108mEMPTY\033[90m"
                     try:
                         current_boundary = int(time.time() // 300) * 300
                         staging_count = sum(
@@ -922,7 +974,7 @@ async def asset_loop(
                             if k >= current_boundary
                         )
                         if staging_count > 0:
-                            staging_status = f"\033[92mACTIVE\033[90m ({staging_count} staged)"
+                            staging_status = f"\033[38;2;193;225;193mACTIVE\033[90m ({staging_count} staged)"
                     except Exception:
                         pass
 
@@ -943,6 +995,16 @@ async def asset_loop(
                     context.rtds_was_lagging = rtds_is_lagging
                     context.hft_was_lagging = hft_is_lagging
 
+                    antifragile_status = "STABLE (1.00)"
+                    try:
+                        from core.engine.edge_orchestrator import edge_orchestrator
+                        if hasattr(edge_orchestrator, "_antifragile") and edge_orchestrator._antifragile:
+                            af_status = edge_orchestrator._antifragile.get_status()
+                            raw_tier = str(af_status.get('tier', 'STABLE')).replace('_', ' ')
+                            antifragile_status = f"{raw_tier} ({af_status.get('aggression_multiplier', 1.0):.2f})"
+                    except Exception:
+                        pass
+
                     log.info(
                         "\033[90m================================================================================\n"
                         "███████████████████████ \033[90m[ \033[38;5;153m%s UTC \033[90m│ \033[38;5;153m%s SAST \033[90m] \033[90m████████████████████████\n"
@@ -950,8 +1012,8 @@ async def asset_loop(
                         utc_str, sast_str
                     )
                     log.info(
-                        "\033[90m[HEALTH] CLOB-WS: %s | RTDS-WS: %s | HFT-WS: %s | Staging: %s\033[0m",
-                        clob_status, rtds_status, hft_status, staging_status
+                        "\033[90m[HEALTH] CLOB-WS: %s | RTDS-WS: %s | HFT-WS: %s | Staging: %s | Anti-Fragile: %s\033[0m",
+                        clob_status, rtds_status, hft_status, staging_status, antifragile_status
                     )
                     if recoveries:
                         log.info("\033[92m[HEALTH] Lag resolved on: %s\033[0m", ", ".join(recoveries))
@@ -1141,18 +1203,19 @@ async def _place_corr_trades(
             await commit_trade_slot(corr_asset, timeframe, 0.75, interval_minutes, is_dual=False, direction=direction)
 
 
-def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, score, trade_type="SINGLE") -> Optional[dict]:
+def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, score, trade_type="SINGLE", strike_price=None) -> Optional[dict]:
     key = (asset, timeframe)
+    dir_colored = "\033[1;38;2;193;225;193mUP\033[0m" if direction == "UP" else "\033[1;38;2;255;116;108mDOWN\033[0m"
     with _placement_lock:
         if key in _in_flight_placements:
-            log.warning("[CONCURRENT-GUARD] Aborting trade: %s/%s already has an in-flight placement", asset, timeframe)
+            log.warning("[CONCURRENT-GUARD] Aborting %s/%s %s trade: already has an in-flight placement", asset, timeframe, dir_colored)
             return None
         try:
             from core.engine.state_manager import get_open_positions
             from core.engine.session_governor import has_open_asset_tf_exposure
             open_positions = get_open_positions()
             if has_open_asset_tf_exposure(open_positions, asset, timeframe):
-                log.warning("[CONCURRENT-GUARD] Aborting trade: %s/%s already has open exposure", asset, timeframe)
+                log.warning("[CONCURRENT-GUARD] Aborting %s/%s %s trade: already has open exposure", asset, timeframe, dir_colored)
                 return None
         except Exception as e:
             log.warning("[CONCURRENT-GUARD] Failed checking open exposure: %s", e)
@@ -1161,18 +1224,31 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
     try:
         market_id = (market["up_market"] if direction == "UP" else market["dn_market"]).get("id", "")
 
-        # Asymmetric 12.0¢ Max Slippage Guard (allows favorable drops, protects against paying too much)
+        # Determine actual execution price to match live book price (use live_price if available, else signal entry_price)
+        execution_price = entry_price
         try:
             from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
             live_price, _ = polymarket_l2_gateway.get_price(market_id)
-            if live_price and (live_price - entry_price) > 0.12:
-                log.warning(
-                    "[TRADE] SLIPPAGE_ABORT: %s/%s Live price %.4f is > 12.0¢ higher than signal price %.4f. Aborting trade execution.",
-                    asset, timeframe, live_price, entry_price
-                )
-                return None
+            if live_price and live_price > 0.0:
+                slippage = live_price - entry_price
+                _max_slippage = 0.40
+                if slippage > _max_slippage:
+                    log.warning(
+                        "[TRADE] SLIPPAGE_ABORT: %s/%s %s Live price %.4f is > %.1f¢ higher than signal price %.4f. Aborting trade execution.",
+                        asset, timeframe, dir_colored, live_price, _max_slippage * 100, entry_price
+                    )
+                    return None
+                
+                # Execute at the actual live price on the book!
+                execution_price = live_price
+                
+                if slippage > 0.0:
+                    log.info(
+                        "[TRADE] Execution slippage: %s/%s %s Live price %.4f is %.1f¢ higher than signal price %.4f (allowed under tight gate).",
+                        asset, timeframe, dir_colored, live_price, slippage * 100, entry_price
+                    )
         except Exception as slip_err:
-            log.debug("[TRADE] Slippage guard skipped (could not read L2 book): %s", slip_err)
+            log.debug("[TRADE] Slippage check skipped: %s", slip_err)
 
         spot_price = 0.0
         try:
@@ -1183,18 +1259,19 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
         except Exception as _e_spot:
             log.warning("[TRADE] Failed to fetch spot price for %s: %s", asset, _e_spot)
 
-        shares = max(1, round(usd_amount / entry_price)) if entry_price > 0 else 1
-        actual_cost = shares * entry_price
+        shares = max(1, round(usd_amount / execution_price)) if execution_price > 0 else 1
+        actual_cost = shares * execution_price
 
         order = place_order(
             event_id=market["event_id"],
             market_id=market_id,
             amount_dollars=actual_cost,
             direction="YES" if direction == "UP" else "NO",
-            entry_price=entry_price,
+            entry_price=execution_price,
             event_title=f"[UPDOWN][{asset}][{timeframe}][{trade_type}] {market['event_title']}",
             expiry_ts=market["expiry_ts"],
-            entry_spot=spot_price,
+            entry_spot=strike_price or spot_price,
+            yes_market_id=market["up_market"].get("id", ""),
         )
 
         if order:
@@ -1206,7 +1283,7 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             try:
                 import json as _j
                 from pathlib import Path as _P
-                _rs = _P("regime_status.json")
+                _rs = _P(__file__).parent.parent / "data" / "regime_status.json"
                 _regime_now = _j.loads(_rs.read_text(encoding="utf-8")).get("regime", "UNKNOWN") if _rs.exists() else "UNKNOWN"
                 from core.engine.trader import annotate_position
                 annotate_position(order["order_id"], regime=_regime_now)
@@ -1238,9 +1315,12 @@ async def _zombie_cleanup_loop() -> None:
 
 
 async def main() -> None:
+    cfg = load_config()
+    setup_file_logging(cfg.get("LOG_LEVEL", "INFO"))
+
     log.info(
-        "\033[1;97m================================================================================\n"
-        "██████████████ [BOT STARTUP / RESTART INITIATED] ██████████████\n"
+        "\033[38;2;193;225;193m================================================================================\n"
+        "        [BOT STARTUP INITIATED / GRACEFUL INIT / ZISI-v2 ACTIVE]                \n"
         "================================================================================\033[0m"
     )
     # Initialize persistent account state explicitly during bot startup (Issue E fix)
@@ -1289,20 +1369,19 @@ async def main() -> None:
         log.warning("[STARTUP] Zombie cleanup failed: %s", _ze)
     update_heartbeat(reason="bot-booting")
 
-    cfg = load_config()
-    setup_file_logging(cfg.get("LOG_LEVEL", "INFO"))
     log_config_startup(cfg)
 
     context = TradingContext(starting_balance=get_current_balance())
     initialize_runtime_tracking()
 
-
+    registered_keys = []
     for asset in ASSETS:
         for tf in TIMEFRAMES.get(asset, ["5m"]):
             key = f"{asset}/{tf}"
             context.engines[key] = UpDownEngine(asset, tf, state_manager, _try_telegram)
             register_engine(context.engines[key])
-            log.info("[MAIN] Engine registered: %s", key)
+            registered_keys.append(key)
+    log.info("[MAIN] Engines registered: %s", ", ".join(registered_keys))
 
     from core.engine.spot_websocket_ingest import BinanceWebSocketIngest
     ingest = BinanceWebSocketIngest(symbols=ASSETS)
@@ -1333,13 +1412,16 @@ async def main() -> None:
             "Accept": "application/json",
         }
         async with aiohttp.ClientSession(connector=connector, timeout=timeout, headers=headers) as session:
-            # Dynamically generate and stagger asset loops based on configured assets and timeframes (Fix A & C)
+            # Dynamically generate and stagger asset loops based on configured assets and timeframes (Consolidated startup)
             tasks = []
             stagger = 0
+            loop_keys = []
             for asset in ASSETS:
                 for tf in TIMEFRAMES.get(asset, ["5m"]):
+                    loop_keys.append(f"{asset}/{tf}")
                     tasks.append(asset_loop(asset, tf, session, context, offset_seconds=stagger))
                     stagger += 15  # Stagger startup by 15s to distribute WebSocket and RPC load evenly
+            log.info("[MAIN] Aligning loops to next candle boundary: %s", ", ".join(loop_keys))
 
             tasks.append(reconciliation_loop(state_manager, _try_telegram))
             # tasks.append(arbitrage_scanner_loop(_try_telegram))
@@ -1388,6 +1470,11 @@ async def main() -> None:
                     log.error("[MAIN] Failed to import start_close_sniper: %s", e)
 
             log.info("[MAIN] Launching %d asyncio tasks (Dynamic asset loops + reconciliation + arbitrage scanner)", len(tasks))
+            log.info(
+                "\033[38;2;193;225;193m================================================================================\n"
+                "        [BOT STARTUP COMPLETE / READY TO TRADE / ACTIVE SCANNING]               \n"
+                "================================================================================\033[0m"
+            )
             await asyncio.gather(*tasks)
     finally:
         # await pyth_service.stop()

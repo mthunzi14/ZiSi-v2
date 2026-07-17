@@ -68,7 +68,9 @@ def _derive_entry_type(title: str) -> str:
         return "REVERSAL-SNIPE"
     if "REVERSAL_STREAK" in t or "REVERSAL-STREAK" in t:
         return "REVERSAL-STREAK"
-    return "SIGNAL"
+    if "CERTAINTY_SNIPE" in t or "CERTAINTY-SNIPE" in t or "SNIPE" in t or "LS" in t:
+        return "LS"
+    return "ZISI"
 
 
 
@@ -86,7 +88,9 @@ def _derive_trade_type(entry_type: str) -> str:
         return "REVERSAL-SNIPE"
     if "REVERSAL_STREAK" in e or "REVERSAL-STREAK" in e:
         return "REVERSAL-STREAK"
-    return "SIGNAL"
+    if "LS" in e:
+        return "LS"
+    return "ZISI"
 
 def _derive_pillar_and_type(title: str) -> tuple[str, str]:
     t = (title or "").upper()
@@ -105,11 +109,13 @@ def _derive_pillar_and_type(title: str) -> tuple[str, str]:
         t_type = "REV_SNIPE"
     elif "REVERSAL_STREAK" in t or "REVERSAL-STREAK" in t:
         t_type = "REV_STREAK"
+    elif "CERTAINTY_SNIPE" in t or "CERTAINTY-SNIPE" in t or "SNIPE" in t or "LS" in t:
+        t_type = "LS"
     else:
-        t_type = "SIG"
+        t_type = "ZISI"
         
     # Then map the type to the pillar
-    if t_type in ("SIG", "FV", "REV_SNIPE"):
+    if t_type in ("ZISI", "SIG", "FV", "REV_SNIPE", "LS"):
         pillar = "CORE_SNIPER"
     elif t_type in ("SWEEP", "NCS", "REV_STREAK"):
         pillar = "ASYMMETRIC_BARBELL"
@@ -131,27 +137,8 @@ def _calculate_exit_targets_fallback(entry_price: float, amount_spent: float, ti
 
         _is_short_tf = "5M" in _title_upper or "15M" in _title_upper or "UPDOWN" in _title_upper
         if _is_short_tf:
-            regime = "MEAN_REVERTING"
-            try:
-                import json as _json
-                from pathlib import Path as _Path
-                _rs = _Path(__file__).parent.parent.parent / "data" / "regime_status.json"
-                if _rs.exists():
-                    _d = _json.loads(_rs.read_text(encoding="utf-8"))
-                    regime = _d.get("regime", "MEAN_REVERTING").upper()
-            except Exception:
-                pass
-
-            _is_5m = "5M" in _title_upper
-            if regime in ("TRENDING", "TREND"):
-                target = 0.95
-            else:
-                target = 0.72 if _is_5m else 0.88
-
-            if entry_price >= target:
-                target = min(0.99, round(entry_price + 0.04, 4))
-
-            log.debug("[SL-CALIB] Short-TF trade '%s' (entry=%.4f, regime=%s) -> target %.4f, stop -1.0", title, entry_price, regime, target)
+            target = min(0.99, round(entry_price + 0.28, 4))
+            log.debug("[SL-CALIB] Short-TF trade '%s' (entry=%.4f) -> target %.4f, stop -1.0", title, entry_price, target)
             return target, -1.0
 
         # Sweeper entries at 90-99¢: target is resolution (0.99), no stop — hold to expiry
@@ -293,6 +280,8 @@ def _reconcile_pending_orders() -> None:
             amount = meta.get("amount", 0.0)
             direction = meta.get("direction", "UP")
             tp, sl = _calculate_exit_targets_fallback(price, amount, meta.get("event_title", ""), direction)
+            tranche_a_target = min(0.99, round(price + 0.12, 4))
+            tranche_b_target = min(0.99, round(price + 0.28, 4))
 
             reconstructed[order_id] = {
                 "order_id":        order_id,
@@ -308,6 +297,11 @@ def _reconcile_pending_orders() -> None:
                 "stop_loss":       sl,
                 "open_time":       meta["placed_at"],
                 "reconciled":      True,
+                "tranche_a_target": tranche_a_target,
+                "tranche_b_target": tranche_b_target,
+                "tranche_a_closed": False,
+                "tranche_b_closed": False,
+                "event_title":     meta.get("event_title", ""),
             }
 
         elif status == "CANCELLED":
@@ -478,6 +472,7 @@ def place_order(
     market: str = "POLYMARKET",
     hold_to_expiry: bool = False,
     entry_spot: float = 0.0,
+    yes_market_id: str = "",
 ) -> Optional[dict]:
     """
     Place a BUY order for the given Polymarket market.
@@ -574,12 +569,18 @@ def place_order(
                 "status": api_status.upper(),
                 "market": "KALSHI",
                 "entry_spot": entry_spot,
+                "yes_market_id": yes_market_id,
                 **({"expiry_ts": expiry_ts} if expiry_ts else {}),
             }
 
             tp, sl = _calculate_exit_targets_fallback(entry_price, actual_cost, _display_title, direction)
-            tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
-            tranche_b_target = tp if tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
+            is_snipe = "CERTAINTY_SNIPE" in (_display_title or "") or "SNIPE" in (_display_title or "").upper()
+            if is_snipe:
+                tranche_a_target = 0.99
+                tranche_b_target = 0.99
+            else:
+                tranche_a_target = min(0.99, round(entry_price + 0.12, 4))
+                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
             _open_positions[order_id] = {
                 **order,
                 "target_price": tp,
@@ -618,6 +619,7 @@ def place_order(
             "status": "FILLED",
             "market": market,
             "entry_spot": entry_spot,
+            "yes_market_id": yes_market_id,
             **({"expiry_ts": expiry_ts} if expiry_ts else {}),
         }
         # Decrement mock gas
@@ -629,8 +631,13 @@ def place_order(
 
         tp, sl = _calculate_exit_targets_fallback(entry_price, actual_cost, _display_title, direction)
         pillar, t_type = _derive_pillar_and_type(_display_title)
-        tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
-        tranche_b_target = tp if tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
+        is_snipe = "CERTAINTY_SNIPE" in (_display_title or "") or "SNIPE" in (_display_title or "").upper()
+        if is_snipe:
+            tranche_a_target = 0.99
+            tranche_b_target = 0.99
+        else:
+            tranche_a_target = min(0.99, round(entry_price + 0.12, 4))
+            tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
         _open_positions[order_id] = {
             **order,
             "target_price": tp,
@@ -707,28 +714,37 @@ def place_order(
                 resolved_id, market_id, event_id, direction, amount_dollars, entry_price, event_title
             )
 
-    tp, sl = _calculate_exit_targets_fallback(entry_price, amount_dollars, event_title, direction)
-    pillar, t_type = _derive_pillar_and_type(event_title or "")
-    tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
-    tranche_b_target = tp if tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
-    _open_positions[order["order_id"]] = {
-        **order,
-        "event_title":  event_title or event_id,
-        "target_price": tp,
-        "stop_loss":    sl,
-        "open_time":    datetime.now(timezone.utc),
-        "entry_type":   _derive_entry_type(event_title or ""),
-        "trade_type":   _derive_trade_type(_derive_entry_type(event_title or "")),
-        "pillar":       pillar,
-        "type":         t_type,
-        "tranche_a_target": tranche_a_target,
-        "tranche_b_target": tranche_b_target,
-        "tranche_a_closed": False,
-        "tranche_b_closed": False,
-        **({"expiry_ts": expiry_ts} if expiry_ts else {}),
-    }
-    persist_positions()
-    log.info("Order placed: %s status=%s", order["order_id"], order["status"])
+    if order["status"] == "FILLED":
+        tp, sl = _calculate_exit_targets_fallback(entry_price, amount_dollars, event_title, direction)
+        pillar, t_type = _derive_pillar_and_type(event_title or "")
+        is_snipe = "CERTAINTY_SNIPE" in (event_title or "") or "SNIPE" in (event_title or "").upper()
+        if is_snipe:
+            tranche_a_target = 0.99
+            tranche_b_target = 0.99
+        else:
+            tranche_a_target = min(0.99, round(entry_price + 0.12, 4))
+            tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
+        _open_positions[order["order_id"]] = {
+            **order,
+            "event_title":  event_title or event_id,
+            "target_price": tp,
+            "stop_loss":    sl,
+            "open_time":    datetime.now(timezone.utc),
+            "entry_type":   _derive_entry_type(event_title or ""),
+            "trade_type":   _derive_trade_type(_derive_entry_type(event_title or "")),
+            "pillar":       pillar,
+            "type":         t_type,
+            "tranche_a_target": tranche_a_target,
+            "tranche_b_target": tranche_b_target,
+            "tranche_a_closed": False,
+            "tranche_b_closed": False,
+            **({"expiry_ts": expiry_ts} if expiry_ts else {}),
+        }
+        persist_positions()
+        log.info("Order placed and filled: %s", order["order_id"])
+    else:
+        log.info("Order placed but pending fill: %s (status=%s) — registered for reconciliation", order["order_id"], order["status"])
+
     return order
 
 
@@ -1022,66 +1038,7 @@ def annotate_position(order_id: str, **kwargs) -> None:
         persist_positions()
 
 
-def _resolve_updown_by_binance_candle(pos: dict) -> Optional[float]:
-    """
-    Resolve an UP/DOWN paper position exactly as Polymarket does:
-    fetch the Binance candle whose close time == expiry_ts,
-    compare candle close vs open, return 0.99 (direction correct) or 0.01 (wrong).
 
-    Returns None if the candle data cannot be fetched (caller falls back to CLOB).
-    """
-    import re as _re
-    try:
-        title     = pos.get("event_title", "")
-        direction = pos.get("direction", "YES").upper()
-        expiry_ts = pos.get("expiry_ts", 0)
-        if not expiry_ts:
-            return None
-
-        asset_m = _re.search(r"\[(BTC|ETH|SOL|XRP|DOGE)\]", title)
-        tf_m    = _re.search(r"\[(5m|15m|1h)\]",             title, _re.IGNORECASE)
-        if not asset_m or not tf_m:
-            return None
-
-        asset    = asset_m.group(1)
-        tf       = tf_m.group(1).lower()
-        interval_s = {"5m": 300, "15m": 900, "1h": 3600}.get(tf)
-        if not interval_s:
-            return None
-
-        # The candle that resolved this market closed at expiry_ts (meaning it opened interval_s seconds earlier)
-        candle_open_ms = int((expiry_ts - interval_s) * 1000)
-
-        resp = requests.get(
-            "https://api.binance.com/api/v3/klines",
-            params={
-                "symbol":    f"{asset}USDT",
-                "interval":  tf,
-                "startTime": candle_open_ms,
-                "limit":     1,
-            },
-            timeout=5,
-        )
-        if resp.status_code != 200 or not resp.json():
-            return None
-
-        candle     = resp.json()[0]
-        open_price = float(candle[1])
-        close_price = float(candle[4])
-        candle_up  = close_price >= open_price
-        pos_up     = direction in ("YES", "UP")
-
-        result = 0.99 if (candle_up == pos_up) else 0.01
-        log.info(
-            "[REAL-RESOLVE] %s %s/%s: candle %.4f→%.4f (%s) | pos=%s → %.2f",
-            asset, tf, pos.get("order_id", "?")[:8],
-            open_price, close_price, "UP" if candle_up else "DN",
-            direction, result,
-        )
-        return result
-    except Exception as exc:
-        log.debug("[REAL-RESOLVE] Binance fetch failed: %s", exc)
-        return None
 
 
 def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
@@ -1148,26 +1105,89 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         else:
             is_expired = age_minutes >= effective_max_minutes
 
-        # ── Real-world resolution for expired UPDOWN positions ──────────────────
-        # Replicates Polymarket exactly: fetch the Binance candle that closed at
-        # expiry_ts, compare close vs open, settle at 99¢ (win) or 1¢ (loss).
-        # This eliminates the CLOB polling lag that was catching partial prices.
-        _binance_resolved = False
-        if is_updown and is_expired:
-            _br = _resolve_updown_by_binance_candle(pos)
-            if _br is not None:
-                exit_price = _br
-                _binance_resolved = True
-                log.info(
-                    "[REAL-RESOLVE] %s: Binance candle → %s @ %.2f",
-                    order_id, "WIN" if exit_price > 0.5 else "LOSS", exit_price,
-                )
-
         # ── Live exit price — NO simulation, all markets use real CLOB/Gamma data ──
-        # Binance-resolved positions skip CLOB entirely — already at true 99¢/1¢.
         _market_id = pos.get("market_id") or pos.get("conditionId")
 
-        if not _binance_resolved and _market_id:
+        # Core Bug 1: Expiry Settlement Deferral.
+        # If expired, we MUST wait for the true oracle resolution to match live trading emulation.
+        if is_expired and _market_id:
+            # For paper trading, resolve instantly at expiry using spot price to prevent gridlock.
+            # For live trading, we must wait for the true oracle resolution.
+            is_paper = (cfg.get("BOT_MODE", "paper_trading") == "paper_trading")
+            
+            _outcome = None
+            if is_paper:
+                # Resolve instantly using spot price: Chainlink first, Binance fallback
+                title = pos.get("event_title", "")
+                import re as _re
+                _asset_tag = _re.search(r'\[(BTC|ETH|SOL|XRP|DOGE|HYPE|BNB)\]', title)
+                asset = _asset_tag.group(1) if _asset_tag else (
+                    'BTC' if 'bitcoin' in title.lower() else
+                    'ETH' if 'ethereum' in title.lower() else
+                    'SOL' if 'solana' in title.lower() else
+                    'XRP' if 'xrp' in title.lower() else
+                    'DOGE' if 'doge' in title.lower() or 'dogecoin' in title.lower() else '?'
+                ).upper()
+                
+                live_spot = 0.0
+                try:
+                    from core.engine.polymarket_rtds_ingest import _chainlink_prices
+                    cl_data = _chainlink_prices.get(asset)
+                    if cl_data and isinstance(cl_data, dict):
+                        live_spot = float(cl_data.get("price", 0.0))
+                except Exception:
+                    pass
+
+                if live_spot <= 0.0:
+                    try:
+                        from core.engine.spot_websocket_ingest import _market_books
+                        book = _market_books.get(asset)
+                        if book:
+                            bid = book.get("bid_price", 0.0)
+                            ask = book.get("ask_price", 0.0)
+                            live_spot = (bid + ask) / 2.0
+                    except Exception:
+                        pass
+
+                entry_spot = float(pos.get("entry_spot", 0.0))
+                if live_spot > 0 and entry_spot > 0:
+                    _outcome = "YES" if (live_spot > entry_spot) else "NO"
+                    log.info("[PAPER-EXIT] Instant spot-based resolution for %s: %s (Spot: %.4f, Entry: %.4f)", order_id, _outcome, live_spot, entry_spot)
+            
+            if _outcome is None:
+                try:
+                    from core.engine.data_fetcher import fetch_market_resolution as _fmr
+                    _outcome = _fmr(_market_id)
+                except Exception as _re:
+                    log.debug("[LIVE-EXIT] Resolution fetch failed for %s: %s", order_id, _re)
+                    _outcome = None
+
+            if _outcome in ("YES", "UP"):
+                exit_price = 0.01 if pos.get("direction", "YES").upper() in ("NO", "DOWN") else 0.99
+                log.info("[LIVE-EXIT] Resolved %s → %.2f for %s", _outcome, exit_price, order_id)
+            elif _outcome in ("NO", "DOWN"):
+                exit_price = 0.99 if pos.get("direction", "YES").upper() in ("NO", "DOWN") else 0.01
+                log.info("[LIVE-EXIT] Resolved %s → %.2f for %s", _outcome, exit_price, order_id)
+            else:
+                # Oracle has not resolved yet (unresolved state).
+                # Defer the exit unless it's excessively dormant (to prevent gridlock).
+                _stale_threshold = max(3 * effective_max_minutes, effective_max_minutes + 30)
+                if age_minutes < _stale_threshold:
+                    if not pos.get("resolving_logged"):
+                        log.warning(
+                            "[RESOLVING-DEFER] Expired trade %s (%s) is unresolved by oracle. Deferring exit to wait for true settlement.",
+                            order_id, _ev_title
+                        )
+                        pos["resolving_logged"] = True
+                    pos["status"] = "RESOLVING"  # Visible in dashboard while awaiting settlement
+                    continue
+                else:
+                    log.warning(
+                        "[RESOLVING-FORCE] Expired trade %s (%s) unresolved after %.1f min. Force-settling via fallback.",
+                        order_id, _ev_title, age_minutes
+                    )
+
+        if exit_price is None and _market_id:
             try:
                 from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
                 mid_val, _ = polymarket_l2_gateway.get_price(_market_id)
@@ -1195,8 +1215,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                     log.debug("[LIVE-EXIT] CLOB fetch failed for %s: %s", order_id, _ce)
 
         # If price fetch failed or market is at extreme, check resolution
-        # Skip if Binance already gave us the true resolution price.
-        if not _binance_resolved and (exit_price is None or exit_price <= 0.03 or exit_price >= 0.97):
+        if exit_price is None or exit_price <= 0.03 or exit_price >= 0.97:
             try:
                 from core.engine.data_fetcher import fetch_market_resolution as _fmr
                 _outcome = _fmr(_market_id) if _market_id else None
@@ -1238,19 +1257,18 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         # Evaluate tranches exit targets
         tranche_a_target = pos.get("tranche_a_target")
         if not tranche_a_target:
-            tranche_a_target = min(0.99, round(entry_price + 0.04, 4))
+            tranche_a_target = min(0.99, round(entry_price + 0.12, 4))
             pos["tranche_a_target"] = tranche_a_target
         
         tranche_b_target = pos.get("tranche_b_target")
         if not tranche_b_target:
-            ref_tp = pos.get("target_price") or target_price
-            tranche_b_target = ref_tp if ref_tp > tranche_a_target else min(0.99, round(entry_price + 0.12, 4))
+            tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
             pos["tranche_b_target"] = tranche_b_target
 
         tranche_a_closed = pos.get("tranche_a_closed", False)
 
         # Tranche A exit check
-        if not tranche_a_closed:
+        if not tranche_a_closed and not is_expired:
             if exit_price >= tranche_a_target:
                 tranche_a_closed = True
                 pos["tranche_a_closed"] = True
@@ -1262,23 +1280,22 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 profit_a = round(exit_val_a - cost_a, 2)
                 
                 trade_desc = _get_trade_desc(pos)
-                new_bal = get_current_balance() + exit_val_a
-                try:
-                    update_balance(new_bal, reason=f"Tranche A of {trade_desc} ({order_id}) closed at {format_cents(exit_price)} (+${profit_a:+.2f})")
-                except Exception as ex:
-                    log.error("Failed to update balance for Tranche A exit: %s", ex)
-                
                 log.info(
-                    "[TRANCHE-A-EXIT] %s (%s) Tranche A (50%%) Scalped at %s (entry %s) | PnL = %+.2f$ | Tranche B still open (awaiting target %s)",
-                    trade_desc, order_id, format_cents(exit_price), format_cents(entry_price), profit_a, format_cents(tranche_b_target)
+                    "[ES-EXIT] %s (%s) ES (50%%) Scalped at %s (entry %s) | PnL = %+.2f$ | EX still open",
+                    trade_desc, order_id, format_cents(exit_price), format_cents(entry_price), profit_a
                 )
+                new_bal = get_current_balance() + profit_a
+                try:
+                    update_balance(new_bal, reason=f"ES of {trade_desc} ({order_id}) closed at {format_cents(exit_price)} (+${profit_a:+.2f})")
+                except Exception as ex:
+                    log.error("Failed to update balance for ES exit: %s", ex)
                 
                 # Reduce active position sizing by half for remaining Tranche B
                 record_tranche_close(
                     pos,
                     tranche_name="A",
                     exit_price=exit_price,
-                    exit_reason="TRANCHE_A_TARGET",
+                    exit_reason="TARGET",
                     profit=profit_a,
                     shares_closed=shares_a,
                     cost_closed=cost_a
@@ -1286,30 +1303,17 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 pos["shares_acquired"] = round(shares * 0.5, 4)
                 pos["amount_spent"] = round(amount_spent * 0.5, 2)
                 pos["tranche_a_profit"] = profit_a
+                pos["stop_loss"] = entry_price  # Lock in breakeven stop loss for remaining Tranche B
                 persist_positions()
 
         # Evaluate Tranche B and emergency triggers
-        is_target_hit = exit_price >= tranche_b_target
+        is_target_hit = (exit_price >= tranche_b_target) if not is_expired else False
         is_stop_hit = exit_price <= stop_loss if (not _is_short_tf or (stop_loss is not None and stop_loss > 0)) else False
         is_time_decay_hit = is_updown and not _is_short_tf and not is_expired and age_minutes >= 0.7 * effective_max_minutes
         is_salvage_exit = False
 
-        # 80% drawdown stop-loss (enabled for all timeframes)
-        _drawdown_floor = entry_price * 0.20
-        if not is_expired and exit_price is not None and 0.005 < exit_price <= _drawdown_floor:
-            log.info(
-                "[NETTING-EXIT] %s 80%% DRAWDOWN TRIGGERED! Price fell to %.2f (entry %.2f). Cutting losses risk free.",
-                order_id, exit_price, entry_price
-            )
-            is_salvage_exit = True
-
-        # 4-minute OTM salvage exit
-        if _is_short_tf and not is_expired and age_minutes >= 4.0 and exit_price is not None and exit_price <= 0.20:
-            log.info(
-                "[SALVAGE-EXIT] %s Deep OTM at 4m (price %.2fc <= 20c). Salvaging capital.",
-                order_id, exit_price * 100
-            )
-            is_salvage_exit = True
+        # Salvage exits and 80% drawdown stop-losses removed entirely to hold trades to expiry
+        pass
 
         if not (is_expired or is_target_hit or is_stop_hit or is_time_decay_hit or is_salvage_exit):
             # Update local current_price in memory and continue
@@ -1326,28 +1330,26 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
 
         # Determine reason and exit type (Standard vs Netting Merge)
         if is_target_hit:
-            exit_reason = "TARGET_HIT"
+            exit_reason = "TARGET"
             opposite_cost = round(1.0 - exit_price, 4)
             log.info(
-                "[NETTING-EXIT] %s TARGET HIT! Buying opposite outcome at %.2fc to lock in profit risk-free",
+                "[NETTING-EXIT] %s TARGET Buying opposite outcome at %.2fc to lock in profit risk-free",
                 order_id, opposite_cost * 100
             )
         elif is_stop_hit:
-            exit_reason = "STOP_HIT"
+            exit_reason = "LOSS"
             opposite_cost = round(1.0 - exit_price, 4)
             log.info(
-                "[NETTING-EXIT] %s STOP LOSS HIT! Buying opposite outcome at %.2fc to hedge downside and merge to cash",
+                "[NETTING-EXIT] %s LOSS Buying opposite outcome at %.2fc to hedge downside and merge to cash",
                 order_id, opposite_cost * 100
             )
         elif is_time_decay_hit:
-            exit_reason = "TIME_DECAY"
+            exit_reason = "MARKET_EXPIRED"
             opposite_cost = round(1.0 - exit_price, 4)
             log.info(
-                "[NETTING-EXIT] %s TIME DECAY HIT! Utilized >70%% of window (%.1fm/%.1fm). Exiting early to recover capital.",
+                "[NETTING-EXIT] %s LOSS Utilized >70%% of window (%.1fm/%.1fm). Exiting early to recover capital.",
                 order_id, age_minutes, effective_max_minutes
             )
-        elif is_salvage_exit:
-            exit_reason = "SALVAGE_EXIT"
         else:
             exit_reason = "MARKET_EXPIRED"
 
@@ -1358,17 +1360,35 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         profit_b = round(exit_value - cost_held, 2)
         total_profit = pos.get("tranche_a_profit", 0.0) + profit_b
 
+        # Decompose full position exits into ES and EX tranches for scale consistency
+        if not pos.get("tranche_a_closed"):
+            record_tranche_close(
+                pos,
+                tranche_name="A",
+                exit_price=exit_price,
+                exit_reason=exit_reason,
+                profit=round(profit_b * 0.5, 2),
+                shares_closed=round(shares_held * 0.5, 4),
+                cost_closed=round(cost_held * 0.5, 2)
+            )
+            # Add ES portion profit silently to balance (EX portion is added by execute_exit)
+            update_balance(get_current_balance() + round(profit_b * 0.5, 2), silent=True)
+            pos["shares_acquired"] = round(shares_held * 0.5, 4)
+            pos["amount_spent"] = round(cost_held * 0.5, 2)
+            pos["tranche_a_profit"] = round(profit_b * 0.5, 2)
+            pos["tranche_a_closed"] = True
+
         result = execute_exit(order_id, exit_price, exit_reason=exit_reason)
         if result:
             result["profit"] = total_profit
             if total_profit >= 0.0:
                 log.info(
-                    "\033[1;97m[Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (WIN) | reason=%s\033[0m",
+                    "\033[1;38;2;193;225;193m[Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (WIN) | reason=%s\033[0m",
                     order_id, age_minutes, exit_price, total_profit, exit_reason,
                 )
             else:
                 log.info(
-                    "\033[90m[Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (LOSS) | reason=%s\033[0m",
+                    "\033[1;38;2;255;116;108m[Closed] %s closed after %.1fm | exit=%.4f | PnL=$%+.2f (LOSS) | reason=%s\033[0m",
                     order_id, age_minutes, exit_price, total_profit, exit_reason,
                 )
             closed.append({"order_id": order_id, **result})
@@ -1633,20 +1653,9 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
             cost_closed=entry_value
         )
 
-    update_trade_record(order_id, exit_data)
-    persist_positions()
-
-    # Balance is already updated by persist_positions() above — just read it back
-    new_balance = get_current_balance()
+    # Get balance and add profit/loss of this exit (for paper trading balance tracking)
+    new_balance = round(get_current_balance() + profit, 2)
     trade_desc = _get_trade_desc(pos)
-    try:
-        if tranche_a_closed:
-            reason = f"Tranche B of {trade_desc} ({order_id}) closed at {format_cents(current_price)} (+${profit:+.2f}, Total PnL: +${total_profit:+.2f})"
-        else:
-            reason = f"Trade {trade_desc} ({order_id}) closed with ${profit:+.2f}"
-        update_balance(new_balance, reason=reason)
-    except Exception as exc:
-        log.error("Failed to update balance after trade %s: %s", order_id, exc)
 
     if profit > 0:
         outcome = "✅ WIN"
@@ -1654,10 +1663,37 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
         outcome = "⚖️ BREAKEVEN"
     else:
         outcome = "❌ LOSS"
+
+    # 1. Exit outcome log first
     log.debug(
         "[EXIT] %s | %s (%s) | %s @ %s | pnl=$%+.2f | bal=$%.2f",
         outcome, trade_desc, order_id, exit_reason, format_cents(current_price), profit, new_balance,
     )
+
+    # 2. Account balance update second
+    try:
+        if tranche_a_closed:
+            reason = f"EX of {trade_desc} ({order_id}) closed at {format_cents(current_price)} (+${profit:+.2f}, Total PnL: +${total_profit:+.2f})"
+        else:
+            reason = f"ES of {trade_desc} ({order_id}) closed with ${profit:+.2f}"
+        update_balance(new_balance, reason=reason)
+    except Exception as exc:
+        log.error("Failed to update balance after trade %s: %s", order_id, exc)
+
+    # 3. Database persistence / history log last
+    if tranche_a_closed:
+        record_tranche_close(
+            pos,
+            tranche_name="B",
+            exit_price=current_price,
+            exit_reason=exit_reason,
+            profit=profit,
+            shares_closed=shares,
+            cost_closed=entry_value
+        )
+
+    update_trade_record(order_id, exit_data)
+    persist_positions()
 
     # Circuit breaker + inversion feedback per asset/timeframe engine
     try:
@@ -1745,7 +1781,8 @@ def get_position_summary() -> dict:
         unrealized += (shares * current_price) - size
 
     realized = sum(float(p.get("profit", 0.0) or 0) for p in closed_pos)
-    wins      = sum(1 for p in closed_pos if float(p.get("profit", 0.0) or 0) > 0)
+    wins     = sum(1 for p in closed_pos if float(p.get("profit", 0.0) or 0) > 0.009)
+    losses   = sum(1 for p in closed_pos if float(p.get("profit", 0.0) or 0) < -0.009)
 
     return {
         "active":          len(open_pos),
@@ -1753,7 +1790,8 @@ def get_position_summary() -> dict:
         "unrealized_pnl":  round(unrealized, 2),
         "realized_pnl":    round(realized, 2),
         "wins":            wins,
-        "losses":          len(closed_pos) - wins,
+        "losses":          losses,
+        "breakevens":      len(closed_pos) - wins - losses,
     }
 
 
@@ -1810,6 +1848,23 @@ def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_r
         hold_min = round((now - open_time).total_seconds() / 60, 1) if isinstance(open_time, datetime) else 0
         title = pos.get("event_title") or pos.get("event_id", pos.get("market_id", "Unknown"))
         
+        # Determine user-facing detailed exit reason matching tranche name and outcome
+        clean_tranche = "ES" if tranche_name == "A" else "EX"
+        _clean_reason = exit_reason
+        if profit == 0.0:
+            _clean_reason = f"{clean_tranche} break even"
+        elif exit_reason == "TARGET":
+            _clean_reason = f"{clean_tranche} target"
+        elif exit_reason == "LOSS":
+            _clean_reason = f"{clean_tranche} loss"
+        elif exit_reason == "MARKET_EXPIRED":
+            if profit > 0.009:
+                _clean_reason = f"{clean_tranche} market expired, win"
+            elif profit < -0.009:
+                _clean_reason = f"{clean_tranche} market expired, loss"
+            else:
+                _clean_reason = f"{clean_tranche} break even"
+
         tranche_record = {
             "order_id":         tranche_order_id,
             "parent_order_id":  pos["order_id"],
@@ -1824,13 +1879,13 @@ def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_r
             "size":             round(cost_closed, 2),
             "realized_pnl":     round(profit, 2),
             "realized_pnl_pct": round((profit / cost_closed * 100) if cost_closed else 0.0, 2),
-            "exit_reason":      exit_reason,
+            "exit_reason":      _clean_reason,
             "hold_hours":       round(hold_min / 60, 2),
             "entry_time":       open_time.isoformat() if isinstance(open_time, datetime) else str(open_time),
             "exit_time":        now.isoformat(),
             "expiry_ts":        pos.get("expiry_ts", 0),
-            "entry_type":       pos.get("entry_type", "SIGNAL"),
-            "trade_type":       _derive_trade_type(pos.get("entry_type","SIGNAL")),
+            "entry_type":       pos.get("entry_type", "ZISI"),
+            "trade_type":       _derive_trade_type(pos.get("entry_type","ZISI")),
             "regime":           pos.get("regime", "UNKNOWN"),
             "entry_spot":       pos.get("entry_spot", 0.0),
         }
@@ -1843,7 +1898,7 @@ def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_r
             tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
             import os
             os.replace(tmp, out_path)
-        log.info("[HISTORY] Persisted Tranche %s for %s to positions_state.json", tranche_name, pos["order_id"])
+        log.debug("[HISTORY] Persisted Tranche %s for %s to positions_state.json", tranche_name, pos["order_id"])
     except Exception as e:
         log.error("Failed to record tranche close: %s", e)
 
@@ -1896,8 +1951,8 @@ def persist_positions() -> None:
                     "entry_time":       open_time.isoformat() if isinstance(open_time, datetime) else str(open_time),
                     "exit_time":        pos.get("exit_timestamp", ""),
                     "expiry_ts":        pos.get("expiry_ts", 0),
-                    "entry_type":       pos.get("entry_type", "SIGNAL"),
-                    "trade_type":       _derive_trade_type(pos.get("entry_type","SIGNAL")),
+                    "entry_type":       pos.get("entry_type", "ZISI"),
+                    "trade_type":       _derive_trade_type(pos.get("entry_type","ZISI")),
                     "regime":           pos.get("regime", "UNKNOWN"),
                     "entry_spot":       pos.get("entry_spot", 0.0),
                     "tranche":          "SINGLE",
@@ -1923,8 +1978,8 @@ def persist_positions() -> None:
                     "stop_loss":      pos.get("stop_loss"),
                     "status":         status,
                     "expiry_ts":      pos.get("expiry_ts", 0),
-                    "entry_type":     pos.get("entry_type", "SIGNAL"),
-                    "trade_type":     _derive_trade_type(pos.get("entry_type","SIGNAL")),
+                    "entry_type":     pos.get("entry_type", "ZISI"),
+                    "trade_type":     _derive_trade_type(pos.get("entry_type","ZISI")),
                     "regime":         pos.get("regime", "UNKNOWN"),
                     "entry_spot":     pos.get("entry_spot", 0.0),
                 })
@@ -2007,8 +2062,9 @@ def persist_positions() -> None:
             "realized_pnl":   round(
                 sum(p.get("realized_pnl", 0) for p in merged_closed), 2
             ),
-            "win_count":      sum(1 for p in merged_closed if (p.get("realized_pnl") or 0) > 0),
-            "loss_count":     sum(1 for p in merged_closed if (p.get("realized_pnl") or 0) < 0),
+            "win_count":       sum(1 for p in merged_closed if (p.get("realized_pnl") or 0) > 0.009),
+            "loss_count":      sum(1 for p in merged_closed if (p.get("realized_pnl") or 0) < -0.009),
+            "breakeven_count": sum(1 for p in merged_closed if -0.009 <= (p.get("realized_pnl") or 0) <= 0.009),
         }
 
         data = {
@@ -2139,6 +2195,9 @@ def refresh_open_position_prices() -> int:
     Returns the number of positions that had their price successfully updated.
     """
     from core.engine.data_fetcher import get_event_current_price as _gcp
+    from core.engine.spot_websocket_ingest import _market_books
+    import re as _re
+    import time
 
     updated = 0
     for order_id, pos in list(_open_positions.items()):
@@ -2149,6 +2208,55 @@ def refresh_open_position_prices() -> int:
         if not market_id:
             continue
 
+        is_resolving = (pos.get("status") == "RESOLVING")
+        if not is_resolving and pos.get("expiry_ts"):
+            try:
+                is_resolving = (time.time() >= float(pos["expiry_ts"]))
+            except Exception:
+                pass
+
+        if is_resolving and pos.get("market") == "POLYMARKET":
+            # Spot-based price locking for expired/resolving trades
+            title = pos.get("event_title", "")
+            _asset_tag = _re.search(r'\[(BTC|ETH|SOL|XRP|DOGE|HYPE|BNB)\]', title)
+            asset = _asset_tag.group(1) if _asset_tag else (
+                'BTC' if 'bitcoin' in title.lower() else
+                'ETH' if 'ethereum' in title.lower() else
+                'SOL' if 'solana' in title.lower() else
+                'XRP' if 'xrp' in title.lower() else
+                'DOGE' if 'doge' in title.lower() or 'dogecoin' in title.lower() else '?'
+            ).upper()
+
+            # Get spot price: Chainlink first, Binance fallback
+            live_spot = 0.0
+            try:
+                from core.engine.polymarket_rtds_ingest import _chainlink_prices
+                cl_data = _chainlink_prices.get(asset)
+                if cl_data and isinstance(cl_data, dict):
+                    live_spot = float(cl_data.get("price", 0.0))
+            except Exception:
+                pass
+
+            if live_spot <= 0.0:
+                book = _market_books.get(asset)
+                if book:
+                    bid = book.get("bid_price", 0.0)
+                    ask = book.get("ask_price", 0.0)
+                    live_spot = (bid + ask) / 2.0
+
+            entry_spot = float(pos.get("entry_spot", 0.0))
+            if live_spot > 0 and entry_spot > 0:
+                direction = pos.get("direction", "YES").upper()
+                if direction in ("YES", "UP"):
+                    won = (live_spot > entry_spot)
+                else:
+                    won = (live_spot < entry_spot)
+                new_price = 0.99 if won else 0.01
+                pos["current_price"] = new_price
+                updated += 1
+                continue
+
+        # Fallback to fetching CLOB prices for active open trades
         try:
             price_data = _gcp(market_id)
             if price_data and isinstance(price_data.get("price"), (int, float)):
@@ -2163,8 +2271,6 @@ def refresh_open_position_prices() -> int:
                     )
         except Exception as exc:
             log.debug("[PRICE-REFRESH] Failed for %s: %s", order_id, exc)
-
-    # No simulation — all price refreshes use live CLOB data regardless of mode
 
     if updated:
         persist_positions()
@@ -2211,8 +2317,10 @@ def _recover_active_positions_from_disk() -> None:
                         "target_price": pos.get("target_price"),
                         "stop_loss": pos.get("stop_loss"),
                         "expiry_ts": pos.get("expiry_ts", 0),
-                        "entry_type": pos.get("entry_type", "SIGNAL"),
-                        "trade_type": _derive_trade_type(pos.get("entry_type","SIGNAL")),
+                        "entry_type": pos.get("entry_type", "ZISI"),
+                        "trade_type": _derive_trade_type(pos.get("entry_type","ZISI")),
+                        "tranche_a_closed": pos.get("tranche_a_closed", False),
+                        "tranche_a_profit": pos.get("tranche_a_profit", 0.0),
                     }
                     loaded += 1
         if loaded:

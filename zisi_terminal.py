@@ -62,10 +62,20 @@ LOCAL_LOG_PATH = PROJECT_ROOT / "zisi_bot_console.log"
 LOG_FILE = PM2_LOG_PATH if PM2_LOG_PATH.exists() else LOCAL_LOG_PATH
 
 # Premium color codes
-COLOR_ASSET = "light_steel_blue"     # Muted premium steel color for assets
+COLOR_ASSET = "color(153)"     # Muted premium steel color for assets
 COLOR_LABEL = "grey70"              # Titanium Gray for regular labels
 COLOR_VAL = "grey85"                # Premium soft white for regular values
 COLOR_BORDER = "grey37"             # Low-profile dark border gray
+
+# Pastel color codes (replaces green, red, and magenta tags throughout the UI)
+COLOR_PASTEL_GREEN = "#8ae28a"
+COLOR_PASTEL_RED = "#ff746c"
+COLOR_PASTEL_PINK = "#f4b3c2"
+
+# Turquoise palette for trade types
+COLOR_ES = "#79ECE0"
+COLOR_EX = "#40E0D0"
+COLOR_LS = "#B2F7EF"
 
 
 # Global state thread-safe container
@@ -387,7 +397,12 @@ def sync_file_states():
         
         # Merge active position token IDs directly with resolved token IDs
         active_list = positions.get("active", [])
-        active_ids = {pos["market_id"] for pos in active_list if pos.get("market_id")}
+        active_ids = set()
+        for pos in active_list:
+            if pos.get("market_id"):
+                active_ids.add(pos["market_id"])
+            if pos.get("yes_market_id"):
+                active_ids.add(pos["yes_market_id"])
         
         resolved_token_ids = set()
         for token_dict in g_state.asset_token_ids.values():
@@ -419,7 +434,7 @@ def tail_log_file(file_path: Path, num_lines: int = 10, offset: int = 0) -> list
                 seek_offset = min(file_size, chunk_size)
                 f.seek(file_size - seek_offset)
                 chunk = f.read(seek_offset).decode("utf-8", errors="ignore")
-                lines = chunk.splitlines()
+                lines = [l for l in chunk.splitlines() if "[HISTORY] Persisted" not in l]
                 if seek_offset == file_size:
                     break
                 chunk_size *= 2
@@ -440,31 +455,80 @@ def tail_log_file(file_path: Path, num_lines: int = 10, offset: int = 0) -> list
             else:
                 return lines[-num_lines:]
     except Exception as e:
-        return [f"[red]Error reading logs: {e}[/red]"]
+        return [f"[#ff746c]Error reading logs: {e}[/#ff746c]"]
 
 
 def colorize_log_line(line: str) -> Text:
     """Apply visual hierarchy to logs using Titanium Gray as the default base."""
     clean_line = line.strip()
-    text = Text(clean_line)
+    text = Text.from_ansi(clean_line)
     lower_line = clean_line.lower()
     
-    if "error" in lower_line or "exception" in lower_line or "fail" in lower_line:
-        text.stylize("red bold")
-    elif "warning" in lower_line or "paused" in lower_line:
-        text.stylize("bright_yellow")
-    elif "win" in lower_line or "profit" in lower_line:
-        text.stylize("green bold")
-    elif "loss" in lower_line or "drawdown" in lower_line:
-        text.stylize("magenta bold")
-    elif "skip" in lower_line or "veto" in lower_line:
-        text.stylize("bright_black")
-    elif "signal" in lower_line or "snipe" in lower_line:
-        text.stylize("cyan")
-    elif "order" in lower_line or "fill" in lower_line:
-        text.stylize("green")
-    else:
-        text.stylize(COLOR_LABEL)  # Titanium Gray default
+    style_up = f"bold {COLOR_PASTEL_GREEN}"
+    style_down = f"bold {COLOR_PASTEL_RED}"
+    style_yes = f"bold {COLOR_PASTEL_GREEN}"
+    style_no = f"bold {COLOR_PASTEL_RED}"
+    style_win = f"bold {COLOR_PASTEL_GREEN}"
+    style_loss = f"bold {COLOR_PASTEL_PINK}"
+    style_stop = f"bold {COLOR_PASTEL_RED}"
+    style_target = f"bold {COLOR_PASTEL_GREEN}"
+    style_inversion = "bold #f5f5dc"
+    
+    if "\033" not in clean_line:
+        if "[netting-exit]" in lower_line:
+            if "target" in lower_line:
+                text.stylize(f"bold {COLOR_PASTEL_GREEN}")
+            else:
+                text.stylize(f"bold {COLOR_PASTEL_RED}")
+        elif "slippage" in lower_line or "slippage_abort" in lower_line:
+            text.stylize("bold #f5f5dc")
+        elif "error" in lower_line or "exception" in lower_line or "fail" in lower_line or "stop loss" in lower_line:
+            text.stylize(f"bold {COLOR_PASTEL_RED}")
+        elif "warning" in lower_line or "paused" in lower_line:
+            text.stylize("bright_yellow")
+        elif any(k in lower_line for k in (
+            "skip", "veto", "kelly", "confirm", "sizer", "size", "ptc", "potential", 
+            "pre-flight", "preflight", "breaker", "sentiment", "leader-prop", 
+            "ttl-gate", "markov", "duration-wr", "coinglass", "lunarcrush", "ladder"
+        )):
+            text.stylize("#E5DECA")
+        else:
+            text.stylize(COLOR_LABEL)  # Titanium Gray default
+
+    # Regex Highlights for tokens inside logs
+    text.highlight_regex(r"\bUP\b", style_up)
+    text.highlight_regex(r"\[UP\]", style_up)
+    text.highlight_regex(r"\bDOWN\b", style_down)
+    text.highlight_regex(r"\[DOWN\]", style_down)
+    text.highlight_regex(r"\bYES\b", style_yes)
+    text.highlight_regex(r"\[YES\]", style_yes)
+    text.highlight_regex(r"\bNO\b", style_no)
+    text.highlight_regex(r"\[NO\]", style_no)
+    text.highlight_regex(r"\bWIN\b", style_win)
+    text.highlight_regex(r"\(WIN\)", style_win)
+    text.highlight_regex(r"\bLOSS\b", style_loss)
+    text.highlight_regex(r"\(LOSS\)", style_loss)
+    text.highlight_regex(r"STOP LOSS HIT", style_stop)
+    text.highlight_regex(r"STOP LOSS", style_stop)
+    text.highlight_regex(r"TARGET HIT", style_target)
+    text.highlight_regex(r"TARGET", style_target)
+    text.highlight_regex(r"MARKET EXPIRED", style_stop)
+    text.highlight_regex(r"INVERSION", style_inversion)
+    text.highlight_regex(r"\[INVERSION\]", style_inversion)
+    text.highlight_regex(r"SLIPPAGE_ABORT", style_inversion)
+    text.highlight_regex(r"\bHEALTHY\b", f"bold {COLOR_PASTEL_GREEN}")
+    text.highlight_regex(r"\bRECOVERING\b", "bold #ffb347")
+    text.highlight_regex(r"\bACTIVE\b", f"bold {COLOR_PASTEL_GREEN}")
+    text.highlight_regex(r"\bES\b", f"bold {COLOR_ES}")
+    text.highlight_regex(r"\bEX\b", f"bold {COLOR_EX}")
+    text.highlight_regex(r"\bLS\b", f"bold {COLOR_LS}")
+    text.highlight_regex(r"Tranche A", f"bold {COLOR_ES}")
+    text.highlight_regex(r"Tranche B", f"bold {COLOR_EX}")
+    text.highlight_regex(r"HEAVY DRAWDOWN", f"bold {COLOR_PASTEL_RED}")
+    text.highlight_regex(r"LOSING STREAK", f"bold {COLOR_PASTEL_RED}")
+    text.highlight_regex(r"\bNORMAL\b", f"bold {COLOR_PASTEL_GREEN}")
+    text.highlight_regex(r"\bSTABLE\b", f"bold {COLOR_PASTEL_GREEN}")
+    
     return text
 
 
@@ -515,11 +579,11 @@ def build_header_panel() -> Panel:
     uptime = get_uptime_str(g_state.start_time)
     
     # Log liveness
-    liveness_status = "[red]OFFLINE[/red]"
+    liveness_status = "[#ff746c]OFFLINE[/#ff746c]"
     if LOG_FILE.exists():
         mtime = os.path.getmtime(LOG_FILE)
         if now - mtime < 360.0:
-            liveness_status = "[bold green]● ACTIVE[/bold green]"
+            liveness_status = f"[bold {COLOR_PASTEL_GREEN}]● ACTIVE[/bold {COLOR_PASTEL_GREEN}]"
         else:
             liveness_status = "[bold yellow]● STANDBY[/bold yellow]"
 
@@ -530,16 +594,16 @@ def build_header_panel() -> Panel:
         Text.from_markup(liveness_status),
         (" │ ", "bright_black"),
         ("UTC: ", f"bold {COLOR_LABEL}"),
-        (utc_str, "light_steel_blue"),
+        (utc_str, f"bold {COLOR_ASSET}"),
         (" │ ", "bright_black"),
         ("SAST: ", f"bold {COLOR_LABEL}"),
-        (sast_str, "light_steel_blue"),
+        (sast_str, f"bold {COLOR_ASSET}"),
         (" │ ", "bright_black"),
         ("5m Candle: ", f"bold {COLOR_LABEL}"),
         (cd_5m_str, style_5m),
         (" │ ", "bright_black"),
         ("Uptime: ", f"bold {COLOR_LABEL}"),
-        (uptime, "yellow")
+        (uptime, f"bold {COLOR_ASSET}")
     )
     
     return Panel(Align.center(header_text), box=ROUNDED, style="bright_black")
@@ -561,14 +625,14 @@ def make_sparkline(values: list[float]) -> str:
     if not values:
         return ""
     if len(values) == 1:
-        return "█"
+        return "#"
     points = values[-12:]
     min_val = min(points)
     max_val = max(points)
     val_range = max_val - min_val
     if val_range == 0:
-        return "▄" * len(points)
-    spark_chars = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+        return "-" * len(points)
+    spark_chars = ["_", ".", "-", "~", "=", "+", "*", "#"]
     sparkline = []
     for val in points:
         idx = int((val - min_val) / val_range * (len(spark_chars) - 1))
@@ -576,7 +640,64 @@ def make_sparkline(values: list[float]) -> str:
     return "".join(sparkline)
 
 
-def build_metrics_panel() -> Panel:
+def build_equity_chart(width: int = 34) -> str:
+    try:
+        from data.balance_history import load_history
+        history = load_history()
+    except Exception:
+        history = []
+        
+    if not history:
+        return "[grey50]  Chart: No history recorded yet[/grey50]"
+        
+    balances = [float(h["balance"]) for h in history]
+    if len(balances) < 2:
+        return "[grey50]  Chart: Accumulating data points...[/grey50]"
+        
+    height = 3
+    val_min = min(balances)
+    val_max = max(balances)
+    val_range = val_max - val_min
+    if val_range == 0:
+        val_range = 1.0
+        
+    # sample to match width
+    sampled_points = []
+    for i in range(width):
+        idx = int(i * (len(balances) - 1) / (width - 1))
+        sampled_points.append(balances[idx])
+        
+    grid = [[" " for _ in range(width)] for _ in range(height)]
+    
+    for col, val in enumerate(sampled_points):
+        pct = (val - val_min) / val_range
+        fill_height = pct * height
+        for r in range(height):
+            row_from_bottom = height - 1 - r
+            if fill_height >= row_from_bottom + 0.8:
+                grid[r][col] = "█"
+            elif fill_height >= row_from_bottom + 0.4:
+                grid[r][col] = "▄"
+            else:
+                grid[r][col] = " "
+                
+    trend_color = COLOR_PASTEL_GREEN if balances[-1] >= balances[0] else COLOR_PASTEL_RED
+    
+    chart_lines = []
+    for r in range(height):
+        if r == 0:
+            lbl = f"${val_max:6.2f} ┐"
+        elif r == height - 1:
+            lbl = f"${val_min:6.2f} ┘"
+        else:
+            lbl = "        │"
+        row_content = "".join(grid[r])
+        chart_lines.append(f"  [grey60]{lbl}[/grey60] [bold {trend_color}]{row_content}[/bold {trend_color}]")
+        
+    return "\n".join(chart_lines)
+
+
+def build_metrics_panel(fullscreen: bool = False) -> Panel:
     """Build performance summary showing real-time fluctuating unrealized stats."""
     with g_state.lock:
         start_bal = float(g_state.account_state.get("starting_balance", 50.00))
@@ -608,42 +729,197 @@ def build_metrics_panel() -> Panel:
 
     wins = int(summary.get("win_count", 0))
     losses = int(summary.get("loss_count", 0))
-    total_closed = wins + losses
+    breakevens = int(summary.get("breakeven_count", 0))
+    total_closed = wins + losses + breakevens
     win_rate = (wins / total_closed) * 100 if total_closed > 0 else 0.0
 
-    real_color = "green" if realized > 0.01 else ("red" if realized < -0.01 else COLOR_LABEL)
-    unreal_color = "green" if total_live_unrealized > 0.01 else ("red" if total_live_unrealized < -0.01 else COLOR_LABEL)
+    real_color = COLOR_PASTEL_GREEN if realized > 0.01 else (COLOR_PASTEL_RED if realized < -0.01 else COLOR_LABEL)
+    unreal_color = COLOR_PASTEL_GREEN if total_live_unrealized > 0.01 else (COLOR_PASTEL_RED if total_live_unrealized < -0.01 else COLOR_LABEL)
 
     metrics_table = Table.grid(expand=True, padding=(0, 1))
     metrics_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=21)
     metrics_table.add_column("Value", justify="right")
 
-    # Calculate cumulative P&L sparkline
-    closed_pos = g_state.positions_state.get("closed", [])
-    spark_str = "[grey70]No closed trades[/grey70]"
-    if closed_pos:
-        try:
-            sorted_closed = sorted(closed_pos, key=lambda x: x.get("exit_time", ""))
-            cum_pnl = 0.0
-            pnl_history = [0.0]
-            for p in sorted_closed:
-                cum_pnl += float(p.get("realized_pnl", 0.0))
-                pnl_history.append(cum_pnl)
-            
-            spark = make_sparkline(pnl_history)
-            trend_color = "green" if (pnl_history[-1] >= pnl_history[-2] if len(pnl_history) >= 2 else True) else "red"
-            spark_str = f"[{trend_color}]{spark}[/{trend_color}]"
-        except Exception:
-            pass
-
     metrics_table.add_row("Start Capital:", f"[{COLOR_LABEL}]${start_bal:,.2f} USDC[/{COLOR_LABEL}]")
     metrics_table.add_row("Live Capital:", f"[{COLOR_LABEL}]${live_balance:,.2f} USDC[/{COLOR_LABEL}]")
     metrics_table.add_row("Realized P&L:", f"[{real_color}]${realized:+,.2f} ({realized_roi:+.2f}%)[/{real_color}]" if realized != 0 else f"[{COLOR_LABEL}]$0.00 (0.00%)[/{COLOR_LABEL}]")
-    metrics_table.add_row("P&L Sparkline:", spark_str)
     metrics_table.add_row("Live Unrealized P&L:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]" if total_live_unrealized != 0 else f"[{COLOR_LABEL}]$0.00[/{COLOR_LABEL}]")
-    metrics_table.add_row("Total Trades:", f"[green]{wins}W[/green] / [red]{losses}L[/red] ([{COLOR_LABEL}]{win_rate:.1f}% WR[/{COLOR_LABEL}])")
+    metrics_table.add_row("Total Trades:", f"[grey70]{total_closed}T[/grey70] | [#8ae28a]{wins}W[/#8ae28a] / [#ff746c]{losses}L[/#ff746c] / [grey50]{breakevens}BE[/grey50] ([{COLOR_LABEL}]{win_rate:.1f}% WR[/{COLOR_LABEL}])")
 
-    return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]Performance Summary[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
+
+    # Win/Loss breakdown and P&L by asset
+    asset_stats = {}
+    regime_stats = {}
+    half_stats = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+    runner_stats = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+    ls_stats = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+    band_stats = {
+        "0-19¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "20-39¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "40-59¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "60-79¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "80-99¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+    }
+    closed_pos = g_state.positions_state.get("closed", [])
+
+    for pos in (closed_pos or []):
+        title = pos.get("event_title", "Unknown")
+        asset = "UNKNOWN"
+        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+            if f"[{possible}]" in title.upper() or possible in title.upper():
+                asset = possible
+                break
+        pnl = float(pos.get("realized_pnl", 0.0))
+        hold_hours = float(pos.get("hold_hours", 0.0))
+        hold_sec = int(hold_hours * 3600)
+        
+        # Regime stats
+        _reg = str(pos.get("regime", "UNKNOWN")).upper()
+        if _reg not in regime_stats:
+            regime_stats[_reg] = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+        regime_stats[_reg]["pnl"] += pnl
+        regime_stats[_reg]["hold_secs"].append(hold_sec)
+        if pnl > 0.01:
+            regime_stats[_reg]["wins"] += 1
+        elif pnl < -0.01:
+            regime_stats[_reg]["losses"] += 1
+        else:
+            regime_stats[_reg]["breakevens"] += 1
+        
+        if asset not in asset_stats:
+            asset_stats[asset] = {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
+        asset_stats[asset]["pnl"] += pnl
+        asset_stats[asset]["hold_secs"].append(hold_sec)
+        if pnl > 0.01:
+            asset_stats[asset]["wins"] += 1
+        elif pnl < -0.01:
+            asset_stats[asset]["losses"] += 1
+        else:
+            asset_stats[asset]["breakevens"] += 1
+
+        # Scale Breakdown stats (supporting both old TRANCHE names and new HALF/RUNNER/ES/RS names)
+        tranche_type = str(pos.get("tranche", "")).upper()
+        entry_type = str(pos.get("entry_type", "")).upper()
+        event_title = str(pos.get("event_title", "")).upper()
+        reason = str(pos.get("exit_reason", "")).upper()
+
+        is_ls = "LS" in entry_type or "LS" in tranche_type or "SNIPE" in entry_type or "SNIPE" in event_title or "LS" in reason or "LATE" in reason
+        is_half = not is_ls and (tranche_type == "A" or "HALF" in reason or "TRANCHE_A" in reason or "ES" in reason or "ES" in entry_type)
+        is_runner = not is_ls and (tranche_type == "B" or "RUNNER" in reason or "TRANCHE_B" in reason or "RS" in reason or "EX" in reason or "EX" in entry_type)
+
+        if is_ls:
+            ls_stats["pnl"] += pnl
+            ls_stats["hold_secs"].append(hold_sec)
+            if pnl > 0.01:
+                ls_stats["wins"] += 1
+            elif pnl < -0.01:
+                ls_stats["losses"] += 1
+            else:
+                ls_stats["breakevens"] += 1
+        elif is_half:
+            half_stats["pnl"] += pnl
+            half_stats["hold_secs"].append(hold_sec)
+            if pnl > 0.01:
+                half_stats["wins"] += 1
+            elif pnl < -0.01:
+                half_stats["losses"] += 1
+            else:
+                half_stats["breakevens"] += 1
+        elif is_runner:
+            runner_stats["pnl"] += pnl
+            runner_stats["hold_secs"].append(hold_sec)
+            if pnl > 0.01:
+                runner_stats["wins"] += 1
+            elif pnl < -0.01:
+                runner_stats["losses"] += 1
+            else:
+                runner_stats["breakevens"] += 1
+
+        # Entry Bands stats
+        entry_price = float(pos.get("entry_price", 0.0))
+        cents = round(entry_price * 100)
+        if 0 <= cents <= 19:
+            band_key = "0-19¢"
+        elif 20 <= cents <= 39:
+            band_key = "20-39¢"
+        elif 40 <= cents <= 59:
+            band_key = "40-59¢"
+        elif 60 <= cents <= 79:
+            band_key = "60-79¢"
+        else:
+            band_key = "80-99¢"
+
+        band_stats[band_key]["pnl"] += pnl
+        band_stats[band_key]["hold_secs"].append(hold_sec)
+        if pnl > 0.01:
+            band_stats[band_key]["wins"] += 1
+        elif pnl < -0.01:
+            band_stats[band_key]["losses"] += 1
+        else:
+            band_stats[band_key]["breakevens"] += 1
+
+    if asset_stats:
+        metrics_table.add_row("", "")
+        metrics_table.add_row("[bold grey70]Asset Breakdown:[/bold grey70]", "")
+        for asset, stats in sorted(asset_stats.items()):
+            pnl_val = stats["pnl"]
+            pnl_color = COLOR_PASTEL_GREEN if pnl_val >= 0.01 else (COLOR_PASTEL_RED if pnl_val < -0.01 else COLOR_LABEL)
+            pnl_pct = (pnl_val / start_bal) * 100 if start_bal > 0.0 else 0.0
+            
+            # Average hold time
+            avg_hold_sec = int(sum(stats["hold_secs"]) / len(stats["hold_secs"])) if stats["hold_secs"] else 0
+            if avg_hold_sec >= 60:
+                avg_hold_str = f"{avg_hold_sec // 60}m {avg_hold_sec % 60}s"
+            else:
+                avg_hold_str = f"{avg_hold_sec}s"
+                
+            tot = stats['wins'] + stats['losses'] + stats['breakevens']
+            wr = (stats['wins'] / tot * 100) if tot > 0 else 0.0
+            metrics_table.add_row(
+                f"  [{COLOR_ASSET}]{asset}:[/{COLOR_ASSET}]",
+                f"[grey70]{tot}T[/grey70] | [#8ae28a]{stats['wins']}W[/#8ae28a] / [#ff746c]{stats['losses']}L[/#ff746c] / [grey50]{stats['breakevens']}BE[/grey50] ({wr:.1f}% WR) | ([{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}], [{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]) | avg hold: {avg_hold_str}"
+            )
+
+    def format_breakdown_line(stats_dict):
+        w = stats_dict["wins"]
+        l = stats_dict["losses"]
+        be = stats_dict["breakevens"]
+        total = w + l + be
+        wr = (w / total * 100) if total > 0 else 0.0
+        pnl_val = stats_dict["pnl"]
+        pnl_color = COLOR_PASTEL_GREEN if pnl_val >= 0.01 else (COLOR_PASTEL_RED if pnl_val < -0.01 else COLOR_LABEL)
+        pnl_pct = (pnl_val / start_bal) * 100 if start_bal > 0.0 else 0.0
+
+        avg_hold_sec = int(sum(stats_dict["hold_secs"]) / len(stats_dict["hold_secs"])) if stats_dict["hold_secs"] else 0
+        if avg_hold_sec >= 60:
+            avg_hold_str = f"{avg_hold_sec // 60}m {avg_hold_sec % 60}s"
+        else:
+            avg_hold_str = f"{avg_hold_sec}s"
+
+        return f"[grey70]{total}T[/grey70] | [#8ae28a]{w}W[/#8ae28a] / [#ff746c]{l}L[/#ff746c] / [grey50]{be}BE[/grey50] ({wr:.1f}% WR) | [{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}] ([{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]) | avg hold: {avg_hold_str}"
+
+    # Scale Breakdown Display
+    metrics_table.add_row("", "")
+    metrics_table.add_row("[bold grey70]Scale Breakdown:[/bold grey70]", "")
+    metrics_table.add_row(f"  Early Scalping ([bold {COLOR_ES}]ES[/bold {COLOR_ES}]):", format_breakdown_line(half_stats))
+    metrics_table.add_row(f"  Extended Execution ([bold {COLOR_EX}]EX[/bold {COLOR_EX}]):", format_breakdown_line(runner_stats))
+
+    # Entry Bands Display
+    metrics_table.add_row("", "")
+    metrics_table.add_row("[bold grey70]Entry Bands:[/bold grey70]", "")
+    for band_name in ["0-19¢", "20-39¢", "40-59¢", "60-79¢", "80-99¢"]:
+        stats_b = band_stats[band_name]
+        if (stats_b["wins"] + stats_b["losses"]) > 0:
+            metrics_table.add_row(f"  {band_name}:", format_breakdown_line(stats_b))
+
+    # Regime Breakdown Display
+    metrics_table.add_row("", "")
+    metrics_table.add_row("[bold grey70]Regime Breakdown:[/bold grey70]", "")
+    for regime_name, stats_r in sorted(regime_stats.items()):
+        metrics_table.add_row(f"  {regime_name.replace('_', ' ')}:", format_breakdown_line(stats_r))
+
+    title_str = "Performance Summary (M or H to Minimize)" if fullscreen else "Performance Summary (M to Fullscreen)"
+    return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_spot_prices_panel() -> Panel:
@@ -771,20 +1047,20 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
     # Mapping styles
     regime_color = "white"
     if raw_reg == "TRENDING":
-        regime_color = "green bold"
+        regime_color = "#c1e1c1 bold"
     elif raw_reg == "MEAN_REVERTING":
         regime_color = "yellow bold"
     elif raw_reg == "COMPRESSION":
         regime_color = "cyan bold"
     elif raw_reg == "VOLATILE_CHAOS":
-        regime_color = "red bold"
+        regime_color = "#ff746c bold"
 
     # Header Table
     header_table = Table.grid(expand=True, padding=(0, 1))
     header_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=16)
     header_table.add_column("Value", justify="right", style=COLOR_VAL)
     header_table.add_row("Market Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]")
-    header_table.add_row("Timeline Mode:", f"[bold magenta]{timeline_mode}[/bold magenta]")
+    header_table.add_row("Timeline Mode:", f"[bold {COLOR_ASSET}]{timeline_mode}[/bold {COLOR_ASSET}]")
 
     # Signal & Gate Matrix Table
     matrix_table = Table(box=ROUNDED, expand=True, padding=(0, 1))
@@ -825,19 +1101,19 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
 
         # RSI Formatting
         if rsi_val >= 70:
-            rsi_str = f"[red]{rsi_val:.1f}[/red]"
+            rsi_str = f"[#ff746c]{rsi_val:.1f}[/#ff746c]"
         elif rsi_val <= 30:
-            rsi_str = f"[green]{rsi_val:.1f}[/green]"
+            rsi_str = f"[#c1e1c1]{rsi_val:.1f}[/#c1e1c1]"
         else:
             rsi_str = f"{rsi_val:.1f}"
 
         # CVD formatting with arrows
         if cvd_val > 0.01:
             cvd_str = f"▲ +{cvd_val:.1f}"
-            cvd_color = "green"
+            cvd_color = COLOR_PASTEL_GREEN
         elif cvd_val < -0.01:
             cvd_str = f"▼ {cvd_val:.1f}"
-            cvd_color = "red"
+            cvd_color = COLOR_PASTEL_RED
         else:
             cvd_str = "0.0"
             cvd_color = "grey70"
@@ -845,19 +1121,19 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
         # OBI formatting with arrows
         if obi_val > 0.05:
             obi_str = f"▲ +{obi_val:.2f}"
-            obi_color = "green"
+            obi_color = COLOR_PASTEL_GREEN
         elif obi_val < -0.05:
             obi_str = f"▼ {obi_val:.2f}"
-            obi_color = "red"
+            obi_color = COLOR_PASTEL_RED
         else:
             obi_str = f"{obi_val:.2f}"
             obi_color = "grey70"
 
         # NIC formatting
         if nic_val > 0.05:
-            nic_str = f"[green]▲ +{nic_val:.2f}[/green]"
+            nic_str = f"[#c1e1c1]▲ +{nic_val:.2f}[/#c1e1c1]"
         elif nic_val < -0.05:
-            nic_str = f"[red]▼ {nic_val:.2f}[/red]"
+            nic_str = f"[#ff746c]▼ {nic_val:.2f}[/#ff746c]"
         else:
             nic_str = f"[grey70]{nic_val:.2f}[/grey70]"
 
@@ -866,7 +1142,7 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
 
         # Status
         if status_val == "CONFIRM":
-            status_str = "[bold green]CONFIRM[/bold green]"
+            status_str = "[bold #c1e1c1]CONFIRM[/bold #c1e1c1]"
         elif status_val == "INVERT":
             status_str = "[bold yellow]INVERT[/bold yellow]"
         elif status_val == "FADE":
@@ -900,7 +1176,7 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
                 setups.append(key)
             
     if setups:
-        setup_str = ", ".join(f"[bold green]{s}[/bold green]" for s in setups)
+        setup_str = ", ".join(f"[bold #c1e1c1]{s}[/bold #c1e1c1]" for s in setups)
     else:
         setup_str = "[grey50]None[/grey50]"
 
@@ -920,12 +1196,28 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
     return Panel(panel_content, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
+def format_regime_str(regime: str) -> str:
+    """Format and color regime names for table display."""
+    r = str(regime).upper()
+    if "MEAN" in r or "REVERT" in r:
+        return f"[bold #f5f5dc]MEAN REVERTING[/bold #f5f5dc]"
+    elif "TREND" in r:
+        return f"[bold #ffe5cc]TRENDING[/bold #ffe5cc]"
+    elif "CHAOS" in r:
+        return f"[bold magenta]CHAOS[/bold magenta]"
+    elif "COMPRESS" in r:
+        return f"[bold #fff8dc]COMPRESSION[/bold #fff8dc]"
+    else:
+        return f"[grey50]{r}[/grey50]"
+
+
 def build_active_positions_panel() -> Panel:
     """Build the active open positions table with full attributes and live PnL."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
+    table.add_column("Regime", justify="center", header_style=COLOR_LABEL)
+    table.add_column("Entry Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET)
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
     table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Strategy", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Dir", justify="center", header_style=COLOR_LABEL)
     table.add_column("Size", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Entry Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
@@ -933,17 +1225,18 @@ def build_active_positions_panel() -> Panel:
     table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Mark Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("TP/Target", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Entry Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Type", justify="center", header_style=COLOR_LABEL)
     table.add_column("Unrealized PnL", justify="right", header_style=COLOR_LABEL)
 
     with g_state.lock:
         active_positions = list(g_state.positions_state.get("active", []))
         spot_copy = dict(g_state.spot_prices)
+        cl_copy = dict(g_state.chainlink_prices)
         fullscreen = g_state.fullscreen_mode == 'active'
 
     if not active_positions:
-        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No active positions running", "-", "-")
+        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No active positions running", "-", "-", "-", "-")
     else:
         for pos in active_positions:
             title = pos.get("event_title", "Unknown")
@@ -966,22 +1259,56 @@ def build_active_positions_panel() -> Panel:
                 tf = "5m"
             
             direction = pos.get("direction", "YES")
-            dir_color = "green" if direction == "YES" else "red"
+            dir_color = COLOR_PASTEL_GREEN if direction in ("YES", "UP") else COLOR_PASTEL_RED
             size = float(pos.get("size", 0.0))
             
-            # Fetch prices
             entry_token = float(pos.get("entry_price", 0.0))
-            live_spot = spot_copy.get(asset, 0.0)
+            entry_spot = float(pos.get("entry_spot", 0.0))
             
-            # Fetch WebSocket token price (market_id is the token ID)
-            live_entry = g_state.clob_prices.get(market_id)
-            if live_entry:
-                yes_price = live_entry["yes_price"]
-                mark_token = yes_price if direction in ("YES", "UP") else (1.0 - yes_price)
+            # Get spot price: Chainlink first, Binance fallback
+            live_spot = 0.0
+            cl_entry = cl_copy.get(asset, {})
+            if isinstance(cl_entry, dict):
+                live_spot = float(cl_entry.get("price", 0.0))
+            else:
+                live_spot = float(cl_entry or 0.0)
+            
+            if live_spot <= 0.0:
+                live_spot = spot_copy.get(asset, 0.0)
+            
+            # Determine resolving state
+            is_resolving = (pos.get("status") == "RESOLVING")
+            if not is_resolving and pos.get("expiry_ts"):
+                try:
+                    import time
+                    is_resolving = (time.time() >= float(pos["expiry_ts"]))
+                except Exception:
+                    pass
+
+            if is_resolving and entry_spot > 0 and live_spot > 0:
+                direction_upper = direction.upper()
+                if direction_upper in ("YES", "UP"):
+                    won = (live_spot > entry_spot)
+                else:
+                    won = (live_spot < entry_spot)
+                mark_token = 0.99 if won else 0.01
                 unreal = (float(pos.get("shares", 0.0)) * mark_token) - size
             else:
-                mark_token = float(pos.get("current_price", entry_token))
-                unreal = float(pos.get("unrealized_pnl", 0.0))
+                # Fetch WebSocket token price
+                # If we have yes_market_id stored, query it as YES token is much more liquid.
+                # Otherwise fallback to market_id.
+                ref_id = pos.get("yes_market_id") or market_id
+                live_entry = g_state.clob_prices.get(ref_id)
+                if live_entry and not is_resolving:
+                    yes_price = live_entry["yes_price"]
+                    if pos.get("yes_market_id") and direction.upper() in ("NO", "DOWN"):
+                        mark_token = round(1.0 - yes_price, 4)
+                    else:
+                        mark_token = yes_price
+                    unreal = (float(pos.get("shares", 0.0)) * mark_token) - size
+                else:
+                    mark_token = float(pos.get("current_price", entry_token))
+                    unreal = float(pos.get("unrealized_pnl", 0.0))
             
             # Formulate spot entry estimations
             entry_spot = float(pos.get("entry_spot", 0.0))
@@ -992,17 +1319,31 @@ def build_active_positions_panel() -> Panel:
                 entry_spot_str = f"${entry_spot:,.2f}" if entry_spot > 0 else "-"
                 mark_spot_str = f"${live_spot:,.2f}" if live_spot > 0 else "-"
             
-            unreal_color = "green" if unreal > 0.01 else ("red" if unreal < -0.01 else COLOR_LABEL)
+            unreal_color = COLOR_PASTEL_GREEN if unreal > 0.01 else (COLOR_PASTEL_RED if unreal < -0.01 else COLOR_LABEL)
             hold_min = float(pos.get("hold_minutes", 0.0))
             hold_sec = int(hold_min * 60)
             hold_str = f"{hold_sec // 60}m {hold_sec % 60}s"
             
+            tranche_type = str(pos.get("tranche", "")).upper()
+            entry_type = str(pos.get("entry_type", "")).upper()
+            event_title = str(pos.get("event_title", "Unknown")).upper()
+            
+            # Color active position type based on tranche closure state
+            is_snipe = "LS" in entry_type or "SNIPE" in entry_type or "SNIPE" in event_title
+            if is_snipe:
+                type_str = f"[bold {COLOR_LS}]LS[/bold {COLOR_LS}]"
+            elif pos.get("tranche_a_closed"):
+                type_str = f"[bold {COLOR_EX}]EX[/bold {COLOR_EX}]"
+            else:
+                type_str = f"[bold {COLOR_ES}]ES[/bold {COLOR_ES}]"
+            
             formatted_entry_ts = format_iso_timestamp(pos.get("entry_time", ""))
 
             table.add_row(
+                format_regime_str(pos.get("regime", "UNKNOWN")),
+                formatted_entry_ts,
                 asset,
                 tf,
-                pos.get("entry_type", "SIG"),
                 f"[{dir_color}]{direction}[/{dir_color}]",
                 f"${size:,.2f}",
                 entry_spot_str,
@@ -1010,8 +1351,8 @@ def build_active_positions_panel() -> Panel:
                 format_cents(entry_token),
                 format_cents(mark_token),
                 format_cents(float(pos.get('target_price', 0.99))),
-                formatted_entry_ts,
                 hold_str,
+                type_str,
                 f"[{unreal_color}]${unreal:+.2f}[/{unreal_color}]"
             )
 
@@ -1022,15 +1363,16 @@ def build_active_positions_panel() -> Panel:
 def build_closed_positions_panel(num_lines: int = 15) -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Closed Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Regime", justify="center", header_style=COLOR_LABEL)
+    table.add_column("Closed Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET)
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
     table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Strategy", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Dir", justify="center", header_style=COLOR_LABEL)
     table.add_column("Size", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Exit Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Type", justify="center", header_style=COLOR_LABEL)
     table.add_column("Exit Reason", justify="left", header_style=COLOR_LABEL)
     table.add_column("PnL ($)", justify="right", header_style=COLOR_LABEL)
 
@@ -1061,7 +1403,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
             tf = "5m"
         
         direction = pos.get("direction", "YES")
-        dir_color = "green" if direction == "YES" else "red"
+        dir_color = COLOR_PASTEL_GREEN if direction in ("YES", "UP") else COLOR_PASTEL_RED
         
         # Format values
         size = float(pos.get("size", 0.0))
@@ -1071,37 +1413,56 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         hold_sec = int(hold_hours * 3600)
         hold_str = f"{hold_sec // 60}m {hold_sec % 60}s"
         pnl = float(pos.get("realized_pnl", 0.0))
-        pnl_color = "green" if pnl > 0.01 else ("red" if pnl < -0.01 else COLOR_LABEL)
+        pnl_color = COLOR_PASTEL_GREEN if pnl > 0.01 else (COLOR_PASTEL_RED if pnl < -0.01 else COLOR_LABEL)
         
         formatted_exit_ts = format_iso_timestamp(pos.get("exit_time", ""))
         
         # Format exit reason styles conditionally
-        raw_reason = pos.get("exit_reason", "RESOLVED")
-        if raw_reason == "MARKET_EXPIRED":
-            reason_str = f"[{COLOR_LABEL}]MARKET_EXPIRED[/{COLOR_LABEL}]"
+        raw_reason = str(pos.get("exit_reason", "RESOLVED")).upper()
+        if -0.009 <= pnl <= 0.009:
+            reason_str = f"[{COLOR_LABEL}]BREAK EVEN[/{COLOR_LABEL}]"
+        elif "EXPIRED" in raw_reason or "MARKET EXPIRED" in raw_reason:
+            if pnl > 0.009:
+                reason_str = f"[bold {COLOR_PASTEL_GREEN}]WIN, MARKET EXPIRED[/bold {COLOR_PASTEL_GREEN}]"
+            else:
+                reason_str = f"[bold {COLOR_PASTEL_RED}]LOSS, MARKET EXPIRED[/bold {COLOR_PASTEL_RED}]"
         elif "TARGET" in raw_reason:
-            reason_str = "[green]" + raw_reason + "[/green]"
-        elif "STOP" in raw_reason or "FAIL" in raw_reason:
-            reason_str = "[red]" + raw_reason + "[/red]"
+            reason_str = f"[{COLOR_PASTEL_GREEN}]TARGET[/{COLOR_PASTEL_GREEN}]"
+        elif "STOP" in raw_reason or "LOSS" in raw_reason or "FAIL" in raw_reason:
+            reason_str = f"[{COLOR_PASTEL_RED}]LOSS[/{COLOR_PASTEL_RED}]"
         else:
-            reason_str = f"[{COLOR_LABEL}]" + raw_reason + f"[/{COLOR_LABEL}]"
+            reason_str = f"[{COLOR_LABEL}]{raw_reason}[/{COLOR_LABEL}]"
+
+        tranche_type = str(pos.get("tranche", "")).upper()
+        entry_type = str(pos.get("entry_type", "")).upper()
+        event_title = str(pos.get("event_title", "")).upper()
+
+        if "LS" in entry_type or "LS" in tranche_type or "SNIPE" in entry_type or "SNIPE" in event_title:
+            type_str = f"[bold {COLOR_LS}]LS[/bold {COLOR_LS}]"
+        elif tranche_type == "A" or "HALF" in raw_reason or "TRANCHE_A" in raw_reason or "ES" in raw_reason or "ES" in entry_type:
+            type_str = f"[bold {COLOR_ES}]ES[/bold {COLOR_ES}]"
+        elif tranche_type == "B" or "RUNNER" in raw_reason or "TRANCHE_B" in raw_reason or "RS" in raw_reason or "EX" in raw_reason or "EX" in entry_type:
+            type_str = f"[bold {COLOR_EX}]EX[/bold {COLOR_EX}]"
+        else:
+            type_str = f"[grey50]ES[/grey50]"
 
         table.add_row(
+            format_regime_str(pos.get("regime", "UNKNOWN")),
             formatted_exit_ts,
             asset,
             tf,
-            pos.get("entry_type", "SIG"),
             f"[{dir_color}]{direction}[/{dir_color}]",
             f"${size:,.2f}",
-            f"${entry:.3f}",
-            f"${exit_pr:.3f}",
+            format_cents(entry),
+            format_cents(exit_pr),
             hold_str,
+            type_str,
             reason_str,
             f"[{pnl_color}]${pnl:+.2f}[/{pnl_color}]"
         )
 
     if not closed_positions:
-        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-")
+        table.add_row("-", "-", "-", "-", "-", "-", "-", "-", "-", "No trades closed yet.", "-", "-")
 
     key_guide = "T or H to Minimize" if fullscreen else "T to Fullscreen"
     title_str = f"Trade History [Scroll: -{offset}] ({key_guide}, Up/Down Arrow to Scroll, U to Reset)" if offset > 0 else f"Trade History ({key_guide}, Up/Down Arrow to Scroll, U to Reset)"
@@ -1175,6 +1536,9 @@ def run_keyboard_listener():
                 elif ch.lower() == 'r':  # Toggle regime/analytics fullscreen
                     with g_state.lock:
                         g_state.fullscreen_mode = 'regime' if g_state.fullscreen_mode != 'regime' else None
+                elif ch.lower() == 'm':  # Toggle metrics fullscreen
+                    with g_state.lock:
+                        g_state.fullscreen_mode = 'metrics' if g_state.fullscreen_mode != 'metrics' else None
                 elif ch.lower() == 'h':  # Reset to default layout
                     with g_state.lock:
                         g_state.fullscreen_mode = None
@@ -1192,7 +1556,7 @@ def make_layout() -> Layout:
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="upper_body", size=17),
+        Layout(name="upper_body", size=22),
         Layout(name="active_panel", size=7),
         Layout(name="closed_panel", ratio=1),
         Layout(name="logs_panel", size=10)
@@ -1247,6 +1611,12 @@ def main():
         Layout(name="header", size=3),
         Layout(name="regime_panel", ratio=1)
     )
+
+    layout_metrics = Layout()
+    layout_metrics.split_column(
+        Layout(name="header", size=3),
+        Layout(name="metrics_panel", ratio=1)
+    )
     
     # 3Hz fluid rendering loop (3 updates per second) to eliminate SSH buffer lag and enable instant loading
     with Live(layout_default, refresh_per_second=3, screen=True) as live:
@@ -1254,8 +1624,8 @@ def main():
         while True:
             now = time.time()
             
-            # Throttle local file I/O to once every 2 seconds to keep CPU/disk usage minimal
-            if now - last_file_sync >= 2.0:
+            # Sync local file states at 3Hz (fluid rendering speed) to ensure real-time oracle price updates
+            if now - last_file_sync >= 0.33:
                 sync_file_states()
                 last_file_sync = now
                 
@@ -1269,11 +1639,11 @@ def main():
             # Render based on fullscreen mode
             if fs_mode == 'logs':
                 layout_logs["header"].update(build_header_panel())
-                layout_logs["logs_panel"].update(build_logs_panel(num_lines=45))
+                layout_logs["logs_panel"].update(build_logs_panel(num_lines=max(5, live.console.height - 6)))
                 live.update(layout_logs)
             elif fs_mode == 'closed':
                 layout_closed["header"].update(build_header_panel())
-                layout_closed["closed_panel"].update(build_closed_positions_panel(num_lines=40))
+                layout_closed["closed_panel"].update(build_closed_positions_panel(num_lines=max(5, live.console.height - 8)))
                 live.update(layout_closed)
             elif fs_mode == 'active':
                 layout_active["header"].update(build_header_panel())
@@ -1283,15 +1653,36 @@ def main():
                 layout_regime["header"].update(build_header_panel())
                 layout_regime["regime_panel"].update(build_regime_panel(fullscreen=True))
                 live.update(layout_regime)
+            elif fs_mode == 'metrics':
+                layout_metrics["header"].update(build_header_panel())
+                layout_metrics["metrics_panel"].update(build_metrics_panel(fullscreen=True))
+                live.update(layout_metrics)
             else:
                 # Default layout
+                # Dynamically resize default layout panels based on terminal window height to prevent overflow glitches
+                h = live.console.height or 40
+                if h < 45:
+                    layout_default["header"].size = 3
+                    layout_default["upper_body"].size = 12
+                    layout_default["active_panel"].size = 4
+                    layout_default["logs_panel"].size = 6
+                    closed_lines = max(2, h - 3 - 12 - 4 - 6 - 4)  # dynamic allocation
+                else:
+                    layout_default["header"].size = 3
+                    layout_default["upper_body"].size = 17
+                    layout_default["active_panel"].size = 7
+                    layout_default["logs_panel"].size = 10
+                    closed_lines = 15
+
                 layout_default["header"].update(build_header_panel())
                 layout_default["metrics"].update(build_metrics_panel())
                 layout_default["prices"].update(build_spot_prices_panel())
                 layout_default["regime"].update(build_regime_panel(fullscreen=False))
                 layout_default["active_panel"].update(build_active_positions_panel())
-                layout_default["closed_panel"].update(build_closed_positions_panel(num_lines=15))
-                layout_default["logs_panel"].update(build_logs_panel(num_lines=8))
+                layout_default["closed_panel"].update(build_closed_positions_panel(num_lines=closed_lines))
+                # Adjust logs height dynamically too
+                log_lines = max(3, layout_default["logs_panel"].size - 2)
+                layout_default["logs_panel"].update(build_logs_panel(num_lines=log_lines))
                 live.update(layout_default)
             
             # Write a heartbeat file to confirm the process loop is running without freezing

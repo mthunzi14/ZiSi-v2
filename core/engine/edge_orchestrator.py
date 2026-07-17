@@ -38,7 +38,6 @@ class EdgeOrchestrator:
         self._whale_tracker = None        # J: On-Chain Whale Tracking
         self._portfolio_heat = None       # L: Portfolio Heat Management
         self._antifragile = None          # M: Anti-Fragile Recovery System
-        self._rl_exit = None              # I: RL Exit Optimizer
         self._initialized = False
         log.info("[EDGE] EdgeOrchestrator created — modules will initialize lazily")
 
@@ -112,14 +111,6 @@ class EdgeOrchestrator:
             log.info("[EDGE] ✅ Module M (Anti-Fragile) initialized")
         except Exception as e:
             log.warning("[EDGE] ❌ Module M (Anti-Fragile) failed: %s", e)
-
-        # I: RL Exit Optimizer
-        try:
-            from core.ml.rl_exit_optimizer import RLExitOptimizer
-            self._rl_exit = RLExitOptimizer()
-            log.info("[EDGE] ✅ Module I (RL Exit Optimizer) initialized")
-        except Exception as e:
-            log.warning("[EDGE] ❌ Module I (RL Exit Optimizer) failed: %s", e)
 
         self._initialized = True
         log.info("[EDGE] All Edge Architecture modules initialized")
@@ -330,24 +321,6 @@ class EdgeOrchestrator:
         except Exception:
             pass
 
-        # RL Exit Optimizer recommendation
-        try:
-            if self._rl_exit:
-                regime = "NORMAL"
-                if self._regime_detector:
-                    regime = self._regime_detector.regime
-                rl_rec = self._rl_exit.get_exit_recommendation(
-                    time_in_trade=time_in_trade,
-                    current_pnl=current_pnl,
-                    regime=regime,
-                    momentum=momentum,
-                )
-                if rl_rec:
-                    result["action"] = rl_rec.get("action", "HOLD")
-                    result["confidence"] = rl_rec.get("confidence", 0.5)
-        except Exception as e:
-            log.debug("[EDGE] RL exit recommendation failed: %s", e)
-
         return result
 
     # ── Status ────────────────────────────────────────────────────────────────
@@ -366,7 +339,6 @@ class EdgeOrchestrator:
             "J_whale": self._whale_tracker,
             "L_heat": self._portfolio_heat,
             "M_antifragile": self._antifragile,
-            "I_rl_exit": self._rl_exit,
         }
 
         for name, module in module_map.items():

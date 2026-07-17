@@ -48,6 +48,8 @@ def has_open_asset_exposure(open_positions: list, asset: str) -> bool:
     """True if any open position is for this asset (any timeframe)."""
     asset = asset.upper()
     for p in open_positions:
+        if p.get("status") == "RESOLVING":
+            continue
         t = p.get("event_title") or ""
         a = (p.get("asset") or _parse_asset_from_title(t) or "").upper()
         if a == asset:
@@ -63,6 +65,8 @@ def has_open_asset_tf_exposure(open_positions: list, asset: str, timeframe: str)
     tf_tag = f"[{timeframe.upper()}]"
     asset_tag = f"[{asset}]"
     for p in open_positions:
+        if p.get("status") == "RESOLVING":
+            continue
         t = (p.get("event_title") or "").upper()
         p_asset = (p.get("asset") or _parse_asset_from_title(t) or "").upper()
         p_tf = (p.get("timeframe") or "").lower()
@@ -96,6 +100,8 @@ def has_opposing_correlated_exposure(open_positions: list, asset: str, direction
 
     # Check all open positions for opposing direction in correlated assets
     for p in open_positions:
+        if p.get("status") == "RESOLVING":
+            continue
         t = p.get('event_title') or ''
         p_asset = (p.get('asset') or _parse_asset_from_title(t) or '').upper()
 
@@ -130,10 +136,13 @@ async def request_trade_slot(
         max_total_open = 99
         max_open_per_asset = 99
         
-        total_open = len(open_positions)
+        # Count non-resolving positions for ceilings
+        total_open = sum(1 for p in open_positions if p.get("status") != "RESOLVING")
         asset_open = 0
         tf_tag = f"[{timeframe.upper()}]"
         for p in open_positions:
+            if p.get("status") == "RESOLVING":
+                continue
             t = p.get("event_title") or ""
             p_asset = (p.get("asset") or _parse_asset_from_title(t) or "").upper()
             if p_asset == asset_upper:
@@ -165,6 +174,8 @@ async def request_trade_slot(
             # Check for opposing direction
             sig_is_up = direction == "UP"
             for p in open_positions:
+                if p.get("status") == "RESOLVING":
+                    continue
                 t = p.get("event_title") or ""
                 p_asset = (p.get("asset") or _parse_asset_from_title(t) or "").upper()
                 if p_asset != asset_upper:

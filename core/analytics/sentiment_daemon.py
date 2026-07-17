@@ -62,7 +62,7 @@ class SentimentFilter:
         }
 
     async def start_poll_loop(self) -> None:
-        log.info("[SENTIMENT] Fear & Greed daemon starting (poll every 4h)")
+        log.info("[SENTIMENT] Fear & Greed daemon started")
         while True:
             try:
                 await self._fetch()
@@ -82,7 +82,7 @@ class SentimentFilter:
                         self._label = entry.get("value_classification", "Neutral")
                         self._ts = time.time()
                         self._save()
-                        log.info(
+                        log.debug(
                             "[SENTIMENT] F&G updated: %d (%s) → size mult=%.2f",
                             self._value, self._label, self.get_size_multiplier(),
                         )
