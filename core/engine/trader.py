@@ -473,6 +473,7 @@ def place_order(
     hold_to_expiry: bool = False,
     entry_spot: float = 0.0,
     yes_market_id: str = "",
+    regime: str = "UNKNOWN",
 ) -> Optional[dict]:
     """
     Place a BUY order for the given Polymarket market.
@@ -591,6 +592,7 @@ def place_order(
                 "tranche_b_target": tranche_b_target,
                 "tranche_a_closed": False,
                 "tranche_b_closed": False,
+                "regime": regime,
             }
             persist_positions()
             log.info("Kalshi Order placed: %s status=%s", order["order_id"], order["status"])
@@ -652,6 +654,7 @@ def place_order(
             "tranche_b_target": tranche_b_target,
             "tranche_a_closed": False,
             "tranche_b_closed": False,
+            "regime": regime,
         }
         persist_positions()
         return order
@@ -860,6 +863,7 @@ def execute_trade_smart(
             direction=direction,
             entry_price=mid_price,
             event_title=_ev_title,
+            regime=signal_data.get("regime", "UNKNOWN"),
         )
 
     # Live mode: attempt limit orders before market fallback
@@ -937,6 +941,7 @@ def execute_trade_smart(
         direction=direction,
         entry_price=chase_price,
         event_title=_ev_title,
+        regime=signal_data.get("regime", "UNKNOWN"),
     )
 
 
