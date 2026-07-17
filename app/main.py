@@ -747,9 +747,14 @@ def log_unified_sig_lifecycle(
     entry_price_val = 0.0
     if details and details.get("entry_price"):
         entry_price_val = details.get("entry_price")
-    elif signal and signal.get("direction") != "NEUTRAL":
+    elif signal:
         mkt = signal.get("market", {})
-        entry_price_val = mkt.get("up_price") if direction == "UP" else mkt.get("dn_price", 0.0)
+        if direction in ("UP", "YES"):
+            entry_price_val = mkt.get("up_price") or 0.0
+        elif direction in ("DOWN", "NO"):
+            entry_price_val = mkt.get("dn_price") or 0.0
+        else:
+            entry_price_val = mkt.get("up_price") or 0.0
 
     if signal and outcome == "ENTER" and details:
         bet_usd = details.get("bet_usd", 2.50)
@@ -816,7 +821,6 @@ async def _execute_order_flow(
     slot_committed = False
     try:
         traded = False
-        slippage_cents = 0.0
         if is_dual:
             main_usd, hedge_usd = engine.compute_dual_sizes(
                 score, entry_price,
@@ -844,13 +848,6 @@ async def _execute_order_flow(
                 traded = True
                 await commit_trade_slot(asset, timeframe, score, interval_minutes, is_dual=True, direction=direction)
                 slot_committed = True
-                slips = []
-                if main_order:
-                    slips.append(max(0.0, main_order.get("entry_price", 0.0) - entry_price) * 100.0)
-                if hedge_order:
-                    slips.append(max(0.0, hedge_order.get("entry_price", 0.0) - hedge_price) * 100.0)
-                if slips:
-                    slippage_cents = sum(slips) / len(slips)
 
             if (main_order is not None) != (hedge_order is not None):
                 log.critical(
@@ -878,8 +875,7 @@ async def _execute_order_flow(
                 traded = True
                 await commit_trade_slot(asset, timeframe, score, interval_minutes, is_dual=False, direction=direction)
                 slot_committed = True
-                slippage_cents = max(0.0, order.get("entry_price", 0.0) - entry_price) * 100.0
-        return traded, slippage_cents
+        return traded
     finally:
         if not slot_committed:
             await cancel_trade_slot(asset, timeframe)
@@ -1070,7 +1066,7 @@ async def asset_loop(
 
             # 3. Execute Order Flow
             execution_start = time.time()
-            traded, slippage_cents = await _execute_order_flow(
+            traded = await _execute_order_flow(
                 engine, asset, timeframe, interval_minutes, details, current_balance
             )
             execution_time_ms = (time.time() - execution_start) * 1000
@@ -1089,7 +1085,7 @@ async def asset_loop(
             if traded:
                 log_unified_sig_lifecycle(asset, timeframe, signal, details, "ENTER")
                 context.funnel_stats["executed"] += 1
-                global_diagnostics.log_execution(execution_time_ms, slippage_cents, successful_hedge=True)
+                global_diagnostics.log_execution(execution_time_ms, 0.0, successful_hedge=True)
                 # Corroboration: shadow onto correlated assets at same size as lead trade
                 if asset in _CORR_MAP and details.get("entry_source") not in _NCS_SOURCES:
                     asyncio.create_task(_place_corr_trades(
@@ -1261,10 +1257,15 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
 
         spot_price = 0.0
         try:
-            import requests as _reqs
-            _r = _reqs.get(f"https://api.binance.com/api/v3/ticker/price?symbol={asset.upper()}USDT", timeout=2)
-            if _r.status_code == 200:
-                spot_price = float(_r.json().get("price", 0.0))
+            from core.engine.spot_websocket_ingest import _market_books
+            book = _market_books.get(asset.upper())
+            if book and book.get("bid_price", 0.0) > 0.0 and book.get("ask_price", 0.0) > 0.0:
+                spot_price = (book["bid_price"] + book["ask_price"]) / 2.0
+            else:
+                import requests as _reqs
+                _r = _reqs.get(f"https://api.binance.com/api/v3/ticker/price?symbol={asset.upper()}USDT", timeout=1.0)
+                if _r.status_code == 200:
+                    spot_price = float(_r.json().get("price", 0.0))
         except Exception as _e_spot:
             log.warning("[TRADE] Failed to fetch spot price for %s: %s", asset, _e_spot)
 
