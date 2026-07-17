@@ -46,7 +46,7 @@ class RiskManager:
         binance_obi: float,
         price_velocity: float,
         regime: str,
-        is_weekend: bool
+        is_weekend: bool = False
     ) -> Dict[str, Any]:
         base_dir = self.rsi_analyst.analyze(rsi, mom)
         cvd_score = self.cvd_analyst.analyze(fast_cvd, slow_cvd)
@@ -56,41 +56,57 @@ class RiskManager:
         # Order flow pressure is composite of CVD, OBI, NIC
         flow_pressure = (cvd_score * 0.4) + (obi_score * 0.4) + (nic_score * 0.2)
         
-        # If we are in a mean-reverting regime, fade the base direction!
-        if regime == "MEAN_REVERTING" and base_dir != "NEUTRAL":
-            base_dir = "DOWN" if base_dir == "UP" else "UP"
-            
-        direction = base_dir
         decision = "NEUTRAL"
         decision_path = "NO_SIGNAL"
+        direction = "NEUTRAL"
 
-        if base_dir != "NEUTRAL":
-            if base_dir == "UP":
-                if flow_pressure < -0.25:
-                    direction = "DOWN"
-                    decision = "INVERT"
-                    decision_path = f"UP_INVERTED_TO_DOWN_BY_FLOW(pressure={flow_pressure:.2f})"
+        if regime == "MEAN_REVERTING":
+            # In Mean Reversion, we ONLY trade counter-trend (fading extremes).
+            # Overbought (RSI > 60) -> Fade to DOWN
+            # Oversold (RSI < 40) -> Fade to UP
+            fade_dir = "NEUTRAL"
+            if rsi > 60:
+                fade_dir = "DOWN"
+            elif rsi < 40:
+                fade_dir = "UP"
+                
+            if fade_dir != "NEUTRAL":
+                # Check if order flow is heavily fighting the fade
+                if fade_dir == "DOWN" and flow_pressure > 0.25:
+                    # Fighting strong buying flow: skip!
+                    direction = "NEUTRAL"
+                    decision = "SKIP"
+                    decision_path = f"FADE_DOWN_BLOCKED_BY_BUY_FLOW(pressure={flow_pressure:.2f})"
+                elif fade_dir == "UP" and flow_pressure < -0.25:
+                    # Fighting strong selling flow: skip!
+                    direction = "NEUTRAL"
+                    decision = "SKIP"
+                    decision_path = f"FADE_UP_BLOCKED_BY_SELL_FLOW(pressure={flow_pressure:.2f})"
                 else:
-                    decision = "CONFIRM"
-                    decision_path = f"UP_CONFIRMED_BY_FLOW(pressure={flow_pressure:.2f})"
-            elif base_dir == "DOWN":
-                if flow_pressure > 0.25:
-                    direction = "UP"
-                    decision = "INVERT"
-                    decision_path = f"DOWN_INVERTED_TO_UP_BY_FLOW(pressure={flow_pressure:.2f})"
-                else:
-                    decision = "CONFIRM"
-                    decision_path = f"DOWN_CONFIRMED_BY_FLOW(pressure={flow_pressure:.2f})"
+                    direction = fade_dir
+                    decision = "FADE"
+                    decision_path = f"FADE_CONFIRMED_BY_FLOW(rsi={rsi:.1f}, pressure={flow_pressure:.2f})"
         else:
-            if regime == "MEAN_REVERTING" or is_weekend:
-                if rsi > 60 and flow_pressure < -0.15:
-                    direction = "DOWN"
-                    decision = "FADE"
-                    decision_path = f"FADE_UP_BOUNDARY_TO_DOWN(rsi={rsi:.1f}, pressure={flow_pressure:.2f})"
-                elif rsi < 40 and flow_pressure > 0.15:
-                    direction = "UP"
-                    decision = "FADE"
-                    decision_path = f"FADE_DOWN_BOUNDARY_TO_UP(rsi={rsi:.1f}, pressure={flow_pressure:.2f})"
+            # TRENDING regime: Follow the trend and flow
+            if base_dir != "NEUTRAL":
+                if base_dir == "UP":
+                    if flow_pressure < -0.25:
+                        direction = "DOWN"
+                        decision = "INVERT"
+                        decision_path = f"UP_INVERTED_TO_DOWN_BY_FLOW(pressure={flow_pressure:.2f})"
+                    else:
+                        direction = "UP"
+                        decision = "CONFIRM"
+                        decision_path = f"UP_CONFIRMED_BY_FLOW(pressure={flow_pressure:.2f})"
+                elif base_dir == "DOWN":
+                    if flow_pressure > 0.25:
+                        direction = "UP"
+                        decision = "INVERT"
+                        decision_path = f"DOWN_INVERTED_TO_UP_BY_FLOW(pressure={flow_pressure:.2f})"
+                    else:
+                        direction = "DOWN"
+                        decision = "CONFIRM"
+                        decision_path = f"DOWN_CONFIRMED_BY_FLOW(pressure={flow_pressure:.2f})"
 
         return {
             "direction": direction,
