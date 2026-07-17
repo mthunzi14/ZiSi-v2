@@ -816,6 +816,7 @@ async def _execute_order_flow(
     slot_committed = False
     try:
         traded = False
+        slippage_cents = 0.0
         if is_dual:
             main_usd, hedge_usd = engine.compute_dual_sizes(
                 score, entry_price,
@@ -843,6 +844,13 @@ async def _execute_order_flow(
                 traded = True
                 await commit_trade_slot(asset, timeframe, score, interval_minutes, is_dual=True, direction=direction)
                 slot_committed = True
+                slips = []
+                if main_order:
+                    slips.append(max(0.0, main_order.get("entry_price", 0.0) - entry_price) * 100.0)
+                if hedge_order:
+                    slips.append(max(0.0, hedge_order.get("entry_price", 0.0) - hedge_price) * 100.0)
+                if slips:
+                    slippage_cents = sum(slips) / len(slips)
 
             if (main_order is not None) != (hedge_order is not None):
                 log.critical(
@@ -870,7 +878,8 @@ async def _execute_order_flow(
                 traded = True
                 await commit_trade_slot(asset, timeframe, score, interval_minutes, is_dual=False, direction=direction)
                 slot_committed = True
-        return traded
+                slippage_cents = max(0.0, order.get("entry_price", 0.0) - entry_price) * 100.0
+        return traded, slippage_cents
     finally:
         if not slot_committed:
             await cancel_trade_slot(asset, timeframe)
@@ -1061,7 +1070,7 @@ async def asset_loop(
 
             # 3. Execute Order Flow
             execution_start = time.time()
-            traded = await _execute_order_flow(
+            traded, slippage_cents = await _execute_order_flow(
                 engine, asset, timeframe, interval_minutes, details, current_balance
             )
             execution_time_ms = (time.time() - execution_start) * 1000
@@ -1080,7 +1089,7 @@ async def asset_loop(
             if traded:
                 log_unified_sig_lifecycle(asset, timeframe, signal, details, "ENTER")
                 context.funnel_stats["executed"] += 1
-                global_diagnostics.log_execution(execution_time_ms, 0.0, successful_hedge=True)
+                global_diagnostics.log_execution(execution_time_ms, slippage_cents, successful_hedge=True)
                 # Corroboration: shadow onto correlated assets at same size as lead trade
                 if asset in _CORR_MAP and details.get("entry_source") not in _NCS_SOURCES:
                     asyncio.create_task(_place_corr_trades(
