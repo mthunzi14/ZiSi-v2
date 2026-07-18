@@ -329,7 +329,8 @@ def generate_trade_history_report(closed_positions):
         wins = sum(1 for p in closed_positions if float(p.get("realized_pnl", 0.0)) > 0.01)
         losses = sum(1 for p in closed_positions if float(p.get("realized_pnl", 0.0)) < -0.01)
         pnl = sum(float(p.get("realized_pnl", 0.0)) for p in closed_positions)
-        win_rate = (wins / total * 100) if total > 0 else 0.0
+        breakevens = sum(1 for p in closed_positions if -0.01 <= float(p.get("realized_pnl", 0.0)) <= 0.01)
+        win_rate = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0.0
         
         lines = [
             "# ZiSi-v2 - Complete Trade History Report",
@@ -742,7 +743,7 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
     losses = int(summary.get("loss_count", 0))
     breakevens = int(summary.get("breakeven_count", 0))
     total_closed = wins + losses + breakevens
-    win_rate = (wins / total_closed) * 100 if total_closed > 0 else 0.0
+    win_rate = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0.0
 
     real_color = COLOR_PASTEL_GREEN if realized > 0.01 else (COLOR_PASTEL_RED if realized < -0.01 else COLOR_LABEL)
     unreal_color = COLOR_PASTEL_GREEN if total_live_unrealized > 0.01 else (COLOR_PASTEL_RED if total_live_unrealized < -0.01 else COLOR_LABEL)
@@ -938,7 +939,7 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
                 avg_hold_str = f"{avg_hold_sec}s"
                 
             tot = stats['wins'] + stats['losses'] + stats['breakevens']
-            wr = (stats['wins'] / tot * 100) if tot > 0 else 0.0
+            wr = (stats['wins'] / (stats['wins'] + stats['losses']) * 100) if (stats['wins'] + stats['losses']) > 0 else 0.0
             breakdown_rows.append((
                 f"  [{COLOR_ASSET}]{asset}:[/{COLOR_ASSET}]",
                 f"[grey70]{tot}T[/grey70] | [#8ae28a]{stats['wins']}W[/#8ae28a] / [#ff746c]{stats['losses']}L[/#ff746c] / [grey50]{stats['breakevens']}BE[/grey50] ({wr:.1f}% WR) | ([{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}], [{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]) | avg hold: {avg_hold_str}"
@@ -949,7 +950,7 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         l = stats_dict["losses"]
         be = stats_dict["breakevens"]
         total = w + l + be
-        wr = (w / total * 100) if total > 0 else 0.0
+        wr = (w / (w + l) * 100) if (w + l) > 0 else 0.0
         pnl_val = stats_dict["pnl"]
         pnl_color = COLOR_PASTEL_GREEN if pnl_val >= 0.01 else (COLOR_PASTEL_RED if pnl_val < -0.01 else COLOR_LABEL)
         pnl_pct = (pnl_val / start_bal) * 100 if start_bal > 0.0 else 0.0
