@@ -826,3 +826,45 @@ ALL losses above $3.50 share the exact same exit reason: `EX/ES market expired, 
 * **Item 25 added:** Consolidating L2 book polling logs into a single neater line to prevent console spam.
 
 
+---
+
+### Session 12 — 2026-07-18 (Antigravity)
+**Time:** 15:07–15:22 SAST
+**Commit:** `d7a2b68`
+**Owner aliases added:** Stunna, The Money Muchacho
+
+**3 Bug Fixes — DEPLOYED (PID 2868037):**
+
+#### Bug Fix 1: "ES of unknown" for BNB and HYPE ✅
+- **Root cause:** `_get_trade_desc()` in `core/engine/trader.py` only checked `["BTC","ETH","SOL","XRP","DOGE"]` — BNB and HYPE missing from asset list
+- **Fix:** Added `"BNB"` and `"HYPE"` to detection list at line 1916
+- **Impact:** Account balance log lines now correctly show `ES of BNB [DOWN]` / `ES of HYPE [UP]` instead of `ES of unknown`
+
+#### Bug Fix 2: CVD/OBI/NIC missing for HYPE (and new assets at startup) ✅
+- **Root cause:** The confluence engine was **gated behind `_has_cvd_data()`** — if CVD history wasn't warmed yet, the entire confluence framework was skipped and the bot proceeded on raw technical triggers only. This meant HYPE had ZERO confluence filtering = 50% WR!
+- **Fix:** Removed the `if has_cvd` gate. Now confluence **always runs for ALL assets**. When CVD isn't warmed, `fast_cvd=0.0, slow_cvd=0.0, binance_obi=0.0` are passed — RSI, momentum, NIC still filter. The `[no-cvd]` label is appended to CONFLUENCE log lines when CVD is zeroed so it's visible.
+- **Impact:** BNB and HYPE now get full confluence gating on every signal. This is expected to significantly improve their WR.
+- **Bonus:** Added `cvd_warmed: true/false` field to `gate_matrix.json` for dashboard visibility.
+
+#### Bug Fix 3: Signal abort limit 35s → 55s ✅
+- **Root cause:** With 7 assets now running (was 5 when 35s limit was set), signal calculation loops take longer. 35s was too tight — legitimate signals were being aborted.
+- **Fix:** Limit raised to 55s in `app/main.py` line 1046. 5-minute candle = 300s total; 55s still leaves 245s for execution and resolution.
+- **Impact:** No more spurious abort warnings for BNB/HYPE signal calculations.
+
+**Item 19 Real-Time Upgrade Discussion:**
+- Owner requested all oracle sources be real-time (not REST polling)
+- Current: Coinbase is REST polling every 45s (Tier 3 fallback only)
+- Planned upgrade: Coinbase Advanced Trade WebSocket (`wss://advanced-trade-api.events.coinbase.com/ws/market/level2`) for sub-second Tier 3 ticks
+- Note: Coinbase Tier 3 only fires when Chainlink RTDS AND Binance are both down (very rare). REST at 45s is acceptable for a rarely-used backup. Upgrade is low priority but can be done.
+
+**Item 25 Deep Dive — Three Proposed Fixes Explained:**
+1. **HFT Momentum Gate** — Uses Binance futures OI + funding rate for ALL assets (not just HYPE/BNB). When strong continuation trend detected, skip MEAN_REVERTING counter-trend entries. Risk: may skip some valid reversals.
+2. **Raise confluence score to 0.75+** for MEAN_REVERTING only. Risk: reduces trade volume for all assets.
+3. **Expiry proximity block** — No new entries within last 2 candle windows (~10 min) before market expiry. Most surgical fix, zero downside. Specifically targets the exact loss pattern.
+- **Recommendation:** Fix 1 + Fix 3 together. Awaiting King M's final call.
+
+**Scammer Update — Step 4:**
+- Stunna sent: *"Oh okay MetaMask, yeah I use that. Haven't really touched it in a while though, the app looks different. What do I need to do with it?"*
+- Scammer responded: "Ok good, kindly paste the VM wallet address."
+- Next script to send: *"Ok sure, which one though? I have a few from different things. How do I find it in MetaMask again, it's been a while lol"*
+- Scammer will now either ask for a specific wallet type, send instructions to open MetaMask → or escalate to a link.
