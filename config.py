@@ -65,15 +65,7 @@ ENABLE_NCS: bool = False
 ENABLE_SWEEPER: bool = False
 ENABLE_LATENCY_ARB: bool = False
 
-# ── Strategy-Specific Overlays (Sprint 12 / Mentor Emulation) ──────────────────
-OVERLAY_C_ENABLED: bool = False
-OVERLAY_C_SPEC_BUDGET_PCT: float = 0.01          # 1.0% of total balance
-OVERLAY_C_MAX_UNDERDOG_PRICE: float = 0.20        # contracts priced <= 20c
 
-OVERLAY_B_ENABLED: bool = False
-OVERLAY_B_FREEZE_MIDPOINTS: bool = False           # freeze 40c-60c contracts during breakout
-OVERLAY_B_TREND_ALIGNMENT_THRESHOLD: int = 4      # requires 4/4 alignment across timeframes
-OVERLAY_B_ADX_THRESHOLD: float = 25.0             # ADX threshold for breakout strength
 
 # ── Backward-compat aliases (old modules still import these) ─────────────────
 PEAK_TRADING_HOURS_UTC    = TIME_GATE_UTC  # replaced by TIME_GATE_UTC in new code
@@ -155,10 +147,6 @@ def load_config() -> dict:
         # Bot meta
         "BOT_NAME": os.getenv("BOT_NAME", "ZiSi"),
         "BOT_VERSION": os.getenv("BOT_VERSION", "2.0"),
-        "KALSHI_EMAIL": os.getenv("KALSHI_EMAIL", ""),
-        "KALSHI_PASSWORD": os.getenv("KALSHI_PASSWORD", ""),
-        "KALSHI_API_KEY": os.getenv("KALSHI_API_KEY", ""),
-        "KALSHI_PRIVATE_KEY": os.getenv("KALSHI_PRIVATE_KEY", ""),
         "BOT_MODE": os.getenv("BOT_MODE", "paper_trading"),
 
         # Risk management — balance loaded from account_state.json, not .env
@@ -204,17 +192,7 @@ def load_config() -> dict:
         "RECONCILE_INTERVAL": RECONCILE_INTERVAL,
         "MAX_OPEN_PER_ASSET": MAX_OPEN_PER_ASSET,
         "MAX_TOTAL_OPEN": MAX_TOTAL_OPEN,
-        "FV_NIGHT_SESSION_START_UTC": int(os.getenv("FV_NIGHT_SESSION_START_UTC", "2")),
-        "FV_NIGHT_SESSION_END_UTC": int(os.getenv("FV_NIGHT_SESSION_END_UTC", "9")),
 
-        # Overlays
-        "OVERLAY_C_ENABLED": os.getenv("OVERLAY_C_ENABLED", "true").lower() == "true",
-        "OVERLAY_C_SPEC_BUDGET_PCT": float(os.getenv("OVERLAY_C_SPEC_BUDGET_PCT", "0.01")),
-        "OVERLAY_C_MAX_UNDERDOG_PRICE": float(os.getenv("OVERLAY_C_MAX_UNDERDOG_PRICE", "0.20")),
-        "OVERLAY_B_ENABLED": os.getenv("OVERLAY_B_ENABLED", "true").lower() == "true",
-        "OVERLAY_B_FREEZE_MIDPOINTS": os.getenv("OVERLAY_B_FREEZE_MIDPOINTS", "true").lower() == "true",
-        "OVERLAY_B_TREND_ALIGNMENT_THRESHOLD": int(os.getenv("OVERLAY_B_TREND_ALIGNMENT_THRESHOLD", "4")),
-        "OVERLAY_B_ADX_THRESHOLD": float(os.getenv("OVERLAY_B_ADX_THRESHOLD", "25.0")),
 
         # Strategy scope configurations
         "SKIP_WEEKEND_SIGNAL": os.getenv("SKIP_WEEKEND_SIGNAL", str(SKIP_WEEKEND_SIGNAL)).lower() == "true",

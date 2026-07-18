@@ -24,6 +24,14 @@ log = logging.getLogger("zisi.engine")
 # Live engine instances keyed by "ASSET/timeframe" for outcome feedback
 _ENGINE_REGISTRY: dict[str, "UpDownEngine"] = {}
 
+# Consolidated polling log states for Item 25
+_WAITING_POLLS_ASSETS: dict[tuple, list] = {}
+_WAITING_POLLS_LOGGED: set[tuple] = set()
+
+# Consolidated illiquid book log states for Item 25
+_ILLIQUID_BOOKS_ASSETS: dict[tuple, list] = {}
+_ILLIQUID_BOOKS_LOGGED: set[tuple] = set()
+
 _GREEN_UP = "\033[1;38;2;193;225;193mUP\033[0m"
 _RED_DN = "\033[1;38;2;255;116;108mDOWN\033[0m"
 _GREEN_YES = "\033[1;38;2;193;225;193mYES\033[0m"
@@ -1343,56 +1351,7 @@ class UpDownEngine:
 
 
 
-        # ── Overlay B: Trend-Following Midpoint Freeze Protection ──
-        try:
-            from config import (
-                OVERLAY_B_ENABLED,
-                OVERLAY_B_FREEZE_MIDPOINTS,
-                OVERLAY_B_TREND_ALIGNMENT_THRESHOLD,
-                OVERLAY_B_ADX_THRESHOLD,
-            )
-        except ImportError:
-            OVERLAY_B_ENABLED = True
-            OVERLAY_B_FREEZE_MIDPOINTS = True
-            OVERLAY_B_TREND_ALIGNMENT_THRESHOLD = 4
-            OVERLAY_B_ADX_THRESHOLD = 25.0
 
-        if OVERLAY_B_ENABLED and OVERLAY_B_FREEZE_MIDPOINTS:
-            _entry_price_check = up_price if direction == "UP" else dn_price
-            if 0.40 <= _entry_price_check <= 0.60:
-                try:
-                    from core.engine.confluence_engine import ConfluenceEngine
-                    from core.engine.edge_orchestrator import edge_orchestrator
-                    if edge_orchestrator and getattr(edge_orchestrator, "_confluence", None):
-                        conf_engine = edge_orchestrator._confluence
-                    else:
-                        conf_engine = ConfluenceEngine()
-
-                    conf_up = await conf_engine.get_confluence(session, self.asset, "UP")
-                    conf_dn = await conf_engine.get_confluence(session, self.asset, "DOWN")
-                    score_up = conf_up.get("score", 0)
-                    score_dn = conf_dn.get("score", 0)
-                    alignment_score = max(score_up, score_dn)
-
-                    if alignment_score >= OVERLAY_B_TREND_ALIGNMENT_THRESHOLD:
-                        # Calculate Simple Trend Strength (ADX-equivalent proxy)
-                        lookback = min(14, len(closes) - 1)
-                        if lookback > 0:
-                            net_move = abs(closes[-1] - closes[-lookback - 1])
-                            path_length = sum(abs(closes[i] - closes[i - 1]) for i in range(len(closes) - lookback, len(closes)))
-                            efficiency_ratio = net_move / path_length if path_length > 0 else 0.0
-                            adx = efficiency_ratio * 100.0
-                        else:
-                            adx = 0.0
-
-                        if adx >= OVERLAY_B_ADX_THRESHOLD:
-                            log.warning(
-                                "[TREND-FREEZE] %s midpoint entry frozen. Alignment=%d/4, ADX=%.1f. Bypassing entry to avoid drawdown.",
-                                self.asset, alignment_score, adx
-                            )
-                            return make_neutral_signal(reason="trend_freeze")
-                except Exception as e:
-                    log.warning("[ENGINE] Failed to evaluate Overlay B: %s", e)
 
         log.debug(
             "[ENGINE] %s/%s SIGNAL: %s | Score=%.2f | up=%.4f dn=%.4f | dual=%s | %s",
@@ -1641,7 +1600,7 @@ class UpDownEngine:
 
     async def _get_oracle_fallback_prices(self, up_tk: str, dn_tk: str) -> Optional[tuple[float, float, float]]:
         """
-        Integrate Chainlink (Primary), Binance Spot (Secondary), and Pyth (Tertiary) oracle fallback.
+        Integrate Chainlink (Primary) and Binance Spot (Secondary) oracle fallback.
         If L2 order book sync fails, return fallback taker prices.
         """
         # Primary: Chainlink
@@ -1691,7 +1650,28 @@ class UpDownEngine:
                     return market
                 else:
                     if poll_attempt == 2:
-                        log.warning("[ENGINE] %s/%s: L2 book is illiquid, empty, or not yet initialized (spread > 15c) — skipping trade", self.asset, self.timeframe)
+                        # Register this asset/timeframe as illiquid for this poll attempt/candle
+                        _illiquid_key = (start_ts, poll_attempt)
+                        if _illiquid_key not in _ILLIQUID_BOOKS_ASSETS:
+                            _ILLIQUID_BOOKS_ASSETS[_illiquid_key] = []
+                        _ILLIQUID_BOOKS_ASSETS[_illiquid_key].append(f"{self.asset}/{self.timeframe}")
+                        
+                        # Wait a short stagger (50ms) for other concurrent engine instances to register
+                        await asyncio.sleep(0.05)
+                        
+                        # Only the first engine registration will print the aggregated warning log
+                        if _illiquid_key in _ILLIQUID_BOOKS_ASSETS and f"{self.asset}/{self.timeframe}" == _ILLIQUID_BOOKS_ASSETS[_illiquid_key][0]:
+                            if _illiquid_key not in _ILLIQUID_BOOKS_LOGGED:
+                                _ILLIQUID_BOOKS_LOGGED.add(_illiquid_key)
+                                _assets_str = ", ".join(_ILLIQUID_BOOKS_ASSETS[_illiquid_key])
+                                log.warning("[ENGINE] L2 book is illiquid, empty, or not yet initialized (spread > 15c) for: %s — skipping trade", _assets_str)
+
+                        # Periodic cleanup to prevent growth
+                        if len(_ILLIQUID_BOOKS_ASSETS) > 50:
+                            for k in list(_ILLIQUID_BOOKS_ASSETS.keys())[:-10]:
+                                _ILLIQUID_BOOKS_ASSETS.pop(k, None)
+                                _ILLIQUID_BOOKS_LOGGED.discard(k)
+
                         return None
                     else:
                         await asyncio.sleep(1.0)
@@ -1790,8 +1770,29 @@ class UpDownEngine:
             except Exception as exc:
                 log.warning("[ENGINE] CLOB L2 market fetch error: %s", exc)
 
-            log.info("[ENGINE] %s/%s: Waiting for market creation/resolution, poll attempt %d/15...", self.asset, self.timeframe, poll_attempt+1)
-            await asyncio.sleep(1.0)
+            # Register this asset/timeframe as waiting for this poll attempt
+            _poll_key = (start_ts, poll_attempt)
+            if _poll_key not in _WAITING_POLLS_ASSETS:
+                _WAITING_POLLS_ASSETS[_poll_key] = []
+            _WAITING_POLLS_ASSETS[_poll_key].append(f"{self.asset}/{self.timeframe}")
+            
+            # Wait a short stagger (50ms) for other concurrent engine instances to register
+            await asyncio.sleep(0.05)
+            
+            # Only the first engine registration will print the aggregated warning log
+            if _poll_key in _WAITING_POLLS_ASSETS and f"{self.asset}/{self.timeframe}" == _WAITING_POLLS_ASSETS[_poll_key][0]:
+                if _poll_key not in _WAITING_POLLS_LOGGED:
+                    _WAITING_POLLS_LOGGED.add(_poll_key)
+                    _assets_str = ", ".join(_WAITING_POLLS_ASSETS[_poll_key])
+                    log.info("[ENGINE] Waiting for market creation/resolution (attempt %d/15) for: %s", poll_attempt+1, _assets_str)
+
+            # Periodic cleanup to prevent growth
+            if len(_WAITING_POLLS_ASSETS) > 50:
+                for k in list(_WAITING_POLLS_ASSETS.keys())[:-10]:
+                    _WAITING_POLLS_ASSETS.pop(k, None)
+                    _WAITING_POLLS_LOGGED.discard(k)
+
+            await asyncio.sleep(0.95)
 
         return None
 

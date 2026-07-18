@@ -533,9 +533,7 @@ def format_cycle_log(cycle_data: dict) -> str:
     is_peak = start <= utc_hour < end
     mode = "PEAK-AGGRESSION (100% Kelly)" if is_peak else "OFF-PEAK-CONSERVATIVE (50% Kelly)"
     kelly_pct = "100%" if is_peak else "50%"
-    kalshi_trades   = cycle_data.get("kalshi_trades", 0)
-    kalshi_matches  = cycle_data.get("kalshi_matches", 0)
-    total_executed  = cycle_data.get("executed_trades", 0) + kalshi_trades
+    total_executed  = cycle_data.get("executed_trades", 0)
 
     pnl = cycle_data.get('pnl', 0)
     pnl_sign = '+' if pnl >= 0 else ''
@@ -546,9 +544,6 @@ def format_cycle_log(cycle_data: dict) -> str:
         f"  ── Polymarket ──────────────────────────\n"
         f"  Polymarket matches:      {cycle_data.get('matched_events', 0)}\n"
         f"  Polymarket trades:       {cycle_data.get('executed_trades', 0)}\n"
-        f"  ── Kalshi ──────────────────────────────\n"
-        f"  Kalshi matches:          {kalshi_matches}\n"
-        f"  Kalshi trades:           {kalshi_trades}\n"
         f"  ── Account ─────────────────────────────\n"
         f"  Balance:                 ${cycle_data.get('balance', 0):.2f}\n"
         f"  P&L:                     {pnl_sign}${pnl:.2f}\n"

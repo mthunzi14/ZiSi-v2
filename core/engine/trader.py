@@ -22,8 +22,6 @@ from typing import Optional
 
 import requests
 
-import kalshi_python
-from kalshi_python.models import CreateOrderRequest
 import tempfile
 import os
 
@@ -686,96 +684,9 @@ def place_order(
         log.warning("[TRADE] Missing event_title for %s — will display as [%s]", order_id, event_id[:16])
     _display_title = event_title if event_title else f"[{event_id[:30]}]"
 
-    # Live Kalshi order placement
-    if market == "KALSHI" and mode != "paper_trading":
-        log.info("[TRADE] Executing live Kalshi order for %s", order_id)
-
-        kalshi_api_key = cfg.get("KALSHI_API_KEY")
-        kalshi_priv_key = cfg.get("KALSHI_PRIVATE_KEY")
-
-        if not kalshi_api_key or not kalshi_priv_key:
-            log.error("[TRADE] Missing KALSHI_API_KEY or KALSHI_PRIVATE_KEY for live execution!")
-            return None
-
-        try:
-            # SECURITY FIX: Inject private key in-memory via Configuration.private_key_pem.
-            # Previously used tempfile.mkstemp() which wrote the raw PEM to disk — exposing
-            # the key to other local processes and unprivileged filesystem readers.
-            kalshi_cfg = kalshi_python.Configuration()
-            kalshi_cfg.host = "https://api.elections.kalshi.com/trade-api/v2"
-            kalshi_cfg.api_key_id = kalshi_api_key
-            kalshi_cfg.private_key_pem = kalshi_priv_key.replace('\\n', '\n')
-
-            kalshi_api_client = kalshi_python.ApiClient(configuration=kalshi_cfg)
-            portfolio_api = kalshi_python.PortfolioApi(kalshi_api_client)
-
-            kalshi_side = "yes" if direction.upper() == "YES" else "no"
-            price_cents = int(round(entry_price * 100))
-
-            # Kalshi API uses 'count' as integer number of contracts
-            count = int(shares)
-
-            create_order_req = CreateOrderRequest(
-                ticker=market_id,
-                action="buy",
-                side=kalshi_side,
-                count=count,
-                type="limit",
-                client_order_id=order_id
-            )
-
-            if kalshi_side == "yes":
-                create_order_req.yes_price = price_cents
-            else:
-                create_order_req.no_price = price_cents
-
-            resp = portfolio_api.create_order(create_order_req)
-            api_status = resp.order.status if resp.order else "PENDING"
-
-            order = {
-                "order_id": order_id,
-                "event_id": event_id,
-                "market_id": market_id,
-                "event_title": _display_title,
-                "direction": direction,
-                "amount_spent": actual_cost,
-                "shares_acquired": shares,
-                "entry_price": entry_price,
-                "timestamp": timestamp,
-                "status": api_status.upper(),
-                "market": "KALSHI",
-                "entry_spot": entry_spot,
-                "yes_market_id": yes_market_id,
-                **({"expiry_ts": expiry_ts} if expiry_ts else {}),
-            }
-
-            tp, sl = _calculate_exit_targets_fallback(entry_price, actual_cost, _display_title, direction)
-            is_snipe = "CERTAINTY_SNIPE" in (_display_title or "") or "SNIPE" in (_display_title or "").upper()
-            if is_snipe:
-                tranche_a_target = 0.99
-                tranche_b_target = 0.99
-            else:
-                tranche_a_target = min(0.99, round(entry_price + 0.12, 4))
-                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
-            _open_positions[order_id] = {
-                **order,
-                "target_price": tp,
-                "stop_loss": sl,
-                "open_time": datetime.now(timezone.utc),
-                "hold_to_expiry": hold_to_expiry,
-                "tranche_a_target": tranche_a_target,
-                "tranche_b_target": tranche_b_target,
-                "tranche_a_closed": False,
-                "tranche_b_closed": False,
-                "regime": regime,
-            }
-            persist_positions()
-            log.info("Kalshi Order placed: %s status=%s", order["order_id"], order["status"])
-            return order
-
-        except Exception as e:
-            log.error("[TRADE] Kalshi order failed: %s", e)
-            return None
+    if market == "KALSHI":
+        log.error("[TRADE] Kalshi is disabled/dead. Cannot place Kalshi orders.")
+        return None
 
     if mode == "paper_trading":
         log.debug(
@@ -2184,14 +2095,10 @@ def persist_positions() -> None:
 
         # Merge with existing positions file
         out_path = (Path(__file__).parent.parent.parent / "data" / "positions_state.json").resolve()
-        kalshi_active: list[dict] = []
-        kalshi_closed: list[dict] = []
         existing_poly_closed: list[dict] = []
         try:
             if out_path.exists():
                 existing = json.loads(out_path.read_text(encoding="utf-8"))
-                kalshi_active = [p for p in existing.get("active", []) if p.get("market") == "KALSHI"]
-                kalshi_closed = [p for p in existing.get("closed", []) if p.get("market") == "KALSHI"]
                 in_mem_ids = {p["order_id"] for p in closed}
                 existing_poly_closed = [
                     p for p in existing.get("closed", [])
@@ -2235,8 +2142,8 @@ def persist_positions() -> None:
         except Exception:
             pass
 
-        merged_active = active + kalshi_active
-        merged_closed = closed + existing_poly_closed + jsonl_closed + kalshi_closed
+        merged_active = active
+        merged_closed = closed + existing_poly_closed + jsonl_closed
         merged_closed.sort(key=lambda p: p.get("exit_time", p.get("exit_timestamp", "")), reverse=True)
 
         for p in merged_active:
@@ -2251,7 +2158,7 @@ def persist_positions() -> None:
         summary = {
             "active_count":  len(merged_active),
             "poly_active":   len(active),
-            "kalshi_active": len(kalshi_active),
+            "kalshi_active": 0,
             "closed_count":  len(merged_closed),
             "unrealized_pnl": round(sum(p.get("unrealized_pnl", 0) for p in active), 2),
             "realized_pnl":   round(

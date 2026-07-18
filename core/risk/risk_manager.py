@@ -37,7 +37,6 @@ CONSECUTIVE_LOSS_KELLY_REDUCTION: float = 0.60  # multiply Kelly by this
 MIN_LIQUIDITY_DEPTH_USD: float = 500.0
 
 # Fee constants (taker fees for both platforms)
-KALSHI_TAKER_FEE: float = 0.02
 POLYMARKET_TAKER_FEE: float = 0.02
 
 # Drawdown staircase: progressive Kelly reductions as account drawdown deepens
@@ -598,7 +597,7 @@ def validate_trade(
     # Post-fee EV gate: reject trades where fee cost exceeds estimated edge.
     # pre_fee_ev = win_rate * (1/entry_price) + (1 - win_rate) * 0
     # We need EV * stake - fee * stake > stake → EV > 1 + fee
-    fee = KALSHI_TAKER_FEE if platform.upper() == "KALSHI" else POLYMARKET_TAKER_FEE
+    fee = POLYMARKET_TAKER_FEE
     pre_fee_ev = win_rate * (1.0 / entry_price) if entry_price > 0 else 1.0
     post_fee_ev = pre_fee_ev * (1.0 - fee)
     if post_fee_ev < 1.01:

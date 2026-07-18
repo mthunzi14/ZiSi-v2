@@ -71,7 +71,6 @@ from core.engine.session_governor import (
 from core.engine import state_manager
 from core.engine.diagnostics import global_diagnostics
 from core.engine.metrics_engine import track_skip
-from core.engine.arbitrage_scanner import arbitrage_scanner_loop
 from core.engine.trader import place_order, execute_exit
 from core.engine.logger import log_signal_evaluation
 
@@ -1416,7 +1415,7 @@ async def main() -> None:
     from core.engine.polymarket_rtds_ingest import polymarket_rtds_ingest
     polymarket_rtds_ingest.start()
 
-    # ── Pyth Hermes Real-Time SSE Price Stream Service Integration ──────────
+    # ── [DORMANT — V3] Pyth Hermes Real-Time SSE Price Stream Service Integration ──────────
     # Starts Pyth Hermes streaming as a persistent background daemon, bypassing rate limits.
     # Enables global in-memory sub-0.1ms oracle spot price caching.
     # from core.pyth_oracle_service import PythOracleService
@@ -1450,7 +1449,6 @@ async def main() -> None:
             log.info("[MAIN] Aligning loops to next candle boundary: %s", ", ".join(loop_keys))
 
             tasks.append(reconciliation_loop(state_manager, _try_telegram))
-            # tasks.append(arbitrage_scanner_loop(_try_telegram))
             tasks.append(heartbeat_daemon())
             asyncio.create_task(_zombie_cleanup_loop())
 
@@ -1463,7 +1461,7 @@ async def main() -> None:
                 except Exception as e:
                     log.error("[MAIN] Failed to import start_latency_edge_scanner: %s", e)
 
-            # Mute reversal sniper for SIG isolation
+            # [DORMANT — V3] Mute reversal sniper for SIG isolation
             # try:
             #     from core.engine.cycle_manager import start_reversal_sniper
             #     tasks.append(start_reversal_sniper(session, context.engines))
@@ -1503,7 +1501,7 @@ async def main() -> None:
             )
             await asyncio.gather(*tasks)
     finally:
-        # await pyth_service.stop()
+        # [DORMANT — V3] await pyth_service.stop()
         log.info("[MAIN] Halting HFT WebSocket ingest daemon...")
         ingest.stop()
         try:

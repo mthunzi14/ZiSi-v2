@@ -99,11 +99,7 @@ class PolymarketRTDSIngest:
                     json.dump(cache_copy, f, indent=2)
                 os.replace(cl_temp, cl_target)
                 
-                pyth_temp = os.path.join(base_dir, "pyth_prices.json.tmp")
-                pyth_target = os.path.join(base_dir, "pyth_prices.json")
-                with open(pyth_temp, "w") as f:
-                    json.dump(cache_copy, f, indent=2)
-                os.replace(pyth_temp, pyth_target)
+
             except Exception as e:
                 log.debug("[RTDS-WS] Failed to dump prices to disk: %s", e)
             await asyncio.sleep(0.5)
@@ -135,7 +131,7 @@ class PolymarketRTDSIngest:
                         self.last_msg_ts = time.time()
 
                         subscriptions = []
-                        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+                        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
                             subscriptions.append({
                                 "topic": "crypto_prices_chainlink",
                                 "type": "update",
@@ -195,7 +191,7 @@ class PolymarketRTDSIngest:
 
     async def _refresh_from_binance(self):
         """Fetch spot prices from Binance REST as fallback when RTDS WS is down."""
-        SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT", "XRP": "XRPUSDT", "DOGE": "DOGEUSDT"}
+        SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT", "XRP": "XRPUSDT", "DOGE": "DOGEUSDT", "BNB": "BNBUSDT"}
         try:
             connector = aiohttp.TCPConnector(enable_cleanup_closed=True)
             async with aiohttp.ClientSession(connector=connector) as session:

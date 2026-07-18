@@ -36,8 +36,6 @@ POSITIONS_FILE     = _BASE_DIR / "data" / "positions_state.json"
 
 # Polymarket health endpoint (CLOB API root)
 POLYMARKET_HEALTH_URL = "https://clob.polymarket.com"
-# Kalshi health endpoint
-KALSHI_HEALTH_URL = "https://api.elections.kalshi.com"
 
 PAPER_MAX_HOLD_HOURS = 4
 LIVE_MAX_HOLD_HOURS  = 48
@@ -100,21 +98,21 @@ def _check_api_connectivity() -> bool:
     Only 5xx or network failure counts as degraded.
     """
     ok = True
-    for name, url in (("POLYMARKET", POLYMARKET_HEALTH_URL), ("KALSHI", KALSHI_HEALTH_URL)):
-        try:
-            resp = requests.get(url, timeout=5)
-            # 5xx = server error → alert. 4xx = server up but wrong endpoint/no auth → fine.
-            if resp.status_code >= 500:
-                _add_alert("WARNING", f"API_DEGRADED_{name}", f"{name} returned HTTP {resp.status_code}")
-                ok = False
-        except requests.exceptions.Timeout:
-            _add_alert("WARNING", f"API_TIMEOUT_{name}", f"{name} API timed out")
+    name, url = "POLYMARKET", POLYMARKET_HEALTH_URL
+    try:
+        resp = requests.get(url, timeout=5)
+        # 5xx = server error → alert. 4xx = server up but wrong endpoint/no auth → fine.
+        if resp.status_code >= 500:
+            _add_alert("WARNING", f"API_DEGRADED_{name}", f"{name} returned HTTP {resp.status_code}")
             ok = False
-        except requests.exceptions.ConnectionError:
-            _add_alert("CRITICAL", f"API_DOWN_{name}", f"{name} API unreachable")
-            ok = False
-        except Exception as exc:
-            log.debug("[HEALTH] %s connectivity check error: %s", name, exc)
+    except requests.exceptions.Timeout:
+        _add_alert("WARNING", f"API_TIMEOUT_{name}", f"{name} API timed out")
+        ok = False
+    except requests.exceptions.ConnectionError:
+        _add_alert("CRITICAL", f"API_DOWN_{name}", f"{name} API unreachable")
+        ok = False
+    except Exception as exc:
+        log.debug("[HEALTH] %s connectivity check error: %s", name, exc)
     return ok
 
 
@@ -354,15 +352,10 @@ def startup_recovery() -> bool:
         if not active:
             return True
 
-        # Step 1: Deduplicate — KALSHI order_ids end in _<unix_ts>; strip to get base key
-        _KALSHI_TS = re.compile(r'_\d{9,10}$')
+        # Deduplicate active positions by order_id
         seen: dict = {}
         for pos in active:
-            oid = pos.get("order_id", "")
-            if pos.get("market") == "KALSHI":
-                key = _KALSHI_TS.sub("", oid)
-            else:
-                key = oid
+            key = pos.get("order_id", "")
             time_str = pos.get("entry_time") or pos.get("open_time", "")
             if key not in seen:
                 seen[key] = pos
@@ -372,7 +365,7 @@ def startup_recovery() -> bool:
                     log.warning("[DEDUP] Replaced older: %s", seen[key].get("order_id", "?")[:30])
                     seen[key] = pos
                 else:
-                    log.warning("[DEDUP] Removed duplicate: %s", oid[:30])
+                    log.warning("[DEDUP] Removed duplicate: %s", key[:30])
 
         deduped = list(seen.values())
         removed_dups = len(active) - len(deduped)
@@ -413,9 +406,7 @@ def startup_recovery() -> bool:
             data["summary"]["poly_active"] = sum(
                 1 for p in cleaned if p.get("market") == "POLYMARKET"
             )
-            data["summary"]["kalshi_active"] = sum(
-                1 for p in cleaned if p.get("market") == "KALSHI"
-            )
+            data["summary"]["kalshi_active"] = 0
         data["last_updated"] = datetime.now(timezone.utc).isoformat()
         with GLOBAL_POSITIONS_LOCK:
             tmp_path = POSITIONS_FILE.with_suffix(".tmp")
@@ -449,49 +440,7 @@ def strategy_drift_check() -> dict:
     Check per-category rolling win rates. Warn on categories with WR < 40%.
     Suspend categories with WR < 30% and persist the list for matcher enforcement.
     """
-    try:
-        from kalshi.fetcher import get_category_win_rates
-        rates = get_category_win_rates()
-    except Exception as exc:
-        log.debug("[DRIFT] Could not fetch category win rates: %s", exc)
-        return {}
-
-    suspended = []
-    warnings  = []
-    for cat, stats in rates.items():
-        wr = stats.get("win_rate")
-        total = stats.get("total", 0)
-        if wr is None or total < 5:
-            continue  # not enough data
-
-        if wr < 0.30:
-            suspended.append(cat)
-            _add_alert(
-                "CRITICAL", f"DRIFT_SUSPEND_{cat}",
-                f"Category {cat} WR={wr:.0%} ({total} trades) — SUSPENDED (no new trades)",
-            )
-        elif wr < 0.40:
-            warnings.append(cat)
-            _add_alert(
-                "WARNING", f"DRIFT_WARN_{cat}",
-                f"Category {cat} WR={wr:.0%} ({total} trades) — sizing reduced 50%",
-            )
-
-    if suspended or warnings:
-        log.warning("[DRIFT] Suspended: %s | Warning: %s", suspended, warnings)
-
-    # ── Persist suspension list for enforcement by KalshiEventMatcher ─────────
-    try:
-        _SUSPENSIONS_FILE.write_text(
-            json.dumps({
-                "suspended": suspended,
-                "warning":   warnings,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }, indent=2),
-            encoding="utf-8",
-        )
-    except Exception as exc:
-        log.debug("[DRIFT] Could not persist suspensions: %s", exc)
+    return {}
 
     # ── Daily trade journal CSV export ────────────────────────────────────────
     _export_trade_journal()

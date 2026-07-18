@@ -45,7 +45,7 @@ class RoutingEngine:
         self,
         signal: dict,
         polymarket_events: list,
-        kalshi_events: list
+        kalshi_events: list = None
     ) -> dict:
         asset = str(signal.get("coin") or signal.get("asset") or "").upper()
         
@@ -55,16 +55,10 @@ class RoutingEngine:
             coins_mentioned = str(ev.get("coins_mentioned") or "").upper()
             if asset and (asset in title or asset in coins_mentioned):
                 eligible_poly.append(ev)
-                
-        eligible_kalshi = []
-        for ev in kalshi_events:
-            title = str(ev.get("title") or ev.get("event_title") or "").upper()
-            if asset and asset in title:
-                eligible_kalshi.append(ev)
-                
+                 
         return {
             "polymarket": eligible_poly,
-            "kalshi": eligible_kalshi
+            "kalshi": []
         }
 
 

@@ -26,7 +26,6 @@ from typing import Dict, List
 
 from core.engine.signal_router import SignalTypeClassifier, RoutingEngine, CategoryConfidenceWeighter
 from core.risk.position_sizer import PositionSizer
-from core.engine.conflict_detector import ConflictDetector
 from core.engine.trade_priority_queue import PriorityQueue, FeedbackTracker
 
 log = logging.getLogger("zisi.cycle_manager")
@@ -47,7 +46,6 @@ class CycleManager:
         self.router       = RoutingEngine()
         self.weighter     = CategoryConfidenceWeighter()
         self.sizer        = PositionSizer(account_balance)
-        self.detector     = ConflictDetector()
         self.queue        = PriorityQueue()
         self.feedback     = FeedbackTracker()
 
@@ -55,7 +53,7 @@ class CycleManager:
         self,
         signals: List[Dict],
         polymarket_events: List[Dict],
-        kalshi_events: List[Dict],
+        kalshi_events: List[Dict] = None,
     ) -> Dict:
         """
         Run all signals through the full pipeline.
@@ -64,17 +62,14 @@ class CycleManager:
             {
               "enriched_signals":  [...],  # signals with signal_type / kelly_multiplier added
               "polymarket_candidates": [...],  # (event, position_size) tuples
-              "kalshi_candidates": [...],      # same for Kalshi
               "capital_deployed":  float,
               "trade_count":       int,
-              "conflicts_detected": int,
             }
         """
         self.sizer.reset_cycle()
 
         enriched:    List[Dict] = []
         poly_cands:  List[Dict] = []
-        kalshi_cands:List[Dict] = []
 
         for signal in signals:
             # 1. Classify
@@ -83,7 +78,7 @@ class CycleManager:
 
             # 2. Route
             eligible = self.router.get_eligible_markets(
-                signal, polymarket_events, kalshi_events
+                signal, polymarket_events, []
             )
 
             # 3. Size + collect polymarket candidates
@@ -100,48 +95,24 @@ class CycleManager:
                         "exchange": "polymarket",
                     })
 
-            # 4. Size + collect Kalshi candidates
-            for ev in eligible["kalshi"]:
-                cat = ev.get("_category") or "OTHER"
-                cat_wt = self.weighter.get_weight("Kalshi", cat)
-                size = self.sizer.calculate(signal, ev, cat_wt)
-                if size > 0:
-                    kalshi_cands.append({
-                        "signal": signal,
-                        "event": ev,
-                        "position_size": size,
-                        "category_weight": cat_wt,
-                        "exchange": "kalshi",
-                    })
-
-        # 5. Conflict detection (reduce Poly positions where Kalshi overlaps)
-        conflicts = self.detector.detect(poly_cands, kalshi_cands)
-        poly_cands = self.detector.apply(poly_cands, conflicts)
-
-        # 6. Prioritise
+        # 4. Prioritise
         poly_cands   = self.queue.prioritize(poly_cands)
-        kalshi_cands = self.queue.prioritize(kalshi_cands)
 
-        # 7. Cap at 15 poly + 10 kalshi per cycle
+        # 5. Cap at 15 poly per cycle
         poly_cands   = poly_cands[:15]
-        kalshi_cands = kalshi_cands[:10]
 
-        total_trades = len(poly_cands) + len(kalshi_cands)
+        total_trades = len(poly_cands)
 
         log.info(
-            "[CYCLE-MANAGER] signals=%d | poly_cands=%d | kalshi_cands=%d"
-            " | conflicts=%d | capital=$%.2f",
-            len(enriched), len(poly_cands), len(kalshi_cands),
-            len(conflicts), self.sizer.capital_used,
+            "[CYCLE-MANAGER] signals=%d | poly_cands=%d | capital=$%.2f",
+            len(enriched), len(poly_cands), self.sizer.capital_used,
         )
 
         return {
             "enriched_signals":      enriched,
             "polymarket_candidates": poly_cands,
-            "kalshi_candidates":     kalshi_cands,
             "capital_deployed":      self.sizer.capital_used,
             "trade_count":           total_trades,
-            "conflicts_detected":    len(conflicts),
         }
 
     def record_outcome(
@@ -860,7 +831,7 @@ async def start_reversal_sniper(session: aiohttp.ClientSession, engines: dict) -
             up_price = market["up_price"]
             dn_price = market["dn_price"]
 
-            # Identify snipe direction: Pyth contradicts the near-certain side
+            # Identify snipe direction: Spot contradicts the near-certain side
             snipe_direction = None
             snipe_price = None
 

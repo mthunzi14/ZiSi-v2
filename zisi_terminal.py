@@ -53,7 +53,6 @@ POSITIONS_FILE = DATA_DIR / "positions_state.json"
 REGIME_FILE = DATA_DIR / "regime_status.json"
 SENTIMENT_FILE = DATA_DIR / "sentiment_state.json"
 CHAINLINK_FILE = DATA_DIR / "chainlink_prices.json"
-PYTH_FILE = DATA_DIR / "pyth_prices.json"
 HFT_METRICS_FILE = DATA_DIR / "hft_metrics.json"
 POTENTIAL_TRADES_FILE = DATA_DIR / "potential_trades.json"
 
@@ -96,7 +95,6 @@ class GlobalDashboardState:
         self.regime_state = {}
         self.sentiment_state = {}
         self.chainlink_prices = {}
-        self.pyth_prices = {}
         self.hft_metrics = {}
         self.potential_trades = {}
         self.closed_scroll_offset = 0
@@ -382,7 +380,6 @@ def sync_file_states():
     regime = load_json_file(REGIME_FILE)
     sentiment = load_json_file(SENTIMENT_FILE)
     chainlink = load_json_file(CHAINLINK_FILE)
-    pyth = load_json_file(PYTH_FILE)
     hft = load_json_file(HFT_METRICS_FILE)
     potential_trades = load_json_file(POTENTIAL_TRADES_FILE)
 
@@ -392,7 +389,6 @@ def sync_file_states():
         g_state.regime_state = regime
         g_state.sentiment_state = sentiment
         g_state.chainlink_prices = chainlink
-        g_state.pyth_prices = pyth
         g_state.hft_metrics = hft
         g_state.potential_trades = potential_trades
         
@@ -597,7 +593,7 @@ def build_header_panel() -> Panel:
             liveness_status = "[bold yellow]● STANDBY[/bold yellow]"
 
     date_str = now_utc.strftime("%Y-%m-%d")
-    location_str = "Johannesburg/SAST"
+    location_str = "Johannesburg"
 
     header_text = Text.assemble(
         ("ZiSi-v2 ", f"bold {COLOR_LABEL}"),  # Naming alignment: ZiSi-v2 in Titanium Gray
@@ -1021,12 +1017,11 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
 
 
 def build_spot_prices_panel() -> Panel:
-    """Build pricing layout displaying spot, Chainlink, Pyth, YES, NO, and Spread values."""
+    """Build pricing layout displaying spot, Chainlink, YES, NO, and Spread values."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 0))
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
     table.add_column("Binance", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
     table.add_column("Chainlink", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Pyth", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("YES", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
     table.add_column("NO", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
     table.add_column("Spread", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
@@ -1034,7 +1029,6 @@ def build_spot_prices_panel() -> Panel:
     with g_state.lock:
         spot_copy = dict(g_state.spot_prices)
         cl_copy = dict(g_state.chainlink_prices)
-        pyth_copy = dict(g_state.pyth_prices)
         clob_token_ids = dict(g_state.asset_token_ids)
         positions = list(g_state.positions_state.get("active", []))
 
@@ -1056,13 +1050,6 @@ def build_spot_prices_panel() -> Panel:
         else:
             cl_str = f"${cl_price:,.2f}" if cl_price > 0 else "-"
             
-        pyth_entry = pyth_copy.get(asset, {})
-        pyth_price = float(pyth_entry.get("price", 0.0)) if isinstance(pyth_entry, dict) else float(pyth_entry or 0.0)
-        if asset == "DOGE":
-            pyth_str = f"${pyth_price:.5f}" if pyth_price > 0 else "-"
-        else:
-            pyth_str = f"${pyth_price:,.2f}" if pyth_price > 0 else "-"
-        
         # Resolve YES and NO token IDs for this asset
         token_info = clob_token_ids.get(asset, {})
         yes_tk = token_info.get("yes")
@@ -1105,7 +1092,7 @@ def build_spot_prices_panel() -> Panel:
                 if yes_price_str == "-":
                     yes_price_str = format_cents(1.0 - no_val)
 
-        table.add_row(asset, spot_str, cl_str, pyth_str, yes_price_str, no_price_str, spread_str)
+        table.add_row(asset, spot_str, cl_str, yes_price_str, no_price_str, spread_str)
 
     return Panel(table, title=f"[bold {COLOR_LABEL}]Spot & Oracle Price Matrix[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 

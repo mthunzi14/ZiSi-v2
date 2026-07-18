@@ -203,6 +203,25 @@ The most profitable entries across ALL assets — not just BNB — are when the 
 
 ## 4. CHANGELOG — All Changes Made (Most Recent First)
 
+### 2026-07-18 — Session: V3 Streamlining & Clean Up with Antigravity (ZISI Agent 1)
+
+**Commit Hash:** [to be filled upon commit]
+
+**Items completed:**
+- ✅ **Item 5a — Remove All Kalshi Code**: Completely removed Kalshi candidate loops, imports, configuration keys, ConflictDetector initialization/execution loops, order execution path rejections, account recovery metrics, and deleted dead files: `core/engine/conflict_detector.py` and `core/engine/arbitrage_scanner.py`.
+- ✅ **Item 9 — Label All Dormant Daemons in main.py**: Labeled dormant Pyth Hermes Service and Reversal Sniper commented code blocks with `[DORMANT — V3]` warning comments.
+- ✅ **Item 10 — Config.py Cleanup**: Cleaned up all dead configuration keys from `config.py`, including Kalshi credentials, Overlay B, Overlay C, and Fair Value night sessions.
+- ✅ **Item 11 — Delete Overlay B from updown_engine.py**: Completely stripped Overlay B trend-freeze block from `core/engine/updown_engine.py` hot path.
+- ✅ **Item 13 — Delete Non-User Wallet Data Files**: Removed 5 non-owner inspiration wallet files (`wallet_0x21d0a97a_active_positions.json`, `wallet_0x21d0a97a_history.json`, `wallet_0x21d0a97a_multi_week.json`, `wallet_0xeebde7a0_active_positions.json`, `wallet_0xeebde7a0_history.json`) from `wallet/`.
+- ✅ **Item 16b / Item 23 — Enable BNB and HYPE Price Feeds**: Subscribed to `"BNB"` and `"HYPE"` in the Polymarket RTDS WebSocket connection loop (`polymarket_rtds_ingest.py`) and added `"BNB": "BNBUSDT"` to the spot REST fallback symbol map.
+- ✅ **Item 18 — Remove Pyth Entirely**: Removed Pyth cache writing logic from `polymarket_rtds_ingest.py`, removed Pyth price column and variables from `zisi_terminal.py` Spot & Oracle price matrix dashboard panel, cleaned `_get_oracle_fallback_prices` docstrings in `updown_engine.py` and deleted the local `pyth_prices.json` file.
+- ✅ **Item 24 — Timezone Location String Polish**: Removed `/SAST` suffix from terminal dashboard clock leaving only `Johannesburg` location label in `zisi_terminal.py`.
+- ✅ **Item 25 — Consolidate L2 Book Polling Logs**: Implemented a thread-safe registry-based debounce aggregation mechanism in `core/engine/updown_engine.py` to consolidate intermediate per-asset "Waiting for market creation..." and "L2 book is illiquid..." warning logs into a single aggregated line per candle boundary/poll attempt.
+
+**Key architectural decisions:**
+- Simplified oracle validation by removing unused `get_validated_price` cross-validation logic in `spot_websocket_ingest.py`.
+- Stubbed out `strategy_drift_check()` in `app/health_monitor.py` to prevent redundant import attempts of dead Kalshi modules.
+
 ### 2026-07-18 — Session: ZiSi Analysis Deep Dive with Antigravity
 
 **Analysis completed:**

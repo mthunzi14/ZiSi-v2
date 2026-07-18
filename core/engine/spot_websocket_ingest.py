@@ -60,20 +60,6 @@ async def pre_warm_cvd(symbols, session):
             log.warning("[CVD-PREWARM] %s failed: %s", s, e)
 
 
-async def get_validated_price(symbol, pyth_price):
-    async with _market_books_lock:
-        book = _market_books.get(symbol.upper())
-        if not book or book["bid_price"] <= 0 or book["ask_price"] <= 0:
-            return pyth_price
-        binance_mid = (book["bid_price"] + book["ask_price"]) / 2.0
-    if pyth_price <= 0:
-        return binance_mid
-    divergence = abs(binance_mid - pyth_price) / max(pyth_price, 1e-9)
-    if divergence > 0.002:
-        log.info("[PRICE-XVAL] %s: Pyth=%.4f Binance=%.4f diverge=%.3f%% using Binance", symbol, pyth_price, binance_mid, divergence*100)
-        return binance_mid
-    return pyth_price
-
 
 
 # ---------------------------------------------------------------------------
