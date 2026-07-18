@@ -1139,6 +1139,33 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   6. Restarted the bot under PM2 (`pm2 restart ZiSi-Core-Engine`, PID `2879097`) and verified startup logs connect cleanly and begin scanning.
 - **Verification:** Ran `verify_vps_clean.py` remote check to confirm the counts of UNKNOWN trades on the VPS are now exactly **0** across all position tracking databases.
 
+---
+
+### Session 23 — 2026-07-18 (Antigravity)
+**Time:** 21:26–21:32 SAST | **Bot Status:** Sizing Calibrated & Active (commit `6d1b48f`)
+
+**DYNAMIC POSITION SIZING SCALE-UP:**
+- **Issue:** Position sizes were not growing proportionally with the balance. They were choked by flat dollar caps ($10, $20, $40, $50) hardcoded in `app/main.py` and `core/engine/updown_engine.py`.
+- **Fix Applied:**
+  1. Introduced a dynamic `growth_factor` based on the active account balance relative to the initial $120.00 baseline: `growth_factor = max(1.0, balance / 120.0)`.
+  2. Multiplied all hardcoded dollar sizing caps by the `growth_factor` in both the adaptive and legacy fallback paths in `core/engine/updown_engine.py` and all conviction tier filters in `app/main.py`.
+  3. This enables sizing to experience the 13.x times growth multiplier (from the $120.00 baseline to the current balance of $1,612.49) organically as capital compounds.
+  4. Updated unit test `test_sizing_caps_risk_control` in `test/test_edges.py` to assert the scaled cap value. Verified that all **64 unit tests** pass locally.
+
+**ITEMS FILE CLEANUP:**
+- **Abandoned Item 22:** Removed Chainlink HMAC Data Streams credentials integration entirely from `ZISI - Items.md` as requested due to Chainlink deprecating sponsored feeds and pricing friction.
+- **Removed Item 25:** Deleted "Fix Large Losses from MEAN_REVERTING Expired Markets" item entirely from `ZISI - Items.md` as requested.
+- **Calibrated Item 24 (Win Rate Floor):** Updated the live calibration stats:
+  - BNB: 35 total trades, 24 wins, 8 losses (75% WR)
+  - HYPE: 22 total trades, 14 wins, 8 losses (63.6% WR)
+  - Overall stable win rate holds at ~83%.
+
+**VPS Sync & PM2 Restart:**
+- Pushed changes to origin branch `stable-june22` (`6d1b48f`) and pulled them successfully on the VPS.
+- Restarted the PM2 engine on the VPS (`pm2 restart ZiSi-Core-Engine` at PID `2883403`).
+- Verified VPS logs confirm a clean start, initialized with the correct $1,612.49 account balance and all 7 assets registered, active, and scanning.
+
+
 
 
 
