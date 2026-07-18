@@ -1099,6 +1099,22 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 
 **Scammer — "I will paste the steps here" (still awaiting their link/steps)**
 
+---
+
+### Session 21 — 2026-07-18 (Antigravity)
+**Time:** 18:15–18:26 SAST | **Bot:** PM2 PID `2875388` | **Dashboard:** tmux session `zisi` (venv/bin/python3 zisi_terminal.py)
+
+**RESTORED INTERACTIVE TERMINAL DASHBOARD & PROCESS SEGREGATION:**
+- **Issue:** The user reported that attaching to the tmux session only showed raw logs without the beautiful Rich panels.
+- **Root Cause:** In previous iterations, the interactive dashboard script (`zisi_terminal.py`) was mistakenly replaced in the tmux session with raw logging or the direct running of `app/main.py`. This broke the layout and meant attaching to tmux bypassed the dashboard UI. Additionally, a bad marshal data error (`ValueError`) due to corrupted `.pyc` files in `__pycache__` was causing `app/main.py` to crash loop under PM2.
+- **Fix Applied:**
+  1. Cleaned all compiled Python caches on the VPS (`find . -name "*.pyc" -delete` and removed all `__pycache__` folders) to solve the bad marshal data crash.
+  2. Verified `aiohttp` imports cleanly under the `/root/ZiSi-v2/venv/bin/python3` environment.
+  3. Restarted `ZiSi-Core-Engine` under PM2 (confirmed active and scanning at PID `2875388`).
+  4. Killed the raw bot process running inside the tmux session and launched `zisi_terminal.py` using the venv python interpreter.
+- **Verification:** Captured the tmux panel and confirmed the rich dashboard UI (including the Spot Matrix, Active Positions, Performance Summary, Trade History, and Live Engine Logs) is rendering perfectly in real-time, matching the original design.
+
+
 
 
 
