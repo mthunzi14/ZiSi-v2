@@ -1,5 +1,5 @@
 ﻿# ZISI — Items
-**Last Updated:** 2026-07-18 12:55 SAST
+**Last Updated:** 2026-07-18 13:55 SAST
 **Maintained by:** All agents (Antigravity + Coding Tool) + Owner
 
 > **How this document works:**
@@ -10,19 +10,6 @@
 
 ---
 
-## 🔴🔥 ITEM 5a — Remove All Kalshi Code from Source
-**Type:** Coding Tool | **Priority:** High
-
-Kalshi pip package still in venv. Source files need verification.
-
-**Steps:**
-1. `grep -ri "kalshi" --include="*.py"` in repo (excluding venv/) — confirm zero hits
-2. Delete any remaining Kalshi branches/imports in source
-3. `pip uninstall kalshi-python` in venv
-4. Remove from `requirements.txt` / `pyproject.toml`
-5. Run bot — confirm no import errors
-
-**Done when:** Zero Kalshi references in source. Package uninstalled from venv.
 
 ---
 
@@ -86,4 +73,5 @@ Form submitted 2026-07-04. 14+ days. Third follow-up needed.
 
 *Companion to ZISI - Journal.md | Both live at repo root: C:\Users\mthun\Downloads\ZiSi-v2\*
 *Completed items archived in Journal Session Entries*
+
 

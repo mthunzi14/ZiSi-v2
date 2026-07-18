@@ -581,6 +581,38 @@ PBot Sweeper (98.9% WR): enters at T-1.5s to T-0.5s before candle close via LAT-
 - Antigravity role note: Acting as coding tool this session — coding tool hit usage limit.
 
 
+### Session 6 — 2026-07-18 (Antigravity — Acting as Coding Tool)
+**Time:** 13:16–13:53 SAST
+**Commit:** `2c9077a`
+
+**Fix 1 — Confluence Binance kline error for HYPE:**
+- Root cause: `confluence_engine.py` had its own symbol map and klines URL (spot only). HYPE was not in the map, so it fell back to `HYPE + "USDT"` = `HYPEUSDT` → spot 400 on all 4 timeframes (1m, 5m, 15m, 1h) every single cycle.
+- Fix: Added `_BINANCE_FAPI_KLINES_URL`, `_FUTURES_KLINES_ASSETS = {"HYPEUSDT"}`, added `"HYPE": "HYPEUSDT"` to `_SYMBOL_MAP`, updated `_fetch_klines()` to branch on the futures URL for HYPE. Removed duplicate LINK entry from symbol map.
+- File: `core/engine/confluence_engine.py` — 3 locations.
+
+**Fix 2 — Item 5a: Remove all Kalshi code from source (COMPLETE):**
+- Files touched (10 total):
+  - `core/engine/confluence_engine.py` — symbol map deduplication
+  - `core/engine/signal_router.py` — removed Kalshi docstring, `kalshi: []` return key, `kalshi` weights dict
+  - `core/engine/cycle_manager.py` — updated docstring example, annotated param as backward-compat
+  - `core/engine/trader.py` — deleted dead `if market == "KALSHI"` guard block; removed `kalshi_active: 0` from summary; renamed `source` from `"polymarket+kalshi"` to `"polymarket"`
+  - `app/health_monitor.py` — updated module docstring, function docstring, inline comment; removed `kalshi_active` from summary update
+  - `core/engine/metrics_engine.py` — updated comment
+  - `core/engine/state_manager.py` — updated 2 comments
+  - `core/ml/ml_pipeline.py` — removed `kalshi_matches` key from metrics dict
+  - `core/risk/risk_manager.py` — updated Kelly docstring
+  - `scratch/reset_vps.py` — updated source tag and removed `kalshi_active` from template
+- Retained: `kalshi_events: List[Dict] = None` in cycle_manager and signal_router (backward-compat; callers pass None, param is inert)
+- Final grep: 0 functional Kalshi references in source. ✅
+
+**VPS startup confirmed clean (`2c9077a`):**
+- `HYPE/5m: Initialised rolling outcomes with 2 historical trades` ✅ (building history)
+- `[HFT-WS] Connecting FUTURES: 3 streams for 1 symbols` ✅ HYPE on futures
+- `BOT STARTUP COMPLETE / READY TO TRADE / ACTIVE SCANNING` ✅
+- No Confluence HYPE errors in startup logs ✅
+
+
+
 
 ### Session 3 — 2026-07-18 (Antigravity)
 **Time:** 09:36 SAST
