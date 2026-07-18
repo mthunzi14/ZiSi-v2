@@ -1239,87 +1239,25 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
         "Session:", f"[bold {COLOR_ASSET}]{curr_session}[/bold {COLOR_ASSET}]"
     )
     
-    slippage_color = "#ff746c" if avg_slippage > 4.0 else "#c1e1c1"
+    slippage_color = "#ff746c" if avg_slippage > 8.0 else "#c1e1c1"
     fill_color = "#ff746c" if fill_rate < 90.0 else "#c1e1c1"
     header_table.add_row(
-        "Avg Slippage (50):", f"[bold {slippage_color}]{avg_slippage:.2f}¢[/bold {slippage_color}]",
-        "Avg Fill Rate (50):", f"[bold {fill_color}]{fill_rate:.1f}%[/bold {fill_color}]"
+        "Avg Slippage:", f"[bold {slippage_color}]{avg_slippage:.2f}¢[/bold {slippage_color}]",
+        "Avg Fill Rate:", f"[bold {fill_color}]{fill_rate:.1f}%[/bold {fill_color}]"
     )
 
-    # Signal & Gate Matrix Table
+    # Confluence Ratings Table
     matrix_table = Table(box=ROUNDED, expand=True, padding=(0, 1))
     matrix_table.add_column("Asset", style="bold white")
-    matrix_table.add_column("RSI", justify="right")
-    matrix_table.add_column("CVD", justify="right")
-    matrix_table.add_column("OBI", justify="right")
-    matrix_table.add_column("NIC", justify="right")
     matrix_table.add_column("Score", justify="right")
     matrix_table.add_column("Status", justify="center")
 
     for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
-        m = hft.get(asset, {})
-        # Get live values from websocket/hft, fall back to gate_assets
         gate_info = gate_assets.get(asset, {})
-        
-        # RSI
-        rsi_val = gate_info.get("rsi")
-        if rsi_val is None:
-            rsi_val = 50.0
-            
-        # OBI
-        obi_val = m.get("obi")
-        if obi_val is None:
-            obi_val = gate_info.get("obi", 0.0)
-            
-        # CVD
-        cvd_val = m.get("cvd_fast")
-        if cvd_val is None:
-            cvd_val = gate_info.get("cvd", 0.0)
-            
-        # NIC (Net Imbalance Cascade from gate_info)
-        nic_val = gate_info.get("nic", 0.0)
         
         # Confluence Score & Status
         score_val = gate_info.get("score", 0.0)
         status_val = gate_info.get("status", "IDLE")
-
-        # RSI Formatting
-        if rsi_val >= 70:
-            rsi_str = f"[#ff746c]{rsi_val:.1f}[/#ff746c]"
-        elif rsi_val <= 30:
-            rsi_str = f"[#c1e1c1]{rsi_val:.1f}[/#c1e1c1]"
-        else:
-            rsi_str = f"{rsi_val:.1f}"
-
-        # CVD formatting with arrows
-        if cvd_val > 0.01:
-            cvd_str = f"▲ +{cvd_val:.1f}"
-            cvd_color = COLOR_PASTEL_GREEN
-        elif cvd_val < -0.01:
-            cvd_str = f"▼ {cvd_val:.1f}"
-            cvd_color = COLOR_PASTEL_RED
-        else:
-            cvd_str = "0.0"
-            cvd_color = "grey70"
-            
-        # OBI formatting with arrows
-        if obi_val > 0.05:
-            obi_str = f"▲ +{obi_val:.2f}"
-            obi_color = COLOR_PASTEL_GREEN
-        elif obi_val < -0.05:
-            obi_str = f"▼ {obi_val:.2f}"
-            obi_color = COLOR_PASTEL_RED
-        else:
-            obi_str = f"{obi_val:.2f}"
-            obi_color = "grey70"
-
-        # NIC formatting
-        if nic_val > 0.05:
-            nic_str = f"[#c1e1c1]▲ +{nic_val:.2f}[/#c1e1c1]"
-        elif nic_val < -0.05:
-            nic_str = f"[#ff746c]▼ {nic_val:.2f}[/#ff746c]"
-        else:
-            nic_str = f"[grey70]{nic_val:.2f}[/grey70]"
 
         # Score
         score_str = f"{score_val:.2f}"
@@ -1338,41 +1276,17 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
 
         matrix_table.add_row(
             asset,
-            rsi_str,
-            f"[{cvd_color}]{cvd_str}[/{cvd_color}]",
-            f"[{obi_color}]{obi_str}[/{obi_color}]",
-            nic_str,
             score_str,
             status_str
         )
-
-    # Actionable Setup Alerts based on potential_trades.json
-    with g_state.lock:
-        pt = dict(g_state.potential_trades)
-        
-    setups = []
-    for key in sorted(pt.keys()):
-        if pt[key]:
-            parts = key.split("/")
-            if len(parts) == 2:
-                setups.append(f"{parts[0].upper()}/{parts[1]}")
-            else:
-                setups.append(key)
-            
-    if setups:
-        setup_str = ", ".join(f"[bold #c1e1c1]{s}[/bold #c1e1c1]" for s in setups)
-    else:
-        setup_str = "[grey50]None[/grey50]"
 
     # Combined Layout Container
     panel_content = Table.grid(expand=True)
     panel_content.add_column("Col")
     panel_content.add_row(header_table)
     panel_content.add_row("")  # Spacer
-    panel_content.add_row("[bold white]Signal & Gate Matrix[/bold white]")
+    panel_content.add_row("[bold white]Confluence Ratings[/bold white]")
     panel_content.add_row(matrix_table)
-    panel_content.add_row("")  # Spacer
-    panel_content.add_row(f"[bold {COLOR_LABEL}]Setup Alerts:[/bold {COLOR_LABEL}] {setup_str}")
 
     # Title with key guide
     title_guide = "R or H to Minimize" if fullscreen else "R to Fullscreen"

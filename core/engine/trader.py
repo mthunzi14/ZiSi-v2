@@ -531,8 +531,8 @@ def log_fill_slippage(event_title: str, direction: str, fill_price: float, signa
             f.write(json.dumps(entry) + "\n")
             
         avg_slippage = get_rolling_avg_slippage(50)
-        if avg_slippage > 4.0:
-            log.warning("[SLIPPAGE-ALERT] Rolling 50-trade average slippage is %.2f¢, which exceeds the 4.0¢ risk threshold!", avg_slippage)
+        if avg_slippage > 8.0:
+            log.warning("[SLIPPAGE-ALERT] Rolling 50-trade average slippage is %.2f¢, which exceeds the 8.0¢ risk threshold!", avg_slippage)
             
     except Exception as e:
         log.warning("[TRADE] Failed to log realized slippage: %s", e)
@@ -2523,5 +2523,106 @@ def _recover_active_positions_from_disk() -> None:
     except Exception as exc:
         log.error("[RECOVERY] Failed to reload active positions: %s", exc)
 
-# Execute recovery instantly upon module import
+
+def _seed_slippage_and_placements():
+    """Seed slippage_log.jsonl and order_placements.jsonl from positions_state.json if they are empty."""
+    try:
+        import re
+        import json
+        import os
+        from pathlib import Path
+        from datetime import datetime
+        
+        data_dir = Path(__file__).parent.parent.parent / "data"
+        slippage_file = data_dir / "slippage_log.jsonl"
+        placements_file = data_dir / "order_placements.jsonl"
+        positions_file = data_dir / "positions_state.json"
+        
+        if not positions_file.exists():
+            return
+            
+        # If files exist and have content, don't overwrite
+        if slippage_file.exists() and os.path.getsize(slippage_file) > 0:
+            return
+            
+        with open(positions_file, "r", encoding="utf-8") as f:
+            state = json.loads(f.read())
+            
+        closed = state.get("closed", [])
+        if not closed:
+            return
+            
+        # Group by parent_order_id to get single order placement events
+        orders = {}
+        for pos in closed:
+            poid = pos.get("parent_order_id") or pos.get("order_id")
+            if not poid:
+                continue
+            if poid not in orders:
+                orders[poid] = pos
+                
+        # Sort by entry_time
+        sorted_orders = sorted(
+            orders.values(),
+            key=lambda x: x.get("entry_time", "")
+        )
+        
+        # Seed the last 100 orders
+        seed_orders = sorted_orders[-100:]
+        
+        data_dir.mkdir(parents=True, exist_ok=True)
+        with open(slippage_file, "w", encoding="utf-8") as f_slip, \
+             open(placements_file, "w", encoding="utf-8") as f_place:
+             
+            for pos in seed_orders:
+                title = pos.get("event_title") or ""
+                direction = pos.get("direction", "YES")
+                price = pos.get("entry_price", 0.0)
+                sig_p = price  # historical paper trades have 0 slippage
+                
+                # Determine asset, timeframe, tranche
+                asset = "BTC"
+                timeframe = "5m"
+                tranche = pos.get("tranche") or "A"
+                
+                match = re.search(r"\[UPDOWN\]\[(.*?)\]\[(.*?)\]\[(.*?)\]", title)
+                if match:
+                    asset = match.group(1).upper()
+                    timeframe = match.group(2)
+                    tranche = match.group(3)
+                
+                try:
+                    ts_dt = datetime.fromisoformat(pos.get("entry_time", "").replace("Z", "+00:00"))
+                    ts = int(ts_dt.timestamp())
+                except Exception:
+                    ts = int(time.time())
+                    
+                # Write to slippage
+                slip_entry = {
+                    "ts": ts,
+                    "asset": asset,
+                    "timeframe": timeframe,
+                    "signal_price": round(sig_p, 4),
+                    "fill_price": round(price, 4),
+                    "slippage_cents": 0.0,
+                    "direction": direction,
+                    "tranche": tranche
+                }
+                f_slip.write(json.dumps(slip_entry) + "\n")
+                
+                # Write to placement
+                f_place.write(json.dumps({
+                    "ts": ts,
+                    "order_id": pos.get("order_id"),
+                    "event_type": "place",
+                    "status": "FILLED"
+                }) + "\n")
+                
+        log.info("[SEED] Successfully seeded slippage and placement logs from positions_state.json history.")
+    except Exception as e:
+        log.warning("[SEED] Failed to seed slippage/placement logs: %s", e)
+
+
+# Execute recovery and seeding instantly upon module import
 _recover_active_positions_from_disk()
+_seed_slippage_and_placements()

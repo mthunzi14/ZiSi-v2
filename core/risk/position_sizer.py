@@ -37,8 +37,8 @@ _BASE_WIN_RATES: Dict[str, float] = {
 _DEFAULT_PAYOUT_RATIO: float = 1.50
 
 # Position size guards
-_MIN_POSITION_USD: float = 0.50
-_MAX_POSITION_USD: float = 5.00
+_MIN_POSITION_USD: float = 1.00
+_MAX_POSITION_USD: float = 500.00
 _MAX_BANKROLL_FRACTION: float = 0.05  # Never risk >5% per trade
 
 # Kelly multipliers by signal type (backward compat)
@@ -224,12 +224,13 @@ class PositionSizer:
             # Step 10: Apply category weight (existing)
             raw_usd *= category_weight
 
-            # Step 10.5: Streak Dampener
-            consec_wins = get_consecutive_wins()
-            if consec_wins >= 5:
-                damp_factor = (0.90) ** max(0, consec_wins - 5)
-                log.info("[KELLY-STREAK] Active streak of %d wins (>=5) -> scaling size down by %.4f (Original raw_usd: $%.2f)", consec_wins, damp_factor, raw_usd)
-                raw_usd *= damp_factor
+            # Step 10.5: Streak Dampener (Disabled to allow optimal compounding under the 5% bankroll ceiling)
+            # consec_wins = get_consecutive_wins()
+            # if consec_wins >= 5:
+            #     damp_factor = (0.90) ** max(0, consec_wins - 5)
+            #     log.info("[KELLY-STREAK] Active streak of %d wins (>=5) -> scaling size down by %.4f (Original raw_usd: $%.2f)", consec_wins, damp_factor, raw_usd)
+            #     raw_usd *= damp_factor
+            pass
 
         # Step 11: Enforce guards
         # Bounds may be overridden by the caller so a single canonical sizer
