@@ -974,5 +974,34 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 
 **Scammer — Step 6 ready** (see Session 14 for script)
 
+---
+
+### Session 16 — 2026-07-18 (Antigravity)
+**Time:** 15:55–16:00 SAST | **Bot:** PID `2869821` | **Balance:** $1,489.66 | **Trades:** 1,140
+
+**tmux — Root Cause Found + FIXED ✅**
+- Root cause: Previous sessions were `(attached)` — `kill-server` was disconnecting the owner mid-session and causing socket corruption on next reconnect. Every new tmux session our script created had a stale socket remnant.
+- Fix applied: Explicit socket file removal → clean `tmux new-session -d -s zisi -x 230 -y 50` → `tmux send-keys`
+- Session created fresh: Sat Jul 18 13:57:26 UTC
+- **Confirmed rule going forward (CRITICAL): NEVER run `tmux kill-server`. NEVER restart tmux if user is currently attached. Only use `tmux send-keys -t zisi "..." Enter` to send commands to the running session. To restart the bot without killing session: `tmux send-keys -t zisi "C-c" "" && tmux send-keys -t zisi "python app/main.py" Enter`**
+- Attach: `tmux attach -t zisi`
+
+**Chainlink — Bharath Message Sent ✅**
+- Owner posted in `#developers` and DM'd Bharath with email. Awaiting response.
+- Item 22 status: Message sent to Bharath (Jul 18 15:53 SAST). Now have direct contact with the right person.
+
+**Scammer — SCAM REVEAL (Step 7):**
+- Scammer (15:43): "Yes you need an active VM compatible linked to Chainlink's protocol. Copy the address when you click receive on Metamask... It's an address that starts with 0x..."
+- **This is the classic fake wallet-linking scam.** They're going to next ask for either:
+  a. A "small activation fee" in ETH/MATIC to "link" the wallet
+  b. A phishing link to "connect"
+  c. Your seed phrase to "verify sync"
+- **Next script to send (to pull the final reveal):**
+  *"Ok I found it - it starts with 0x too lol. So I just paste it here and Chainlink links it? Or do I need to do something else on my end as well?"*
+- Once they show their next move → call them out, expose them, block and report.
+
+**Note from owner:** Receiving multiple scam friend requests on Discord. Only engaging with this one scammer to observe their playbook. No others will be given the time of day.
+
+
 
 
