@@ -1002,6 +1002,32 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 
 **Note from owner:** Receiving multiple scam friend requests on Discord. Only engaging with this one scammer to observe their playbook. No others will be given the time of day.
 
+---
+
+### Session 17 — 2026-07-18 (Antigravity)
+**Time:** 16:06–16:15 SAST | **Bot:** PID `2870178` | **Trades:** 1,140+
+
+**tmux — TRUE ROOT CAUSE IDENTIFIED:**
+- `tmux list-sessions` showed `(attached)` on the `zisi` session — meaning the owner's terminal WAS already inside tmux when trying to run `tmux attach -t zisi`
+- Running `tmux attach` from INSIDE an existing tmux shell produces: `sessions should be nested with care, unset $TMUX to force`
+- **Fix for owner:** From the SSH terminal, type `exit` first to leave any current shell, then run `tmux attach -t zisi` from a clean shell. OR open a completely fresh SSH connection.
+- **Architecture change (permanent):** Bot now runs as `nohup python3 app/main.py &` — fully independent background process. tmux `zisi` session now just runs `tail -f zisi_bot_console.log` as a log viewer. Bot survives any tmux or SSH crash completely. PID saved to `bot.pid`.
+- **RULE: Scripts never kill the tmux session. To restart bot: `pkill -9 -f main.py && source venv/bin/activate && nohup python3 app/main.py >> zisi_bot_console.log 2>&1 &`**
+
+**Chainlink — Bharath DM ✅**
+- Owner messaged Bharath in `#developers` and he responded: "Sure" → DM sent
+- DM content: email `mthunzi.sibiya2005@gmail.com`, project summary, July 4 submission, 15 days waiting, assets needed (BTC/ETH/SOL/XRP/DOGE), HMAC ready, awaiting endpoint + credentials only
+
+**Scammer — Step 8: RPC ID Reveal**
+- Scammer (16:07): "Copy and paste it here."
+- Owner (16:07): "And then what??"
+- Scammer (16:08): "I will add this to the Chainlink integration protocol then you generate a unique RPC ID for the VM compatible."
+- **Analysis:** "RPC ID for VM compatible" is entirely fabricated — it does not exist in Chainlink's real infrastructure. Chainlink Data Streams credentials are HMAC keys, completely unrelated to MetaMask wallet addresses. Their next message will be a phishing link or an "activation fee."
+- **Next script to extract final reveal:**
+  *"Ok that sounds good. So once you add it, do I need to do anything on my side to generate the RPC ID? Like is there a website I go to or do you send it to me?"*
+- Once they show the link or fee → expose them, call them out, block and report.
+
+
 
 
 
