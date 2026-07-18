@@ -211,26 +211,46 @@ class BinanceWebSocketIngest:
             await asyncio.sleep(0.2)
 
     async def _socket_loop(self):
-        # Build combined stream — 3 feeds per symbol
-        parts = []
-        for s in self.symbols:
-            sl = s.lower() + "usdt"
-            parts.append(f"{sl}@bookTicker")
-            parts.append(f"{sl}@aggTrade")
-            parts.append(f"{sl}@depth5@100ms")
+        tasks = []
+        
+        # Spot symbols
+        spot_syms = [s for s in self.symbols if s != "HYPE"]
+        if spot_syms:
+            parts = []
+            for s in spot_syms:
+                sl = s.lower() + "usdt"
+                parts.append(f"{sl}@bookTicker")
+                parts.append(f"{sl}@aggTrade")
+                parts.append(f"{sl}@depth5@100ms")
+            url = f"wss://stream.binance.com:9443/stream?streams={'/'.join(parts)}"
+            tasks.append(self._ws_connection_loop("SPOT", url, spot_syms, len(parts)))
+            
+        # Futures symbols
+        futures_syms = [s for s in self.symbols if s == "HYPE"]
+        if futures_syms:
+            parts = []
+            for s in futures_syms:
+                sl = s.lower() + "usdt"
+                parts.append(f"{sl}@bookTicker")
+                parts.append(f"{sl}@aggTrade")
+                parts.append(f"{sl}@depth5")
+            url = f"wss://fstream.binance.com/stream?streams={'/'.join(parts)}"
+            tasks.append(self._ws_connection_loop("FUTURES", url, futures_syms, len(parts)))
+            
+        if tasks:
+            await asyncio.gather(*tasks)
 
-        url = f"wss://stream.binance.com:9443/stream?streams={'/'.join(parts)}"
-
+    async def _ws_connection_loop(self, label: str, url: str, symbols: list, stream_count: int):
         while self.running:
             try:
-                log.info("[HFT-WS] Connecting: %d streams for %d symbols", len(parts), len(self.symbols))
+                log.info("[HFT-WS] Connecting %s: %d streams for %d symbols", label, stream_count, len(symbols))
                 connector = aiohttp.TCPConnector(enable_cleanup_closed=True)
                 async with aiohttp.ClientSession(connector=connector) as session:
                     async with session.ws_connect(url, heartbeat=10.0) as ws:
-                        log.info("[HFT-WS] Connected — CVD+OBI+OFI live")
+                        log.info("[HFT-WS] Connected %s live", label)
 
                         async with _market_books_lock:
-                            for s in self.symbols:
+                            for s in symbols:
                                 if s not in _market_books:
                                     _market_books[s] = {
                                         "bid_price": 0.0, "bid_qty": 0.0,
@@ -248,7 +268,6 @@ class BinanceWebSocketIngest:
                         async for msg in ws:
                             if msg.type == aiohttp.WSMsgType.TEXT:
                                 envelope = json.loads(msg.data)
-                                # Combined stream format: {"stream": "...", "data": {...}}
                                 data = envelope.get("data", envelope)
                                 stream = envelope.get("stream", "")
                                 await self._process_tick(data, stream)
@@ -257,7 +276,7 @@ class BinanceWebSocketIngest:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                log.error("[HFT-WS] Exception: %r — reconnecting in 5s", e)
+                log.error("[HFT-WS] %s Exception: %r — reconnecting in 5s", label, e)
                 await asyncio.sleep(5)
 
     async def _process_tick(self, data: dict, stream: str):

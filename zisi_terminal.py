@@ -83,7 +83,7 @@ class GlobalDashboardState:
     def __init__(self):
         self.lock = threading.Lock()
         # Live WebSocket data (added DOGE)
-        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0}
+        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0, "BNB": 0.0, "HYPE": 0.0}
         self.clob_prices = {}  # token_id -> {"yes_price": float, "last_update": float}
         self.clob_spreads = {}  # token_id -> float
         
@@ -142,7 +142,7 @@ def fetch_asset_slug(asset: str, ts: int) -> tuple[str, dict]:
 
 def update_active_market_ids():
     """Query Polymarket Gamma API concurrently to resolve YES/NO token IDs for all assets."""
-    assets = ["BTC", "ETH", "SOL", "XRP", "DOGE"]
+    assets = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]
     now = time.time()
     ts_current = int(now // 300) * 300
     
@@ -180,23 +180,31 @@ def run_market_resolver_loop():
 
 
 async def binance_spot_listener():
-    """Connect to Binance Spot WebSocket for sub-second price updates."""
-    url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/dogeusdt@ticker"
-    while True:
-        try:
-            async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
-                while True:
-                    msg = await ws.recv()
-                    data = json.loads(msg)
-                    symbol = data.get("s", "")
-                    price = float(data.get("c", 0.0))
-                    
-                    asset = symbol.replace("USDT", "")
-                    if asset in g_state.spot_prices:
-                        with g_state.lock:
-                            g_state.spot_prices[asset] = price
-        except Exception:
-            await asyncio.sleep(2)  # Reconnect
+    """Connect to Binance Spot + Futures WebSockets for sub-second price updates."""
+    async def listen_loop(label: str, url: str):
+        while True:
+            try:
+                async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
+                    while True:
+                        msg = await ws.recv()
+                        data = json.loads(msg)
+                        symbol = data.get("s", "")
+                        price = float(data.get("c", 0.0))
+                        
+                        asset = symbol.replace("USDT", "")
+                        if asset in g_state.spot_prices:
+                            with g_state.lock:
+                                g_state.spot_prices[asset] = price
+            except Exception:
+                await asyncio.sleep(2)  # Reconnect
+                
+    spot_url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/dogeusdt@ticker/bnbusdt@ticker"
+    futures_url = "wss://fstream.binance.com/ws/hypeusdt@ticker"
+    
+    await asyncio.gather(
+        listen_loop("SPOT", spot_url),
+        listen_loop("FUTURES", futures_url)
+    )
 
 
 def process_clob_message(data: dict):
@@ -343,7 +351,7 @@ def generate_trade_history_report(closed_positions):
         for pos in closed_positions:
             title = pos.get("event_title", "")
             asset = "UNKNOWN"
-            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
@@ -389,7 +397,7 @@ def sync_file_states():
         g_state.potential_trades = potential_trades
         
         # Pre-populate spot prices from Chainlink at startup to prevent "CONNECTING..."
-        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
             if g_state.spot_prices.get(asset, 0.0) == 0.0:
                 cl_entry = chainlink.get(asset, {})
                 cl_price = float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else float(cl_entry or 0.0)
@@ -774,7 +782,7 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
     for pos in (closed_pos or []):
         title = pos.get("event_title", "Unknown")
         asset = "UNKNOWN"
-        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
             if f"[{possible}]" in title.upper() or possible in title.upper():
                 asset = possible
                 break
@@ -1030,8 +1038,8 @@ def build_spot_prices_panel() -> Panel:
         clob_token_ids = dict(g_state.asset_token_ids)
         positions = list(g_state.positions_state.get("active", []))
 
-    # Compile table rows for all 5 assets (BTC, ETH, SOL, XRP, DOGE)
-    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+    # Compile table rows for all assets
+    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
         spot_price = spot_copy.get(asset, 0.0)
         
         # Decimal formatting based on asset price scale
@@ -1234,8 +1242,9 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
     header_table.add_column("Metric 2", style=f"bold {COLOR_LABEL}", width=20)
     header_table.add_column("Value 2", justify="left", style=COLOR_VAL)
     
+    display_reg = raw_reg.replace("_", " ")
     header_table.add_row(
-        "Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]",
+        "Regime:", f"[{regime_color}]{display_reg}[/{regime_color}]",
         "Session:", f"[bold {COLOR_ASSET}]{curr_session}[/bold {COLOR_ASSET}]"
     )
     
@@ -1246,47 +1255,10 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
         "Avg Fill Rate:", f"[bold {fill_color}]{fill_rate:.1f}%[/bold {fill_color}]"
     )
 
-    # Confluence Ratings Table
-    matrix_table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    matrix_table.add_column("Asset", style="bold white")
-    matrix_table.add_column("Score", justify="right")
-    matrix_table.add_column("Status", justify="center")
-
-    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
-        gate_info = gate_assets.get(asset, {})
-        
-        # Confluence Score & Status
-        score_val = gate_info.get("score", 0.0)
-        status_val = gate_info.get("status", "IDLE")
-
-        # Score
-        score_str = f"{score_val:.2f}"
-
-        # Status
-        if status_val == "CONFIRM":
-            status_str = "[bold #c1e1c1]CONFIRM[/bold #c1e1c1]"
-        elif status_val == "INVERT":
-            status_str = "[bold yellow]INVERT[/bold yellow]"
-        elif status_val == "FADE":
-            status_str = "[bold cyan]FADE[/bold cyan]"
-        elif status_val == "NEUTRAL":
-            status_str = "[grey50]NEUTRAL[/grey50]"
-        else:
-            status_str = f"[grey70]{status_val}[/grey70]"
-
-        matrix_table.add_row(
-            asset,
-            score_str,
-            status_str
-        )
-
     # Combined Layout Container
     panel_content = Table.grid(expand=True)
     panel_content.add_column("Col")
     panel_content.add_row(header_table)
-    panel_content.add_row("")  # Spacer
-    panel_content.add_row("[bold white]Confluence Ratings[/bold white]")
-    panel_content.add_row(matrix_table)
 
     # Title with key guide
     title_guide = "R or H to Minimize" if fullscreen else "R to Fullscreen"
@@ -1342,7 +1314,7 @@ def build_active_positions_panel() -> Panel:
             
             # Asset parse (added DOGE)
             asset = "UNKNOWN"
-            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
@@ -1486,7 +1458,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         
         # Asset parse
         asset = "UNKNOWN"
-        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
             if f"[{possible}]" in title.upper() or possible in title.upper():
                 asset = possible
                 break

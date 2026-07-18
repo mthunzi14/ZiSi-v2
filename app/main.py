@@ -84,7 +84,7 @@ log = logging.getLogger("zisi.main")
 # BTC is the primary leader (all alts follow); ETH is secondary (SOL+XRP follow, not BTC).
 # DOGE excluded — insufficient correlation with BTC/ETH price action.
 _CORR_MAP: dict[str, list[str]] = {
-    "BTC": ["ETH", "SOL", "XRP"],
+    "BTC": ["ETH", "SOL", "XRP", "BNB"],
 }
 _NCS_SOURCES = frozenset({"CLOSE-SNIPE", "CLOSE-SNIPE-EARLY"})
 
@@ -350,7 +350,7 @@ async def _validate_trade_slot(
 
     # Altcoin Market Leader Corroboration Guard
     # Altcoins correlate highly to BTC and ETH. Block if BOTH leaders are against our trade.
-    _ALTCOINS = {"SOL", "XRP", "DOGE", "ADA", "LINK", "AVAX", "SUI"}
+    _ALTCOINS = {"SOL", "XRP", "DOGE", "ADA", "LINK", "AVAX", "SUI", "BNB", "HYPE"}
     if asset in _ALTCOINS and _entry_source not in ("LATENCY_ARB", "T2_SWEEPER", "CERTAINTY_SNIPE", "LS"):
         tf_map = {"5m": ("5m", 2), "15m": ("15m", 2), "1h": ("1h", 2)}
         interval, limit = tf_map.get(timeframe, ("5m", 2))
@@ -686,7 +686,7 @@ async def _coordinate_signal_entry(
         if not hasattr(context, "last_logged_regime_ts") or context.last_logged_regime_ts != candle_ts:
             context.last_logged_regime_ts = candle_ts
             regimes_list = []
-            for a in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+            for a in ASSETS:
                 eng = context.engines.get(f"{a}/{timeframe}")
                 if eng and hasattr(eng, "_current_regime_calculated"):
                     regimes_list.append(f"{a}={eng._current_regime_calculated}")

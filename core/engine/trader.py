@@ -2574,11 +2574,15 @@ def _seed_slippage_and_placements():
         with open(slippage_file, "w", encoding="utf-8") as f_slip, \
              open(placements_file, "w", encoding="utf-8") as f_place:
              
+            import random
             for pos in seed_orders:
                 title = pos.get("event_title") or ""
                 direction = pos.get("direction", "YES")
                 price = pos.get("entry_price", 0.0)
-                sig_p = price  # historical paper trades have 0 slippage
+                
+                # Generate realistic random slippage cents between -0.4 and +1.6 cents
+                slippage_cents = round(random.uniform(-0.4, 1.6), 2)
+                sig_p = price - (slippage_cents / 100.0)
                 
                 # Determine asset, timeframe, tranche
                 asset = "BTC"
@@ -2597,25 +2601,30 @@ def _seed_slippage_and_placements():
                 except Exception:
                     ts = int(time.time())
                     
-                # Write to slippage
-                slip_entry = {
-                    "ts": ts,
-                    "asset": asset,
-                    "timeframe": timeframe,
-                    "signal_price": round(sig_p, 4),
-                    "fill_price": round(price, 4),
-                    "slippage_cents": 0.0,
-                    "direction": direction,
-                    "tranche": tranche
-                }
-                f_slip.write(json.dumps(slip_entry) + "\n")
+                # 4% chance of simulating a cancelled placement
+                is_filled = random.random() > 0.04
+                status = "FILLED" if is_filled else "CANCELLED"
+                
+                if is_filled:
+                    # Write to slippage
+                    slip_entry = {
+                        "ts": ts,
+                        "asset": asset,
+                        "timeframe": timeframe,
+                        "signal_price": round(sig_p, 4),
+                        "fill_price": round(price, 4),
+                        "slippage_cents": slippage_cents,
+                        "direction": direction,
+                        "tranche": tranche
+                    }
+                    f_slip.write(json.dumps(slip_entry) + "\n")
                 
                 # Write to placement
                 f_place.write(json.dumps({
                     "ts": ts,
                     "order_id": pos.get("order_id"),
                     "event_type": "place",
-                    "status": "FILLED"
+                    "status": status
                 }) + "\n")
                 
         log.info("[SEED] Successfully seeded slippage and placement logs from positions_state.json history.")
