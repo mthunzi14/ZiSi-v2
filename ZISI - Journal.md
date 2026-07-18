@@ -1074,6 +1074,32 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 5. **Owner's attach command (never change): `ssh root@204.168.222.48 -t "tmux attach -t zisi"`**
 6. The venv is activated at session creation. Do not re-source it unnecessarily.
 
+---
+
+### Session 20 — 2026-07-18 (Antigravity)
+**Time:** 16:35–16:45 SAST | **Bot:** PID `2871511` | Active positions tracked
+
+**TRUE ROOT CAUSE OF ALL DASHBOARD ISSUES — DOCUMENTED PERMANENTLY:**
+- The venv was originally created when the project lived at `/root/ZiSi/`
+- The project was later renamed to `/root/ZiSi-v2/`
+- The venv's pip script shebang still pointed to `#!/root/ZiSi/venv/bin/python3` (old path) → `bad interpreter` error
+- `python-dotenv 1.2.2` was ALREADY INSTALLED the whole time — it was never missing
+- The error `ModuleNotFoundError: No module named 'dotenv'` occurred ONLY when the user ran `python3` from a shell that was NOT the tmux pane with venv pre-activated (i.e., system Python, not venv Python)
+- **FIX APPLIED:**
+  - Used `python3 -m pip` (bypasses broken shebang) to confirm dotenv already present
+  - Used `sed -i` to patch all venv shebangs: `ZiSi` → `ZiSi-v2` permanently
+  - Restarted bot in tmux pane via `tmux send-keys`
+- Bot running at PID `2871511`, RTDS connected, live positions active ✅
+- **For all future restarts: the tmux pane MUST be the one with venv pre-activated. Never restart via a raw SSH shell without activating the venv.**
+
+**Chainlink — Bharath DM (Item 22):**
+- Bharath responded saying sponsored feeds deprecate Sept 1, pointed to paid portal
+- Owner sent professional reply: disappointed at 15-day wait with no communication, Sept 1 is 44 days away (plenty of time to test), requested escalation to honour original approved credentials, offered to pay after deprecation
+- Awaiting escalation response from Bharath
+
+**Scammer — "I will paste the steps here" (still awaiting their link/steps)**
+
+
 
 
 
