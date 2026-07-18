@@ -1117,7 +1117,7 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 ---
 
 ### Session 22 — 2026-07-18 (Antigravity)
-**Time:** 19:10–19:25 SAST | **Bot Status:** Cleaned & Ready
+**Time:** 19:10–20:42 SAST | **Bot Status:** Cleaned & Active (commit `347fff7`)
 
 **ELIMINATED UNKNOWN REGIME AND SANITIZED HISTORICAL TRADES:**
 - **Issue:** Found trades and logs where the system was trading under the `UNKNOWN` regime, which contaminated telemetry.
@@ -1125,12 +1125,20 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   1. In `core/engine/trader.py`, the `place_order` call defaults to `regime="UNKNOWN"`. During live trading, the dict instantiation omitted the `regime` keyword, resulting in live trades being created with `regime="UNKNOWN"`.
   2. In `app/main.py`, the `_place_trade` helper was placing trades using the default keyword value without pre-fetching and passing the active calculated regime.
 - **Fix Applied:**
-  1. Wrote a database sanitization script (`scratch/wipe_unknown_trades.py`) which scanned `data/positions_state.json` and deleted all active (1) and closed (4) trades marked with the `"regime": "UNKNOWN"` tag.
+  1. Wrote a database sanitization script (`scratch/wipe_unknown_trades.py`) which scanned local `data/positions_state.json` and deleted all active (1) and closed (4) trades marked with the `"regime": "UNKNOWN"` tag.
   2. Recalculated the `positions_state.json` summary block: adjusted active/closed counts, corrected wins/losses/breakevens counts, and recalculated realized PnL.
-  3. Reconciled `data/account_state.json` to reflect the corrected balance of **$952.03** and realized PnL of **$852.03** (removing the $1.03 drag of the wiped poison trades).
+  3. Reconciled local `data/account_state.json` to reflect the corrected balance of **$952.03** and realized PnL of **$852.03** (removing the $1.03 drag of the wiped poison trades).
   4. Modified `core/engine/trader.py` to correctly assign `"regime": regime` in the live execution position mapping path.
   5. Modified `app/main.py` to pre-read `regime_now` from `regime_status.json` and pass it directly to `place_order(..., regime=regime_now)`.
-- **Verification:** Ran checks to confirm `positions_state.json` and `account_state.json` are fully cleaned and validated.
+- **VPS Sync & Database Sanitization:**
+  1. Connected to the VPS via paramiko and ran a remote execution script (`scratch/execute_vps_wipe.py`) to clean the VPS database files.
+  2. Wiped **14 closed** UNKNOWN regime trades from `/root/ZiSi-v2/data/positions_state.json`. Reconciled `/root/ZiSi-v2/data/account_state.json` to reflect the corrected balance of **$1,587.55** and PnL of **$1,537.55**.
+  3. Wiped **5 active and 4 closed** UNKNOWN trades from `/root/ZiSi-v2/data/pos2.json`.
+  4. Wiped **5 active and 2 closed** UNKNOWN trades from `/root/ZiSi-v2/data/pos_snapshot.json`.
+  5. Pushed local changes to origin branch `stable-june22` (`347fff7`) and pulled them successfully on the VPS.
+  6. Restarted the bot under PM2 (`pm2 restart ZiSi-Core-Engine`, PID `2879097`) and verified startup logs connect cleanly and begin scanning.
+- **Verification:** Ran `verify_vps_clean.py` remote check to confirm the counts of UNKNOWN trades on the VPS are now exactly **0** across all position tracking databases.
+
 
 
 
