@@ -1919,7 +1919,9 @@ class UpDownEngine:
                 # sizes these big with a strong read); otherwise keep them small.
                 if price < 0.35 and conf < 0.75:
                     _bk_frac = min(_bk_frac, 0.05)
-                unified_max_cap = max(5.00, min(40.00, 5.00 + (conf - 0.50) * 80.0))
+                # Scale unified max cap dynamically with balance growth factor
+                growth_factor = max(1.0, balance / 120.0)
+                unified_max_cap = max(5.00 * growth_factor, min(40.00 * growth_factor, (5.00 + (conf - 0.50) * 80.0) * growth_factor))
                 usd_size = sizer.calculate_adaptive(
                     signal=sig_dict,
                     market=mkt_dict,
@@ -2024,11 +2026,10 @@ class UpDownEngine:
             price_scalar = 0.25  # 75% reduction
             log.info("[SIZE] Price %.4f extremely expensive -> applying 75%% scaling (x0.25)", price)
 
-        # Dynamic max cap based on AI confidence (up to $20.00)
-        # If balance is large, kelly_pct * balance could exceed 20.
-        # We cap it strictly to a sliding scale between $5.00 and $20.00
-        max_usd_cap = min(20.00, 5.00 + (score - 0.50) * 40.0) # score=0.5->5, score=0.875->20
-        max_usd_cap = max(5.00, max_usd_cap)
+        # Dynamic max cap based on AI confidence scaled with growth_factor
+        growth_factor = max(1.0, balance / 120.0)
+        max_usd_cap = min(20.00 * growth_factor, (5.00 + (score - 0.50) * 40.0) * growth_factor)
+        max_usd_cap = max(5.00 * growth_factor, max_usd_cap)
 
         raw_usd = kelly_pct * balance * regime_mult * price_scalar
 

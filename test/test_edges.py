@@ -184,7 +184,8 @@ class TestEdgesAndFilters(unittest.IsolatedAsyncioTestCase):
             context, engine, "BTC", "5m", 5, signal_sig, current_balance=200.0
         )
         self.assertTrue(allowed3)
-        self.assertAlmostEqual(details3["bet_usd"], 10.00) # capped to signal limit $10
+        self.assertAlmostEqual(details3["bet_usd"], 10.00 * (200.0 / 120.0)) # capped to dynamic signal limit ($10 * growth_factor)
+
 
     @patch("core.engine.updown_engine._fetch_klines_async")
     @patch("core.engine.updown_engine._cache")

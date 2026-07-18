@@ -565,17 +565,20 @@ async def _validate_trade_slot(
                  asset, timeframe, corr_mult, bet_usd)
 
 
+    # Calculate growth factor relative to $120.00 baseline to let sizing caps scale with balance growth
+    growth_factor = max(1.0, current_balance / 120.0)
+
     # ── P2: Global Bet Cap — differentiated by timeframe / entry conviction ──
     # Bonereaper bets 13-50% of account per trade. ZiSi raised to match proportionally.
     # REVERSAL_STREAK / 1h = highest conviction → 30% Kelly. Standard → 12%.
     if timeframe == "1h" or _entry_source == "REVERSAL_STREAK":
-        global_max_bet = min(current_balance * 0.30, 50.0)
+        global_max_bet = min(current_balance * 0.30, 50.0 * growth_factor)
         _cap_label = "HIGH-CONV"
     elif _entry_source == "FAIR_VAL" and entry_price < 0.40:
-        global_max_bet = min(current_balance * 0.30, 50.0)
+        global_max_bet = min(current_balance * 0.30, 50.0 * growth_factor)
         _cap_label = "FV-DEEP"
     else:
-        global_max_bet = min(current_balance * 0.12, 20.0)
+        global_max_bet = min(current_balance * 0.12, 20.0 * growth_factor)
         _cap_label = "STANDARD"
     if bet_usd > global_max_bet:
         log.debug("[RISK] %s bet cap $%.2f -> $%.2f", _cap_label, bet_usd, global_max_bet)
@@ -583,15 +586,16 @@ async def _validate_trade_slot(
 
     # ── P3: SIGNAL-specific Bet Cap ($10.0) ──
     if _entry_source in ("SIG", "SIGNAL"):
-        if bet_usd > 10.0:
-            log.debug("[RISK] SIGNAL trade size capped at $10.0: $%.2f -> $10.00", bet_usd)
-            bet_usd = 10.0
+        sig_cap = 10.0 * growth_factor
+        if bet_usd > sig_cap:
+            log.debug("[RISK] SIGNAL trade size capped at $%.2f: $%.2f -> $%.2f", sig_cap, bet_usd, sig_cap)
+            bet_usd = sig_cap
 
     # ── Tier 0: FV 1h hard cap ──
     # Until FV probability is calibrated (Platt scaling), cap 1h FV at 10%/balance or $8.
     # A single 1h FV loss at $10+ on a $22 balance = -45% drawdown; this prevents runaway.
     if _entry_source == "FAIR_VAL" and timeframe == "1h":
-        _fv_1h_cap = min(current_balance * 0.10, 8.0)
+        _fv_1h_cap = min(current_balance * 0.10, 8.0 * growth_factor)
         if bet_usd > _fv_1h_cap:
             log.debug("[RISK] FV-1h cap: $%.2f → $%.2f (uncalibrated — env FV_1H_MAX_BET to override)", bet_usd, _fv_1h_cap)
             bet_usd = float(os.getenv("FV_1H_MAX_BET", str(_fv_1h_cap)))
