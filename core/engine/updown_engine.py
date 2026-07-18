@@ -1669,8 +1669,8 @@ class UpDownEngine:
         start_ts = boundary - interval
         offsets = [0, -1, 1]
 
-        # Wait up to 15 seconds (15 poll attempts) for the new market to be created / resolved
-        for poll_attempt in range(15):
+        # Wait up to 3 seconds (3 poll attempts) for the new market to be created / resolved
+        for poll_attempt in range(3):
             # Check pre-fetched first
             if start_ts in self._prefetched_markets:
                 cached_market = self._prefetched_markets[start_ts]
@@ -1690,7 +1690,7 @@ class UpDownEngine:
                     )
                     return market
                 else:
-                    if poll_attempt == 14:
+                    if poll_attempt == 2:
                         log.warning("[ENGINE] %s/%s: L2 book is illiquid, empty, or not yet initialized (spread > 15c) — skipping trade", self.asset, self.timeframe)
                         return None
                     else:
