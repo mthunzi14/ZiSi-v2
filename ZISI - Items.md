@@ -1,5 +1,5 @@
-﻿# ZISI — Items
-**Last Updated:** 2026-07-18 13:55 SAST
+# ZISI — Items
+**Last Updated:** 2026-07-18 14:10 SAST
 **Maintained by:** All agents (Antigravity + Coding Tool) + Owner
 
 > **How this document works:**
@@ -13,20 +13,7 @@
 
 ---
 
-## 🔴 ITEM 13 — Delete Non-Owner Wallet Files
-**Type:** Coding Tool | **Priority:** Medium
 
-`wallet/` on VPS contains non-owner files (verified 2026-07-18):
-- `wallet_0x21d0a97a_active_positions.json`, `_history.json`, `_multi_week.json`
-- `wallet_0xeebde7a0_active_positions.json`, `_history.json`
-- `wallet_active_positions.json`
-- `resolved_winners_cache.json`
-
-**Steps:** Confirm owner wallet, delete all non-owner files, commit.
-
-**Done when:** `wallet/` only contains owner files or is empty.
-
----
 
 ## 🔴 ITEM 19 — Build Full Oracle Stack
 **Type:** Coding Tool | **Priority:** Medium (blocked on Item 22)
@@ -50,14 +37,14 @@ Move HYPE from `ACTIVE_ASSETS` to `FUTURE_ASSETS`. Do NOT implement without owne
 ## 🔴🔥 ITEM 22 — Escalate Chainlink Data Streams Credentials
 **Type:** Owner Action | **Priority:** 🔥 URGENT
 
-Form submitted 2026-07-04. 14+ days. Third follow-up needed.
+Form submitted 2026-07-04. **15 days.** Third follow-up needed.
 
-**Send to:** tvc-stephen.maceda@smartcontract.com | **CC:** gtm-inbound@smartcontract.com
-**Subject:** Re: Chainlink Data Streams — Polymarket Binary Trading Engine [ESCALATION]
+**Email to:** tvc-stephen.maceda@smartcontract.com | **CC:** gtm-inbound@smartcontract.com  
+**Subject:** `Re: Chainlink Data Streams — Polymarket Binary Trading Engine [ESCALATION]`
 
 > Hi Stephen, following up for the third time on the HMAC API credentials for the sponsored Data Streams access program.
 >
-> Timeline: Approved July 3 → Form submitted July 4 → Follow-up July 16 → No response as of July 18 (14 days waiting).
+> Timeline: Approved July 3 → Form submitted July 4 → Follow-up July 16 → No response as of July 18 (15 days waiting).
 >
 > We are live on paper with real infrastructure waiting for this key. If there is a delay or an additional step needed, just let me know — otherwise I would appreciate either the credentials or a direct escalation to whoever provisions them.
 >
@@ -65,7 +52,8 @@ Form submitted 2026-07-04. 14+ days. Third follow-up needed.
 >
 > Mthunzi Sibiya | mthunzi.sibiya2005@gmail.com | @MthunziSibiya
 
-**Also:** Chainlink Discord `#data-streams` — tag @ChainlinkDevRel. Link: https://discord.gg/chainlink
+**Also — Discord (parallel action):** Go to https://discord.gg/chainlink → `#data-streams` channel → tag `@ChainlinkDevRel` with:
+> "Following up on a sponsored Data Streams access request submitted July 4 — 15 days no credentials. Can someone from provisioning help? DMs open."
 
 **Done when:** HMAC key + endpoint + asset IDs received → hand to coding tool for Item 19.
 
