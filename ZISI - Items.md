@@ -1,5 +1,5 @@
 # ZISI — Items
-**Last Updated:** 2026-07-18 14:25 SAST
+**Last Updated:** 2026-07-18 14:40 SAST
 **Maintained by:** All agents (Antigravity + Coding Tool) + Owner
 
 > **How this document works:**
@@ -64,6 +64,25 @@ Form submitted 2026-07-04. **15 days.** Three contacts made, zero credentials re
 **Also:** Official form: https://chain.link/contact ("Talk to an Expert")
 
 **Done when:** HMAC key + endpoint + asset IDs received → hand to coding tool for Item 19.
+
+---
+
+## 🔴 ITEM 24 — Win Rate Stability Floor (82% Minimum)
+**Type:** Monitoring + Coding Tool | **Priority:** High
+
+Owner specified win rate must remain above **82%** at all times.
+
+**Current status:** Win rate formula fixed in commit `8325a05` (breakevens excluded from denominator). True WR is now correctly calculated as `wins / (wins + losses)`.
+
+**Monitoring:** Watch win rate on terminal dashboard after each candle boundary. If it trends below 82%, investigate which assets/sessions are underperforming.
+
+**If WR drops below 82%:**
+1. Check asset-level breakdown in terminal — identify the lagging asset
+2. Check if HYPE or BNB (newer assets with less history) are dragging the average
+3. Consider tightening signal thresholds for underperforming assets
+4. Report findings and proposed fix before touching any code
+
+**Done when:** Win rate consistently holds above 82% and monitoring protocol is established.
 
 ---
 

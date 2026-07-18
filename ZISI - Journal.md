@@ -670,6 +670,40 @@ PBot Sweeper (98.9% WR): enters at T-1.5s to T-0.5s before candle close via LAT-
 - Gas balance = $5.58 (VPS fees).
 
 
+### Session 9 — 2026-07-18 (Antigravity)
+**Time:** 14:34 SAST
+**Commit:** `8325a05`
+
+**Item 22 — Chainlink: Second email confirmed sent:**
+- Owner sent email to `devrel@smartcontract.com` + CC `gtm-inbound@smartcontract.com` at 14:32 SAST. Evidence provided via screenshot.
+- Subject: "Chainlink Data Streams — Sponsored Access Credentials [15 Days Pending]"
+- Two parallel email threads now active (Stephen Maceda + DevRel team).
+
+**🔴 SCAM CONFIRMATION — Discord "CHAINLINK LIVE SUPPORT":**
+- After being warned, owner continued the conversation momentarily. The scammer asked: "What VM wallet compatible was integrated to Chainlink?" — a classic social engineering prompt to extract wallet/seed phrase info.
+- Owner has been warned again. Treat all messages from `admin.livechainlink` as void. Block + report.
+- No wallet was shared. Bot is paper trading — no live wallet exists yet.
+
+**Code fix — Win Rate: Breakevens excluded from denominator (commit `8325a05`):**
+- Bug: Win rate was calculated as `wins / (wins + losses + breakevens)` — treating breakevens as equivalent to losses in the denominator, artificially deflating the metric.
+- Fix: Changed to `wins / (wins + losses)` across all 4 calculation points in `zisi_terminal.py`:
+  - Line 332: `generate_trade_history_report()`
+  - Line 745: Main metrics panel
+  - Line 941: Asset breakdown loop
+  - Line 952: `format_breakdown_line()` helper
+- Breakevens (-$0.01 to +$0.01 P&L) are still displayed as `BE` in the terminal — just excluded from WR denominator.
+- Deployed to VPS. Terminal will show corrected (higher) win rate immediately on next refresh.
+
+**New Item added — Item 24: Win rate stability floor of 82%:**
+- Owner specified win rate must stay above 82% minimum.
+- Added to Items doc as monitoring item.
+
+**Paper trading note (permanent record):**
+- No Polymarket wallet exists. Bot is 100% paper trading.
+- "Polygon" in voice transcription = Polymarket (transcription error).
+
+
+
 
 ### Session 3 — 2026-07-18 (Antigravity)
 **Time:** 09:36 SAST
