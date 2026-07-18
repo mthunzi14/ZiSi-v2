@@ -34,11 +34,10 @@ def run_reset():
             print("Writing clean positions_state.json...")
             pos_data = {
                 "last_updated": "2026-07-11T14:45:00.000000+00:00",
-                "source": "polymarket+kalshi",
+                "source": "polymarket",
                 "summary": {
                     "active_count": 0,
                     "poly_active": 0,
-                    "kalshi_active": 0,
                     "closed_count": 0,
                     "unrealized_pnl": 0.0,
                     "realized_pnl": 0.0,

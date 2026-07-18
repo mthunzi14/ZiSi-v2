@@ -71,7 +71,6 @@ class MLPipeline:
                     "hypothetical_trades": cycle_metrics.get("hypothetical_trades", 0),
                     "hypothetical_pnl": cycle_metrics.get("hypothetical_pnl", 0),
                     "matches": cycle_metrics.get("matched_events", 0),
-                    "kalshi_matches": cycle_metrics.get("kalshi_matches", 0),
                     "liquidity_skips": cycle_metrics.get("liquidity_skips", 0),
                     "price_skips": cycle_metrics.get("price_skips", 0),
                 },

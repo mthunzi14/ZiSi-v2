@@ -20,7 +20,7 @@ _METRICS_DIR = Path(__file__).parent
 _skip_counts: dict[str, int] = {"liquidity": 0, "entry_price": 0}
 _skip_log: list[dict] = []
 
-# Session-scoped real-trade log (Kalshi + future markets)
+# Session-scoped real-trade log
 _real_trade_log: list[dict] = []
 
 

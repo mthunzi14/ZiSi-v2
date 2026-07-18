@@ -104,7 +104,7 @@ def calculate_binary_kelly(
     entry_price: float,
 ) -> float:
     """
-    Asymmetric Kelly for binary prediction markets (Polymarket/Kalshi).
+    Asymmetric Kelly for binary prediction markets (Polymarket).
 
     On a binary market you risk `entry_price` to win `1 - entry_price`.
     Standard Kelly assumes symmetric payoffs; this formula accounts for the

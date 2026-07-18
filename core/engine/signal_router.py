@@ -39,13 +39,13 @@ class SignalTypeClassifier:
 
 class RoutingEngine:
     """
-    Routes enriched signals to matching Polymarket or Kalshi events.
+    Routes enriched signals to matching Polymarket events.
     """
     def get_eligible_markets(
         self,
         signal: dict,
         polymarket_events: list,
-        kalshi_events: list = None
+        kalshi_events: list = None  # retained for backward-compat call signature; unused
     ) -> dict:
         asset = str(signal.get("coin") or signal.get("asset") or "").upper()
         
@@ -58,13 +58,12 @@ class RoutingEngine:
                  
         return {
             "polymarket": eligible_poly,
-            "kalshi": []
         }
 
 
 class CategoryConfidenceWeighter:
     """
-    Returns confidence weights for different category-exchange combinations.
+    Returns confidence weights for different market category combinations.
     """
     def __init__(self) -> None:
         self.weights = {
@@ -74,11 +73,6 @@ class CategoryConfidenceWeighter:
                 "SPORTS": 0.5,
                 "OTHER": 0.8,
             },
-            "kalshi": {
-                "CRYPTO": 1.2,
-                "MACRO": 1.0,
-                "OTHER": 0.8,
-            }
         }
 
     def get_weight(self, exchange: str, category: str) -> float:

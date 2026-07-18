@@ -26,8 +26,12 @@ import aiohttp
 
 log = logging.getLogger("zisi.confluence_engine")
 
-# ── Binance kline endpoint ────────────────────────────────────────────────────
-_BINANCE_KLINES_URL = "https://api.binance.com/api/v3/klines"
+# ── Binance kline endpoints ──────────────────────────────────────────────────
+_BINANCE_KLINES_URL      = "https://api.binance.com/api/v3/klines"
+_BINANCE_FAPI_KLINES_URL = "https://fapi.binance.com/fapi/v1/klines"  # Futures REST
+
+# Assets that must use Binance Futures klines (not on Binance spot)
+_FUTURES_KLINES_ASSETS: set[str] = {"HYPEUSDT"}
 
 # ── Timeframes to analyse ────────────────────────────────────────────────────
 _TIMEFRAMES: list[str] = ["1m", "5m", "15m", "1h"]
@@ -56,17 +60,17 @@ _MOMENTUM_THRESHOLD: float = 0.10  # ±0.10% considered neutral
 
 # ── Binance symbol map ────────────────────────────────────────────────────────
 _SYMBOL_MAP: dict[str, str] = {
-    "BTC": "BTCUSDT",
-    "ETH": "ETHUSDT",
-    "SOL": "SOLUSDT",
-    "XRP": "XRPUSDT",
+    "BTC":  "BTCUSDT",
+    "ETH":  "ETHUSDT",
+    "SOL":  "SOLUSDT",
+    "XRP":  "XRPUSDT",
     "DOGE": "DOGEUSDT",
     "LINK": "LINKUSDT",
-    "BNB": "BNBUSDT",
-    "ADA": "ADAUSDT",
+    "BNB":  "BNBUSDT",
+    "ADA":  "ADAUSDT",
     "AVAX": "AVAXUSDT",
-    "LINK": "LINKUSDT",
-    "SUI": "SUIUSDT",
+    "SUI":  "SUIUSDT",
+    "HYPE": "HYPEUSDT",  # Binance Futures only — routed via _FUTURES_KLINES_ASSETS
 }
 
 # Number of kline candles to fetch per request
@@ -198,8 +202,10 @@ class ConfluenceEngine:
                 "interval": interval,
                 "limit": _KLINE_LIMIT,
             }
+            # Route HYPE to Binance Futures REST — HYPEUSDT not on spot
+            url = _BINANCE_FAPI_KLINES_URL if symbol in _FUTURES_KLINES_ASSETS else _BINANCE_KLINES_URL
             async with session.get(
-                _BINANCE_KLINES_URL, params=params, timeout=aiohttp.ClientTimeout(total=8)
+                url, params=params, timeout=aiohttp.ClientTimeout(total=8)
             ) as resp:
                 if resp.status != 200:
                     log.warning(

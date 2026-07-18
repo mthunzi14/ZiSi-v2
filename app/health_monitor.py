@@ -2,7 +2,7 @@
 health_monitor.py — ZiSi System Health Monitor
 
 Runs a 90-second background diagnostic loop covering:
-  1. API connectivity (Kalshi + Polymarket)
+  1. API connectivity (Polymarket)
   2. Position reconciliation (orphaned positions)
   3. Bankroll accuracy (local vs API balance)
   4. ML pipeline activity (labelled examples in last 24h)
@@ -92,7 +92,7 @@ def get_active_alerts() -> list:
 # ---------------------------------------------------------------------------
 
 def _check_api_connectivity() -> bool:
-    """Verify Polymarket + Kalshi APIs are reachable.
+    """Verify Polymarket API is reachable.
 
     Any HTTP response (including 4xx auth/not-found) means the server is up.
     Only 5xx or network failure counts as degraded.
@@ -184,7 +184,7 @@ def _check_bankroll_accuracy() -> bool:
 
         # Use positions_state.json as the single source of truth for realized P&L.
         # This avoids discrepancies between zisi_local_trades.jsonl and what the
-        # trader actually booked (Kalshi, partial fills, etc.).
+        # trader actually booked (partial fills, etc.).
         if not POSITIONS_FILE.exists():
             return True
 
@@ -406,7 +406,6 @@ def startup_recovery() -> bool:
             data["summary"]["poly_active"] = sum(
                 1 for p in cleaned if p.get("market") == "POLYMARKET"
             )
-            data["summary"]["kalshi_active"] = 0
         data["last_updated"] = datetime.now(timezone.utc).isoformat()
         with GLOBAL_POSITIONS_LOCK:
             tmp_path = POSITIONS_FILE.with_suffix(".tmp")

@@ -13,7 +13,7 @@ Usage in main.py:
     _cycle_manager = CycleManager(account_balance=cfg["ACCOUNT_BALANCE"])
 
     # Inside the main cycle:
-    result = _cycle_manager.process_signals(signals, all_events, kalshi_events)
+    result = _cycle_manager.process_signals(signals, all_events)
     for sig in result["enriched_signals"]:
         _process_signal(sig, result["eligible_events"][sig["signal_type"]], cfg)
 """
@@ -53,7 +53,7 @@ class CycleManager:
         self,
         signals: List[Dict],
         polymarket_events: List[Dict],
-        kalshi_events: List[Dict] = None,
+        kalshi_events: List[Dict] = None,  # retained for backward-compat; unused
     ) -> Dict:
         """
         Run all signals through the full pipeline.

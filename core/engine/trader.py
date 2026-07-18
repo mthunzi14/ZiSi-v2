@@ -684,9 +684,6 @@ def place_order(
         log.warning("[TRADE] Missing event_title for %s — will display as [%s]", order_id, event_id[:16])
     _display_title = event_title if event_title else f"[{event_id[:30]}]"
 
-    if market == "KALSHI":
-        log.error("[TRADE] Kalshi is disabled/dead. Cannot place Kalshi orders.")
-        return None
 
     if mode == "paper_trading":
         log.debug(
@@ -2158,7 +2155,6 @@ def persist_positions() -> None:
         summary = {
             "active_count":  len(merged_active),
             "poly_active":   len(active),
-            "kalshi_active": 0,
             "closed_count":  len(merged_closed),
             "unrealized_pnl": round(sum(p.get("unrealized_pnl", 0) for p in active), 2),
             "realized_pnl":   round(
@@ -2171,7 +2167,7 @@ def persist_positions() -> None:
 
         data = {
             "last_updated": now.isoformat(),
-            "source":       "polymarket+kalshi",
+            "source":       "polymarket",
             "summary":      summary,
             "active":       merged_active,
             "closed":       merged_closed,

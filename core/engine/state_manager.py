@@ -70,7 +70,7 @@ def initialize_state() -> float:
 
         # Always reconcile against positions_state.json — it is the authoritative
         # source of truth. If the disk value diverges by more than 5%, use the
-        # positions-computed value to prevent drift from removed markets (e.g. Kalshi).
+        # positions-computed value to prevent drift from removed markets.
         computed = _balance_from_positions()
         if computed is not None:
             gap_pct = abs(disk_balance - computed) / max(1.0, abs(computed))
@@ -437,7 +437,7 @@ def cleanup_expired_positions() -> int:
                 if expiry < (now - 7200.0):
                     zombies.append(p)
             else:
-                # For Kalshi/other positions, clean up after 10 minutes (600 seconds)
+                # For non-Polymarket positions, clean up after 10 minutes (600 seconds)
                 if expiry < (now - 600.0):
                     zombies.append(p)
 
