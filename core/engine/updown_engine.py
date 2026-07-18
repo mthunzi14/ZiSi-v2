@@ -24,9 +24,24 @@ log = logging.getLogger("zisi.engine")
 # Live engine instances keyed by "ASSET/timeframe" for outcome feedback
 _ENGINE_REGISTRY: dict[str, "UpDownEngine"] = {}
 
-# Consolidated polling log states for Item 25
+# Consolidated polling log states
 _WAITING_POLLS_ASSETS: dict[tuple, list] = {}
 _WAITING_POLLS_LOGGED: set[tuple] = set()
+
+# ---------------------------------------------------------------------------
+# BTC Market Leadership Anchor (Item 25)
+# BTC is the market leader. When BTC has decisive directional momentum,
+# all other assets should align with BTC's direction.
+# This dict stores BTC's latest confluence verdict to anchor siblings.
+# ---------------------------------------------------------------------------
+_BTC_ANCHOR: dict = {
+    "direction": None,   # "UP" | "DOWN" | "NEUTRAL" | None
+    "score": 0.0,        # confluence score 0.0–1.0
+    "cvd_fast": 0.0,     # BTC CVD 10s window at time of eval
+    "ts": 0.0,           # unix timestamp of last BTC evaluation
+}
+_BTC_ANCHOR_MIN_SCORE = 0.60   # BTC must be this decisive to anchor others
+_BTC_ANCHOR_MAX_AGE  = 310.0   # seconds: one candle + 10s grace
 
 # Consolidated illiquid book log states for Item 25
 _ILLIQUID_BOOKS_ASSETS: dict[tuple, list] = {}
@@ -1267,6 +1282,48 @@ class UpDownEngine:
 
                     except Exception as e:
                         log.error("[CONFLUENCE-ERR] Failed to evaluate Confluence: %s", e)
+
+                    # -------------------------------------------------------
+                    # BTC Market Leadership Anchor (Item 25)
+                    # -------------------------------------------------------
+                    try:
+                        if self.asset.upper() == "BTC":
+                            # BTC updates the shared anchor after each confluence eval
+                            _BTC_ANCHOR["direction"] = direction
+                            _BTC_ANCHOR["score"]     = score_base
+                            _BTC_ANCHOR["cvd_fast"]  = fast_cvd if fast_cvd is not None else 0.0
+                            _BTC_ANCHOR["ts"]        = time.time()
+                            log.debug(
+                                "[BTC-ANCHOR] BTC anchor updated: dir=%s score=%.2f cvd_fast=%.1f",
+                                direction, score_base, _BTC_ANCHOR["cvd_fast"]
+                            )
+                        else:
+                            # Non-BTC: check if BTC anchor is fresh + decisive
+                            anchor_age = time.time() - _BTC_ANCHOR["ts"]
+                            btc_dir    = _BTC_ANCHOR["direction"]
+                            btc_score  = _BTC_ANCHOR["score"]
+                            if (
+                                btc_dir is not None
+                                and btc_dir not in ("NEUTRAL", None)
+                                and btc_score >= _BTC_ANCHOR_MIN_SCORE
+                                and anchor_age <= _BTC_ANCHOR_MAX_AGE
+                                and direction not in ("NEUTRAL", None)
+                                and direction != btc_dir
+                            ):
+                                log.info(
+                                    "[BTC-ANCHOR] %s/%s: flipping direction %s → %s "
+                                    "(BTC anchor: dir=%s score=%.2f cvd=%.1f age=%.0fs)",
+                                    self.asset, self.timeframe, direction, btc_dir,
+                                    btc_dir, btc_score, _BTC_ANCHOR["cvd_fast"], anchor_age
+                                )
+                                direction = btc_dir
+                            elif btc_dir is not None and anchor_age <= _BTC_ANCHOR_MAX_AGE:
+                                log.debug(
+                                    "[BTC-ANCHOR] %s/%s: aligned dir=%s btc=%s score=%.2f age=%.0fs",
+                                    self.asset, self.timeframe, direction, btc_dir, btc_score, anchor_age
+                                )
+                    except Exception as _anc_e:
+                        log.warning("[BTC-ANCHOR] Failed to apply anchor: %s", _anc_e)
 
 
         # Composite score
