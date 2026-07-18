@@ -1043,15 +1043,16 @@ async def asset_loop(
             now_ts = _t.time()
             candle_start = (int(now_ts) // (interval_minutes * 60)) * (interval_minutes * 60)
             elapsed_now = now_ts - candle_start
-            if elapsed_now > 35.0:
+            if elapsed_now > 55.0:
                 log.warning(
-                    "[MAIN] %s/%s: Aborting trade execution — signal calculation took too long (elapsed=%.1fs, limit=35s)",
+                    "[MAIN] %s/%s: Aborting trade execution — signal calculation took too long (elapsed=%.1fs, limit=55s)",
                     asset, timeframe, elapsed_now
                 )
                 context.log_skip("stale_signal_abort", asset, timeframe)
                 log_unified_sig_lifecycle(asset, timeframe, signal, None, "SKIP", "stale_signal_abort")
                 await _sleep_to_next_candle(interval_minutes, asset, timeframe, session, context)
                 continue
+
 
             context.funnel_stats["signals_generated"] += 1
 

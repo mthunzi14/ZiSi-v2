@@ -1190,74 +1190,84 @@ class UpDownEngine:
                     if has_cvd:
                         fast_cvd, slow_cvd = await get_cvd_metrics(self.asset)
                         binance_obi = await get_binance_obi(self.asset)
-                        
-                        # Step 5: Confluence Framework
-                        try:
-                            from core.confluence.engine import confluence_risk_manager
-                            price_velocity = (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
-                            reg_mode = "TRENDING" if regime == "TREND" else "MEAN_REVERTING"
-                            
-                            conf_res = confluence_risk_manager.evaluate(
-                                rsi=rsi,
-                                mom=mom,
-                                fast_cvd=fast_cvd if fast_cvd is not None else 0.0,
-                                slow_cvd=slow_cvd if slow_cvd is not None else 0.0,
-                                binance_obi=binance_obi if binance_obi is not None else 0.0,
-                                price_velocity=price_velocity,
-                                regime=reg_mode,
-                                is_weekend=is_weekend
-                            )
-                            
-                            direction = conf_res["direction"]
-                            raw_dir = direction
-                            
-                            # Adjust score base based on confluence decision
-                            if conf_res["decision"] == "CONFIRM":
-                                score_base = min(1.0, score_base + 0.10)
-                            elif conf_res["decision"] in ("INVERT", "FADE"):
-                                score_base = min(0.90, 0.50 + abs(conf_res["flow_pressure"]) * 0.35)
-                            
-                            log.debug(
-                                "[CONFLUENCE] %s/%s: rsi=%.1f mom=%.3f flow_pressure=%.2f cvd=%.2f obi=%.2f nic=%.2f | decision=%s path=%s",
-                                self.asset, self.timeframe, rsi, mom, conf_res["flow_pressure"],
-                                conf_res["cvd_score"], conf_res["obi_score"], conf_res["nic_score"],
-                                conf_res["decision"], conf_res["decision_path"]
-                            )
-                            
-                            try:
-                                from pathlib import Path
-                                matrix_file = Path(__file__).parent.parent.parent / "data" / "gate_matrix.json"
-                                mat_data = {}
-                                if matrix_file.exists():
-                                    try:
-                                        import json as _json
-                                        mat_data = _json.loads(matrix_file.read_text(encoding="utf-8"))
-                                    except Exception:
-                                        pass
-                                
-                                mat_data["WEEKEND"] = is_weekend
-                                assets_data = mat_data.setdefault("assets", {})
-                                assets_data[self.asset.upper()] = {
-                                    "rsi": round(rsi, 1),
-                                    "cvd": round(conf_res["cvd_score"], 2),
-                                    "obi": round(conf_res["obi_score"], 2),
-                                    "nic": round(conf_res["nic_score"], 2),
-                                    "score": round(score_base, 2),
-                                    "status": conf_res["decision"] if direction != "NEUTRAL" else "NEUTRAL"
-                                }
-                                
-                                tmp = matrix_file.with_suffix(".tmp")
-                                import json as _json
-                                tmp.write_text(_json.dumps(mat_data, indent=2), encoding="utf-8")
-                                import os as _os
-                                _os.replace(tmp, matrix_file)
-                            except Exception as me:
-                                log.warning("Failed to write gate matrix: %s", me)
-                                
-                        except Exception as e:
-                            log.error("[CONFLUENCE-ERR] Failed to evaluate Confluence: %s", e)
                     else:
-                        log.info("[SIG-FLOW-PROCEED] %s/%s: CVD data is missing — proceeding on technical triggers", self.asset, self.timeframe)
+                        # CVD not yet warmed (common at startup for new assets like HYPE).
+                        # Still run confluence with zeroed flow data — RSI, momentum, NIC
+                        # and OBI signals still provide meaningful filtering.
+                        fast_cvd, slow_cvd, binance_obi = 0.0, 0.0, 0.0
+                        log.debug(
+                            "[SIG-FLOW] %s/%s: CVD not yet warmed — running confluence with zeroed flow data",
+                            self.asset, self.timeframe
+                        )
+
+                    # Step 5: Confluence Framework — runs for ALL assets, CVD-warmed or not
+                    try:
+                        from core.confluence.engine import confluence_risk_manager
+                        price_velocity = (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
+                        reg_mode = "TRENDING" if regime == "TREND" else "MEAN_REVERTING"
+
+                        conf_res = confluence_risk_manager.evaluate(
+                            rsi=rsi,
+                            mom=mom,
+                            fast_cvd=fast_cvd if fast_cvd is not None else 0.0,
+                            slow_cvd=slow_cvd if slow_cvd is not None else 0.0,
+                            binance_obi=binance_obi if binance_obi is not None else 0.0,
+                            price_velocity=price_velocity,
+                            regime=reg_mode,
+                            is_weekend=is_weekend
+                        )
+
+                        direction = conf_res["direction"]
+                        raw_dir = direction
+
+                        # Adjust score base based on confluence decision
+                        if conf_res["decision"] == "CONFIRM":
+                            score_base = min(1.0, score_base + 0.10)
+                        elif conf_res["decision"] in ("INVERT", "FADE"):
+                            score_base = min(0.90, 0.50 + abs(conf_res["flow_pressure"]) * 0.35)
+
+                        log.debug(
+                            "[CONFLUENCE] %s/%s: rsi=%.1f mom=%.3f flow_pressure=%.2f cvd=%.2f obi=%.2f nic=%.2f | decision=%s path=%s%s",
+                            self.asset, self.timeframe, rsi, mom, conf_res["flow_pressure"],
+                            conf_res["cvd_score"], conf_res["obi_score"], conf_res["nic_score"],
+                            conf_res["decision"], conf_res["decision_path"],
+                            " [no-cvd]" if not has_cvd else ""
+                        )
+
+                        try:
+                            from pathlib import Path
+                            matrix_file = Path(__file__).parent.parent.parent / "data" / "gate_matrix.json"
+                            mat_data = {}
+                            if matrix_file.exists():
+                                try:
+                                    import json as _json
+                                    mat_data = _json.loads(matrix_file.read_text(encoding="utf-8"))
+                                except Exception:
+                                    pass
+
+                            mat_data["WEEKEND"] = is_weekend
+                            assets_data = mat_data.setdefault("assets", {})
+                            assets_data[self.asset.upper()] = {
+                                "rsi": round(rsi, 1),
+                                "cvd": round(conf_res["cvd_score"], 2),
+                                "obi": round(conf_res["obi_score"], 2),
+                                "nic": round(conf_res["nic_score"], 2),
+                                "score": round(score_base, 2),
+                                "status": conf_res["decision"] if direction != "NEUTRAL" else "NEUTRAL",
+                                "cvd_warmed": has_cvd,
+                            }
+
+                            tmp = matrix_file.with_suffix(".tmp")
+                            import json as _json
+                            tmp.write_text(_json.dumps(mat_data, indent=2), encoding="utf-8")
+                            import os as _os
+                            _os.replace(tmp, matrix_file)
+                        except Exception as me:
+                            log.warning("Failed to write gate matrix: %s", me)
+
+                    except Exception as e:
+                        log.error("[CONFLUENCE-ERR] Failed to evaluate Confluence: %s", e)
+
 
         # Composite score
         # FV Score Isolation (Tier 1): FV signals have their own confidence model.

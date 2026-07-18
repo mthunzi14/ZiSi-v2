@@ -1913,13 +1913,14 @@ def format_cents(val: float) -> str:
 def _get_trade_desc(pos: dict) -> str:
     title = pos.get("event_title", "")
     asset = "UNKNOWN"
-    for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+    for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
         if f"[{possible}]" in title.upper() or possible in title.upper():
             asset = possible
             break
     direction = pos.get("direction", "YES")
     dir_str = "UP" if direction in ("YES", "UP") else "DOWN"
     return f"{asset} [{dir_str}]"
+
 
 
 def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_reason: str, profit: float, shares_closed: float, cost_closed: float):
