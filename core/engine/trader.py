@@ -832,6 +832,7 @@ def place_order(
             "tranche_b_target": tranche_b_target,
             "tranche_a_closed": False,
             "tranche_b_closed": False,
+            "regime":           regime,
             **({"expiry_ts": expiry_ts} if expiry_ts else {}),
         }
         persist_positions()

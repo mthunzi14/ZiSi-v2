@@ -1287,6 +1287,16 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
         shares = max(1, round(usd_amount / execution_price)) if execution_price > 0 else 1
         actual_cost = shares * execution_price
 
+        regime_now = "UNKNOWN"
+        try:
+            import json as _j
+            from pathlib import Path as _P
+            _rs = _P(__file__).parent.parent / "data" / "regime_status.json"
+            if _rs.exists():
+                regime_now = _j.loads(_rs.read_text(encoding="utf-8")).get("regime", "UNKNOWN")
+        except Exception:
+            pass
+
         order = place_order(
             event_id=market["event_id"],
             market_id=market_id,
@@ -1297,6 +1307,7 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             expiry_ts=market["expiry_ts"],
             entry_spot=strike_price or spot_price,
             yes_market_id=market["up_market"].get("id", ""),
+            regime=regime_now,
             signal_price=entry_price,
         )
 
@@ -1307,12 +1318,8 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             )
             # Stamp the regime at entry time for Session×Regime analytics
             try:
-                import json as _j
-                from pathlib import Path as _P
-                _rs = _P(__file__).parent.parent / "data" / "regime_status.json"
-                _regime_now = _j.loads(_rs.read_text(encoding="utf-8")).get("regime", "UNKNOWN") if _rs.exists() else "UNKNOWN"
                 from core.engine.trader import annotate_position
-                annotate_position(order["order_id"], regime=_regime_now)
+                annotate_position(order["order_id"], regime=regime_now)
             except Exception:
                 pass
             _try_telegram(

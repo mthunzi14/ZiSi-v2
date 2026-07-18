@@ -1114,6 +1114,25 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   4. Killed the raw bot process running inside the tmux session and launched `zisi_terminal.py` using the venv python interpreter.
 - **Verification:** Captured the tmux panel and confirmed the rich dashboard UI (including the Spot Matrix, Active Positions, Performance Summary, Trade History, and Live Engine Logs) is rendering perfectly in real-time, matching the original design.
 
+---
+
+### Session 22 — 2026-07-18 (Antigravity)
+**Time:** 19:10–19:25 SAST | **Bot Status:** Cleaned & Ready
+
+**ELIMINATED UNKNOWN REGIME AND SANITIZED HISTORICAL TRADES:**
+- **Issue:** Found trades and logs where the system was trading under the `UNKNOWN` regime, which contaminated telemetry.
+- **Root Cause:**
+  1. In `core/engine/trader.py`, the `place_order` call defaults to `regime="UNKNOWN"`. During live trading, the dict instantiation omitted the `regime` keyword, resulting in live trades being created with `regime="UNKNOWN"`.
+  2. In `app/main.py`, the `_place_trade` helper was placing trades using the default keyword value without pre-fetching and passing the active calculated regime.
+- **Fix Applied:**
+  1. Wrote a database sanitization script (`scratch/wipe_unknown_trades.py`) which scanned `data/positions_state.json` and deleted all active (1) and closed (4) trades marked with the `"regime": "UNKNOWN"` tag.
+  2. Recalculated the `positions_state.json` summary block: adjusted active/closed counts, corrected wins/losses/breakevens counts, and recalculated realized PnL.
+  3. Reconciled `data/account_state.json` to reflect the corrected balance of **$952.03** and realized PnL of **$852.03** (removing the $1.03 drag of the wiped poison trades).
+  4. Modified `core/engine/trader.py` to correctly assign `"regime": regime` in the live execution position mapping path.
+  5. Modified `app/main.py` to pre-read `regime_now` from `regime_status.json` and pass it directly to `place_order(..., regime=regime_now)`.
+- **Verification:** Ran checks to confirm `positions_state.json` and `account_state.json` are fully cleaned and validated.
+
+
 
 
 
