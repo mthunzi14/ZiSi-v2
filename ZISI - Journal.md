@@ -746,6 +746,68 @@ PBot Sweeper (98.9% WR): enters at T-1.5s to T-0.5s before candle close via LAT-
 - When scammer sends a link: screenshot and share for logging. Do NOT click.
 
 
+### Session 11 — 2026-07-18 (Antigravity)
+**Time:** 14:57–15:05 SAST
+**Commit:** `56d8035`
+
+**Item 19 — Three-Tier Oracle Stack: IMPLEMENTED ✅**
+- **File:** `core/engine/polymarket_rtds_ingest.py`
+- **Architecture (committed `56d8035`):**
+  - **Tier 1 (PRIMARY — live):** Chainlink RTDS via public Polymarket WebSocket (`wss://ws-live-data.polymarket.com`) — subscribed to `crypto_prices_chainlink` for all 7 assets. Real-time tick-by-tick.
+  - **Tier 2 (SECONDARY — live):** Binance REST REST polls every 30s as backstop when RTDS WS is down. Already existed; renamed/documented.
+  - **Tier 3 (TERTIARY — new):** Coinbase REST (`api.coinbase.com/v2/prices/{ASSET}-USD/spot`) polls every 45s — **only updates stale assets (>60s since last Chainlink/Binance update)**. Acts as independent sanity check / last-resort price source.
+  - **Plug-and-play upgrade path:** When Chainlink Data Streams HMAC credentials arrive (Item 22), `_socket_loop` will be upgraded to authenticated Data Streams subscription — zero other code changes needed.
+- **Stagger design:** Binance fires at t+30s, Coinbase fires at t+15s then t+60s thereafter — never simultaneous, minimal REST pressure when RTDS is live.
+- Deployed to VPS via tmux `zisi` session at 15:03 SAST.
+
+**Loss Streak Deep Analysis (1,082 closed trades):**
+
+**Root cause of ALL large losses (>$3.50): "market expired, loss"**
+
+ALL losses above $3.50 share the exact same exit reason: `EX/ES market expired, loss` — exit price = $0.01 (worthless). These are NOT normal exits — they are positions where:
+1. Bot entered a direction (YES or NO)
+2. The market expired/resolved
+3. The resolution went against the position → position dropped to $0.01
+
+**Large loss events identified:**
+| Time | Asset | Dir | Entry | PnL | Type |
+|---|---|---|---|---|---|
+| 2026-07-17 10:50 | BTC | NO | 0.615 | -$4.84 × 2 | Expired |
+| 2026-07-17 12:20 | XRP | NO | 0.740 | -$5.11 × 2 | Expired |
+| 2026-07-17 15:10 | XRP | YES | 0.595 | -$4.97 × 2 | Expired |
+| 2026-07-18 02:15 | XRP | NO | 0.460 | -$4.73 × 2 | Expired |
+| 2026-07-18 05:10 | SOL | YES | 0.495 | -$4.85 × 2 | Expired |
+| 2026-07-18 05:55 | DOGE | YES | 0.400 | -$4.88 × 2 | Expired |
+| 2026-07-18 10:05 | BNB | NO | 0.495 | -$3.64 × 2 | Expired |
+| 2026-07-18 12:25 | HYPE | YES | 0.230 | -$4.29 × 2 | Expired |
+| 2026-07-18 12:45 | BTC | NO | 0.475 | -$4.89 × 2 | Expired |
+
+**Pattern:** EX and ES tranches both expire worthless simultaneously (hence doubles). All in MEAN_REVERTING regime.
+
+**12:10-13:25 streak (BNB + DOGE as owner mentioned):**
+- BNB 10:05: NO expired -$3.64/-$3.63 (EX+ES)
+- BNB 11:15: NO expired -$2.44/-$2.43 (EX+ES)
+- DOGE 11:20: NO expired -$2.37/-$2.37 (EX+ES)
+- (Voice transcript time offset; actual times 10:05-11:20 UTC = 12:05-13:20 SAST ✅)
+
+**Why wrong direction?**
+- In MEAN_REVERTING regime, the engine bets on price reversal
+- These markets resolved in the continuation direction (NOT the reversal)
+- = The MEAN_REVERTING regime signal was correct in detecting a price deviation, but the mean reversion didn't materialise before market expiry
+- Crucial insight: **the problem is not signal direction — it is time horizon**. A 5-minute binary market is too short for mean reversion to play out when a strong trend is underway.
+
+**Proposed fix (open for owner review before implementation):**
+1. If HFT momentum (from Binance futures) is strongly trending at entry time, skip MEAN_REVERTING entries on the reversal side entirely
+2. OR: require confluence engine score to be higher for MEAN_REVERTING entries (raise threshold from current to e.g. 0.75+)
+3. OR: block entries in final 2 candle windows before known market expiry boundaries
+- Owner approval needed before any of the above are coded.
+
+**Scam playbook — Step 3 response script:**
+- Say: *"Oh okay MetaMask, yeah I use that. Haven't really touched it in a while though, the app looks different from what I remember. What do I need to do with it?"*
+- Next expected from scammer: link to fake site, seed phrase request, or "gas fee" demand
+
+
+
 
 
 

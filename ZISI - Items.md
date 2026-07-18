@@ -1,5 +1,5 @@
 # ZISI — Items
-**Last Updated:** 2026-07-18 14:50 SAST
+**Last Updated:** 2026-07-18 15:05 SAST
 **Maintained by:** All agents (Antigravity + Coding Tool) + Owner
 
 > **How this document works:**
@@ -15,15 +15,19 @@
 
 
 
-## 🔴 ITEM 19 — Build Full Oracle Stack
-**Type:** Coding Tool | **Priority:** Medium (blocked on Item 22)
+## ✅ ITEM 19 — Build Full Oracle Stack
+**Type:** Code | **Priority:** Critical | **Status:** COMPLETE (commit `56d8035`)
 
-**Priority order:**
-1. Chainlink Data Streams (PRIMARY — waiting on Item 22 credentials)
-2. Binance WebSocket (SECONDARY — partially live)
-3. Coinbase WebSocket (TERTIARY — cross-validation only)
+**Three-tier oracle stack is live in `core/engine/polymarket_rtds_ingest.py`:**
 
-**Done when:** Three-tier oracle stack running with clean fallback in startup logs.
+| Tier | Source | Method | Interval | Status |
+|---|---|---|---|---|
+| 1 — PRIMARY | Chainlink RTDS (Polymarket) | WebSocket | Real-time ticks | ✅ Live |
+| 1 — UPGRADE | Chainlink Data Streams (HMAC) | WebSocket | Real-time | ⏳ Waiting on Item 22 credentials |
+| 2 — SECONDARY | Binance REST | Poll every 30s | Fallback when T1 down | ✅ Live |
+| 3 — TERTIARY | Coinbase REST | Poll every 45s | Only updates stale assets | ✅ Live (NEW) |
+
+**Plug-and-play upgrade:** When HMAC credentials arrive, slot them into `_socket_loop()` — no other code changes needed.
 
 ---
 
@@ -89,6 +93,24 @@ Owner requirement: WR must stay above **82%** at all times.
 **Monitoring:** Watch asset breakdown in terminal. Alert if any established asset (100+ trades) drops below 82%.
 
 **Done when:** BNB and HYPE each reach 50+ trades with WR ≥ 82%, confirming calibration.
+
+---
+
+## 🔴 ITEM 25 — Fix Large Losses from MEAN_REVERTING Expired Markets
+**Type:** Code | **Priority:** High | **Status:** PENDING OWNER APPROVAL
+
+**Root cause identified (Session 11):**
+All losses >$3.50 share one pattern: `market expired, loss` — bot entered a direction, market resolved against it, position dropped to $0.01.
+- In MEAN_REVERTING regime, bot bets on price reversal
+- These markets resolved in continuation direction before reversal could occur
+- Problem is **time horizon**, not signal quality — 5-min binary too short when strong trend underway
+
+**Proposed fixes (owner must choose one or more):**
+1. ⚠️ **HFT Momentum Gate:** If Binance futures momentum is strongly trending at entry, skip MEAN_REVERTING reversal entries
+2. ⚠️ **Raise threshold:** Increase confluence score requirement for MEAN_REVERTING entries (e.g., from current to 0.75+)
+3. ⚠️ **Expiry proximity block:** Block new entries within last 2 candle windows before market expiry
+
+**Owner must approve which fix(es) to implement before any code is written.**
 
 ---
 
