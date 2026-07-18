@@ -636,6 +636,40 @@ PBot Sweeper (98.9% WR): enters at T-1.5s to T-0.5s before candle close via LAT-
 - Item 20: Gate HYPE (on hold — owner decision)
 - Item 22: Chainlink escalation — **OWNER TO SEND NOW**
 
+### Session 8 — 2026-07-18 (Antigravity)
+**Time:** 14:22 SAST
+
+**🔴 CRITICAL SCAM ALERT — Chainlink Discord DM:**
+- Owner was contacted by a Discord account called "CHAINLINK LIVE SUPPORT" (domain: `admin.livechainlink`).
+- This is a **SCAMMER**. Chainlink operates exclusively on `chain.link` and `smartcontract.com` domains.
+- The account accepted a friend request instantly and the domain is fake.
+- Owner was warned: do NOT respond, do NOT click links, block and report.
+- Real Chainlink support never initiates Discord DMs.
+
+**Item 22 — Chainlink: Status Update:**
+- Escalation email sent to Stephen Maceda at 14:21 SAST (third contact, second follow-up).
+- Discord channel `#data-feeds` is read-only for non-staff — could not post publicly.
+- Owner DM'd the fake "Chainlink Live Support" by mistake — treat as void, do not follow up.
+- **NEW alternative contact found:** `devrel@smartcontract.com` — Chainlink's active DevRel email, confirmed used for Data Streams onboarding.
+- **Recommend owner send next email to:** `devrel@smartcontract.com` with same escalation message — this is a parallel channel to Stephen Maceda.
+- Official form also available: https://chain.link/contact ("Talk to an Expert")
+- Item 22 remains open until HMAC credentials received.
+
+**Fact: No Polymarket wallet exists yet (paper trading):**
+- Owner clarified: no Polygon/Polymarket wallet address exists.
+- Bot is 100% paper trading — all P&L is simulated against real market prices.
+- Wallet creation will happen when transitioning to live trading.
+- Item 13 (wallet cleanup) was about stale local data files, not a real wallet — already confirmed done.
+- This fact is now permanently recorded. All agents: do not reference a wallet address for this bot.
+
+**Balance Milestone — $1,495.67 (paper):**
+- `account_state.json` confirmed: balance = **$1,495.67** (starting from $50.00)
+- P&L = **+$1,445.67** | Trades executed = **1,068**
+- Return on starting capital = **+2,891%** (paper)
+- Approaching $1,500 mark. Bot is actively scanning, paused=false, phase_1.
+- Gas balance = $5.58 (VPS fees).
+
+
 
 ### Session 3 — 2026-07-18 (Antigravity)
 **Time:** 09:36 SAST
