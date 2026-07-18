@@ -588,6 +588,9 @@ def build_header_panel() -> Panel:
         else:
             liveness_status = "[bold yellow]● STANDBY[/bold yellow]"
 
+    date_str = now_utc.strftime("%Y-%m-%d")
+    location_str = "Johannesburg/SAST"
+
     header_text = Text.assemble(
         ("ZiSi-v2 ", f"bold {COLOR_LABEL}"),  # Naming alignment: ZiSi-v2 in Titanium Gray
         ("│ ", "bright_black"),
@@ -596,6 +599,9 @@ def build_header_panel() -> Panel:
         (" │ ", "bright_black"),
         ("UTC: ", f"bold {COLOR_LABEL}"),
         (utc_str, f"bold {COLOR_ASSET}"),
+        (" │ ", "bright_black"),
+        ("Date: ", f"bold {COLOR_LABEL}"),
+        (f"{date_str} ({location_str})", f"bold {COLOR_ASSET}"),
         (" │ ", "bright_black"),
         ("SAST: ", f"bold {COLOR_LABEL}"),
         (sast_str, f"bold {COLOR_ASSET}"),
@@ -1096,6 +1102,97 @@ def build_spot_prices_panel() -> Panel:
     return Panel(table, title=f"[bold {COLOR_LABEL}]Spot & Oracle Price Matrix[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
+def get_rolling_avg_slippage(window: int = 50) -> float:
+    try:
+        from pathlib import Path
+        import json
+        log_file = Path(__file__).parent / "data" / "slippage_log.jsonl"
+        if not log_file.exists():
+            return 0.0
+            
+        slippages = []
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if "slippage_cents" in data:
+                        slippages.append(float(data["slippage_cents"]))
+                except Exception:
+                    continue
+                    
+        if not slippages:
+            return 0.0
+            
+        last_n = slippages[-window:]
+        return round(sum(last_n) / len(last_n), 2)
+    except Exception:
+        return 0.0
+
+
+def get_rolling_fill_rate(window: int = 50) -> float:
+    try:
+        from pathlib import Path
+        import json
+        log_file = Path(__file__).parent / "data" / "order_placements.jsonl"
+        if not log_file.exists():
+            return 100.0
+            
+        events = []
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    events.append(data)
+                except Exception:
+                    continue
+                    
+        if not events:
+            return 100.0
+            
+        order_status = {}
+        for ev in events:
+            oid = ev["order_id"]
+            stat = ev["status"]
+            order_status[oid] = stat
+            
+        unique_orders = list(order_status.values())[-window:]
+        if not unique_orders:
+            return 100.0
+            
+        filled = sum(1 for stat in unique_orders if stat == "FILLED")
+        return round((filled / len(unique_orders)) * 100.0, 1)
+    except Exception:
+        return 100.0
+
+
+def get_current_session() -> str:
+    """Return active trading session(s) based on current UTC hour."""
+    from datetime import datetime, timezone
+    utc_hour = datetime.now(timezone.utc).hour
+    
+    sessions = []
+    # London: 08:00 - 17:00 London local (typically 07:00 - 16:00 UTC)
+    if 7 <= utc_hour < 16:
+        sessions.append("LONDON")
+    # New York: 08:00 - 17:00 NY local (typically 13:00 - 22:00 UTC)
+    if 13 <= utc_hour < 22:
+        sessions.append("NEW YORK")
+    # Tokyo: 09:00 - 18:00 Tokyo local (typically 00:00 - 09:00 UTC)
+    if 0 <= utc_hour < 9:
+        sessions.append("TOKYO")
+    # Sydney: 09:00 - 18:00 Sydney local (typically 23:00 - 08:00 UTC)
+    if 23 <= utc_hour or utc_hour < 8:
+        sessions.append("SYDNEY")
+        
+    return " / ".join(sessions) if sessions else "LATE WORK"
+
+
 def build_regime_panel(fullscreen: bool = False) -> Panel:
     """Build the current regime classifications and indicators."""
     with g_state.lock:
@@ -1106,27 +1203,13 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
     
     # Load gate matrix data
     matrix_file = DATA_DIR / "gate_matrix.json"
-    is_weekend = False
     gate_assets = {}
     if matrix_file.exists():
         try:
             gate_data = json.loads(matrix_file.read_text(encoding="utf-8"))
-            is_weekend = gate_data.get("WEEKEND", False)
             gate_assets = gate_data.get("assets", {})
         except Exception:
             pass
-            
-    # Check fallback: if date is weekend
-    from datetime import datetime
-    if not is_weekend:
-        # Friday 22:00 UTC to Sunday 22:00 UTC
-        now_utc = datetime.utcnow()
-        day = now_utc.weekday()
-        hour = now_utc.hour
-        if (day == 4 and hour >= 22) or day == 5 or (day == 6 and hour < 22):
-            is_weekend = True
-            
-    timeline_mode = "WEEKEND" if is_weekend else "WEEKDAY"
 
     # Mapping styles
     regime_color = "white"
@@ -1139,12 +1222,29 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
     elif raw_reg == "VOLATILE_CHAOS":
         regime_color = "#ff746c bold"
 
+    # Get live metrics
+    curr_session = get_current_session()
+    avg_slippage = get_rolling_avg_slippage(50)
+    fill_rate = get_rolling_fill_rate(50)
+
     # Header Table
-    header_table = Table.grid(expand=True, padding=(0, 1))
-    header_table.add_column("Metric", style=f"bold {COLOR_LABEL}", width=16)
-    header_table.add_column("Value", justify="right", style=COLOR_VAL)
-    header_table.add_row("Market Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]")
-    header_table.add_row("Timeline Mode:", f"[bold {COLOR_ASSET}]{timeline_mode}[/bold {COLOR_ASSET}]")
+    header_table = Table.grid(expand=True, padding=(0, 2))
+    header_table.add_column("Metric 1", style=f"bold {COLOR_LABEL}", width=20)
+    header_table.add_column("Value 1", justify="left", style=COLOR_VAL, width=24)
+    header_table.add_column("Metric 2", style=f"bold {COLOR_LABEL}", width=20)
+    header_table.add_column("Value 2", justify="left", style=COLOR_VAL)
+    
+    header_table.add_row(
+        "Regime:", f"[{regime_color}]{raw_reg}[/{regime_color}]",
+        "Session:", f"[bold {COLOR_ASSET}]{curr_session}[/bold {COLOR_ASSET}]"
+    )
+    
+    slippage_color = "#ff746c" if avg_slippage > 4.0 else "#c1e1c1"
+    fill_color = "#ff746c" if fill_rate < 90.0 else "#c1e1c1"
+    header_table.add_row(
+        "Avg Slippage (50):", f"[bold {slippage_color}]{avg_slippage:.2f}¢[/bold {slippage_color}]",
+        "Avg Fill Rate (50):", f"[bold {fill_color}]{fill_rate:.1f}%[/bold {fill_color}]"
+    )
 
     # Signal & Gate Matrix Table
     matrix_table = Table(box=ROUNDED, expand=True, padding=(0, 1))
@@ -1276,7 +1376,7 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
 
     # Title with key guide
     title_guide = "R or H to Minimize" if fullscreen else "R to Fullscreen"
-    title_str = f"Market Regime & Analytics [{title_guide}]"
+    title_str = f"Analytics [{title_guide}]"
     return Panel(panel_content, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
@@ -1284,11 +1384,11 @@ def format_regime_str(regime: str) -> str:
     """Format and color regime names for table display."""
     r = str(regime).upper()
     if "MEAN" in r or "REVERT" in r:
-        return f"[bold #f5f5dc]MEAN REVERTING[/bold #f5f5dc]"
+        return f"[bold #f5f5dc]MEAN_REVERTING[/bold #f5f5dc]"
     elif "TREND" in r:
         return f"[bold #ffe5cc]TRENDING[/bold #ffe5cc]"
     elif "CHAOS" in r:
-        return f"[bold magenta]CHAOS[/bold magenta]"
+        return f"[bold magenta]VOLATILE_CHAOS[/bold magenta]"
     elif "COMPRESS" in r:
         return f"[bold #fff8dc]COMPRESSION[/bold #fff8dc]"
     else:

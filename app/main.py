@@ -1297,6 +1297,7 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             expiry_ts=market["expiry_ts"],
             entry_spot=strike_price or spot_price,
             yes_market_id=market["up_market"].get("id", ""),
+            signal_price=entry_price,
         )
 
         if order:

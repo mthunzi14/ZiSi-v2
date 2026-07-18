@@ -279,7 +279,8 @@ def _reconcile_pending_orders() -> None:
             price  = meta.get("entry_price", 0.5)
             amount = meta.get("amount", 0.0)
             direction = meta.get("direction", "UP")
-            tp, sl = _calculate_exit_targets_fallback(price, amount, meta.get("event_title", ""), direction)
+            event_title = meta.get("event_title", "")
+            tp, sl = _calculate_exit_targets_fallback(price, amount, event_title, direction)
             tranche_a_target = min(0.99, round(price + 0.12, 4))
             tranche_b_target = min(0.99, round(price + 0.28, 4))
 
@@ -301,12 +302,17 @@ def _reconcile_pending_orders() -> None:
                 "tranche_b_target": tranche_b_target,
                 "tranche_a_closed": False,
                 "tranche_b_closed": False,
-                "event_title":     meta.get("event_title", ""),
+                "event_title":     event_title,
             }
+            # Log realized slippage and fill event
+            sig_p = meta.get("signal_price") or price
+            log_fill_slippage(event_title, direction, price, sig_p)
+            log_order_event(order_id, "fill", "FILLED")
 
         elif status == "CANCELLED":
             log.info("[RECONCILE] Order %s was cancelled — removing", order_id)
             resolved_ids.append(order_id)
+            log_order_event(order_id, "cancel", "CANCELLED")
 
         elif status == "PENDING" and age_s > 300:
             log.warning(
@@ -319,6 +325,7 @@ def _reconcile_pending_orders() -> None:
             except Exception:
                 pass
             resolved_ids.append(order_id)
+            log_order_event(order_id, "cancel", "CANCELLED")
 
         elif status in ("PARTIALLY_FILLED",):
             log.warning("[RECONCILE] %s partially filled — monitoring", order_id)
@@ -347,6 +354,7 @@ def _register_pending_order(
     amount: float,
     entry_price: float,
     event_title: str = "",
+    signal_price: float = 0.0,
 ) -> None:
     """Mark an order for reconciliation (call when fill status is ambiguous)."""
     with _reconcile_lock:
@@ -358,6 +366,7 @@ def _register_pending_order(
             "entry_price": entry_price,
             "event_title": event_title,
             "placed_at":   datetime.now(timezone.utc),
+            "signal_price": signal_price,
         }
     log.info("[RECONCILE] Registered order %s for reconciliation", order_id)
 
@@ -461,6 +470,171 @@ def get_hold_to_expiry_flag(entry_price: float, fast_cvd: float, slow_cvd: float
     return abs(fast_cvd) / abs(slow_cvd) >= 0.40
 
 
+def log_fill_slippage(event_title: str, direction: str, fill_price: float, signal_price: float) -> None:
+    """Log realized slippage to data/slippage_log.jsonl and calculate rolling metrics."""
+    if not signal_price or signal_price <= 0.0:
+        return
+    try:
+        import re
+        import json
+        from pathlib import Path
+        
+        # Default fallbacks
+        asset = "BTC"
+        timeframe = "5m"
+        tranche = "A"
+        
+        # Title format example: "[UPDOWN][BTC][5m][SIGNAL] Bitcoin..."
+        match = re.search(r"\[UPDOWN\]\[(.*?)\]\[(.*?)\]\[(.*?)\]", event_title or "")
+        if match:
+            asset = match.group(1).upper()
+            timeframe = match.group(2)
+            tranche = match.group(3)
+        else:
+            # Fallback parsing
+            t = (event_title or "").upper()
+            for coin in ["BTC", "ETH", "SOL", "XRP", "DOGE"]:
+                if coin in t:
+                    asset = coin
+                    break
+            for tf in ["5m", "15m", "1h"]:
+                if tf in t:
+                    timeframe = tf
+                    break
+            if "SIGNAL" in t:
+                tranche = "SIGNAL"
+            elif "SINGLE" in t:
+                tranche = "SINGLE"
+            elif "LATENCY_ARB" in t or "LAT_ARB" in t:
+                tranche = "LAT-ARB"
+            elif "FAIR_VAL" in t or "FAIR-VAL" in t:
+                tranche = "FAIR-VAL"
+
+        slippage_cents = round((fill_price - signal_price) * 100, 2)
+        
+        data_dir = Path(__file__).parent.parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        log_file = data_dir / "slippage_log.jsonl"
+        
+        entry = {
+            "ts": int(time.time()),
+            "asset": asset,
+            "timeframe": timeframe,
+            "signal_price": round(signal_price, 4),
+            "fill_price": round(fill_price, 4),
+            "slippage_cents": slippage_cents,
+            "direction": direction.upper(),
+            "tranche": tranche
+        }
+        
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+            
+        avg_slippage = get_rolling_avg_slippage(50)
+        if avg_slippage > 4.0:
+            log.warning("[SLIPPAGE-ALERT] Rolling 50-trade average slippage is %.2f¢, which exceeds the 4.0¢ risk threshold!", avg_slippage)
+            
+    except Exception as e:
+        log.warning("[TRADE] Failed to log realized slippage: %s", e)
+
+
+def log_order_event(order_id: str, event_type: str, status: str) -> None:
+    """Log order placements and outcomes to order_placements.jsonl for live fill rate metrics."""
+    try:
+        import json
+        from pathlib import Path
+        
+        data_dir = Path(__file__).parent.parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        log_file = data_dir / "order_placements.jsonl"
+        
+        entry = {
+            "ts": int(time.time()),
+            "order_id": order_id,
+            "event_type": event_type,
+            "status": status
+        }
+        
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+            
+    except Exception as e:
+        log.warning("[TRADE] Failed to log order placement event: %s", e)
+
+
+def get_rolling_avg_slippage(window: int = 50) -> float:
+    """Return rolling average slippage in cents over last N trades."""
+    try:
+        import json
+        from pathlib import Path
+        log_file = Path(__file__).parent.parent.parent / "data" / "slippage_log.jsonl"
+        if not log_file.exists():
+            return 0.0
+            
+        slippages = []
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if "slippage_cents" in data:
+                        slippages.append(float(data["slippage_cents"]))
+                except Exception:
+                    continue
+                    
+        if not slippages:
+            return 0.0
+            
+        last_n = slippages[-window:]
+        return round(sum(last_n) / len(last_n), 2)
+    except Exception as e:
+        log.warning("[TRADE] Failed to compute rolling average slippage: %s", e)
+        return 0.0
+
+
+def get_rolling_fill_rate(window: int = 50) -> float:
+    """Return rolling fill rate percentage over last N placement events."""
+    try:
+        import json
+        from pathlib import Path
+        log_file = Path(__file__).parent.parent.parent / "data" / "order_placements.jsonl"
+        if not log_file.exists():
+            return 100.0
+            
+        events = []
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    events.append(data)
+                except Exception:
+                    continue
+                    
+        if not events:
+            return 100.0
+            
+        order_status = {}
+        for ev in events:
+            oid = ev["order_id"]
+            stat = ev["status"]
+            order_status[oid] = stat
+            
+        unique_orders = list(order_status.values())[-window:]
+        if not unique_orders:
+            return 100.0
+            
+        filled = sum(1 for stat in unique_orders if stat == "FILLED")
+        return round((filled / len(unique_orders)) * 100.0, 1)
+    except Exception as e:
+        log.warning("[TRADE] Failed to compute rolling fill rate: %s", e)
+        return 100.0
+
+
 def place_order(
     event_id: str,
     market_id: str,
@@ -474,6 +648,7 @@ def place_order(
     entry_spot: float = 0.0,
     yes_market_id: str = "",
     regime: str = "UNKNOWN",
+    signal_price: float = 0.0,
 ) -> Optional[dict]:
     """
     Place a BUY order for the given Polymarket market.
@@ -657,6 +832,12 @@ def place_order(
             "regime": regime,
         }
         persist_positions()
+        
+        # Log realized slippage and placement event
+        sig_p = signal_price if signal_price > 0.0 else entry_price
+        log_fill_slippage(_display_title, direction, entry_price, sig_p)
+        log_order_event(order_id, "place", "FILLED")
+        
         return order
 
     # Live order
@@ -677,7 +858,8 @@ def place_order(
             "[TRADE] Order placement timed out for market %s — "
             "registering for reconciliation (0x_Punisher pattern)", market_id,
         )
-        _register_pending_order(order_id, market_id, event_id, direction, amount_dollars, entry_price)
+        _register_pending_order(order_id, market_id, event_id, direction, amount_dollars, entry_price, _display_title, signal_price)
+        log_order_event(order_id, "place", "PENDING")
         return None
 
     data = resp.json()
@@ -714,8 +896,9 @@ def place_order(
         if verified_status not in ("FILLED",):
             # Still not confirmed — register for background reconciliation
             _register_pending_order(
-                resolved_id, market_id, event_id, direction, amount_dollars, entry_price, event_title
+                resolved_id, market_id, event_id, direction, amount_dollars, entry_price, event_title, signal_price
             )
+            log_order_event(resolved_id, "place", verified_status)
 
     if order["status"] == "FILLED":
         tp, sl = _calculate_exit_targets_fallback(entry_price, amount_dollars, event_title, direction)
@@ -744,8 +927,15 @@ def place_order(
             **({"expiry_ts": expiry_ts} if expiry_ts else {}),
         }
         persist_positions()
+        
+        # Log realized slippage and fill event
+        sig_p = signal_price if signal_price > 0.0 else entry_price
+        log_fill_slippage(event_title or event_id, direction, entry_price, sig_p)
+        log_order_event(order["order_id"], "fill", "FILLED")
+        
         log.info("Order placed and filled: %s", order["order_id"])
     else:
+        log_order_event(order["order_id"], "place", order["status"])
         log.info("Order placed but pending fill: %s (status=%s) — registered for reconciliation", order["order_id"], order["status"])
 
     return order
