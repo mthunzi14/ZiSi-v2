@@ -1152,6 +1152,10 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   3. This enables sizing to experience the 13.x times growth multiplier (from the $120.00 baseline to the current balance of $1,612.49) organically as capital compounds.
   4. Updated unit test `test_sizing_caps_risk_control` in `test/test_edges.py` to assert the scaled cap value. Verified that all **64 unit tests** pass locally.
 
+**SLIPPAGE GATE WIDENED TO 15 CENTS:**
+- **Issue:** Tight slippage threshold at 8 cents (`_max_slippage = 0.08` in `app/main.py`) was aborting execution of valid trades on fast-moving Polymarket order books, resulting in zero trade volume.
+- **Fix Applied:** Increased `_max_slippage` in `app/main.py` to `0.15` (15 cents) to accommodate wider spreads and faster repricings, ensuring the bot gets successfully filled.
+
 **ITEMS FILE CLEANUP:**
 - **Abandoned Item 22:** Removed Chainlink HMAC Data Streams credentials integration entirely from `ZISI - Items.md` as requested due to Chainlink deprecating sponsored feeds and pricing friction.
 - **Removed Item 25:** Deleted "Fix Large Losses from MEAN_REVERTING Expired Markets" item entirely from `ZISI - Items.md` as requested.
@@ -1161,8 +1165,8 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   - Overall stable win rate holds at ~83%.
 
 **VPS Sync & PM2 Restart:**
-- Pushed changes to origin branch `stable-june22` (`6d1b48f`) and pulled them successfully on the VPS.
-- Restarted the PM2 engine on the VPS (`pm2 restart ZiSi-Core-Engine` at PID `2883403`).
+- Pushed changes to origin branch `stable-june22` (`6d1b48f` and subsequently updated commit) and pulled them successfully on the VPS.
+- Restarted the PM2 engine on the VPS (`pm2 restart ZiSi-Core-Engine` at PID `2883403` and subsequently updated process).
 - Verified VPS logs confirm a clean start, initialized with the correct $1,612.49 account balance and all 7 assets registered, active, and scanning.
 
 
