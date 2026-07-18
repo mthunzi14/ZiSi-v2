@@ -1,0 +1,18 @@
+# ZiSi-v2 Core Requirements
+# Generated 2026-07-18 - these are ALL third-party packages the bot depends on
+
+# Core bot runtime
+python-dotenv==1.2.2
+aiohttp>=3.9.0
+numpy>=1.26.0
+requests>=2.31.0
+websockets>=12.0
+
+# Terminal dashboard (zisi_terminal.py)
+rich>=13.7.0
+
+# Deployment / SSH utilities
+paramiko>=3.4.0
+
+# ML components (optional - bot handles ImportError gracefully)
+scikit-learn>=1.4.0
