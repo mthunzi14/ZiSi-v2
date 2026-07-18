@@ -29,16 +29,23 @@ _market_books_lock = asyncio.Lock()
 _price_move_events = asyncio.Queue(maxsize=50)
 
 async def pre_warm_cvd(symbols, session):
+    # Assets only on Binance Futures (not spot)
+    _FUTURES_ASSETS = {"HYPE"}
     now = time.time()
     cutoff = now - 62.0
     for sym in symbols:
         s = sym.upper()
         try:
-            url = "https://api.binance.com/api/v3/aggTrades?symbol=" + s + "USDT&limit=500"
+            # HYPE is not on Binance spot — route to Binance Futures REST
+            if s in _FUTURES_ASSETS:
+                url = "https://fapi.binance.com/fapi/v1/aggTrades?symbol=" + s + "USDT&limit=500"
+            else:
+                url = "https://api.binance.com/api/v3/aggTrades?symbol=" + s + "USDT&limit=500"
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=5.0)) as resp:
                 if resp.status != 200:
                     continue
                 trades = await resp.json()
+
             async with _market_books_lock:
                 if s not in _market_books:
                     _market_books[s] = {

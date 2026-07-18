@@ -57,6 +57,10 @@ def notify_trade_outcome(event_title: str, won: bool) -> None:
 POLY_GAMMA_API = "https://gamma-api.polymarket.com"
 POLY_CLOB_API  = "https://clob.polymarket.com"
 BINANCE_API    = "https://api.binance.com/api/v3"
+BINANCE_FAPI   = "https://fapi.binance.com/fapi/v1"  # Futures REST for assets not on Binance spot
+
+# Assets that must use Binance Futures klines (not on Binance spot)
+_FUTURES_KLINES_ASSETS = {"HYPE"}
 
 _GATE_LOG_PATH = None  # resolved lazily on first write
 
@@ -127,11 +131,19 @@ def price_gate_passes(price: float, score: float) -> bool:
 # ── Sync Fallbacks (retained for safety / backwards compatibility) ─────────────
 def _fetch_klines(symbol: str, interval: str, limit: int) -> list:
     try:
-        r = requests.get(
-            f"{BINANCE_API}/klines",
-            params={"symbol": f"{symbol}USDT", "interval": interval, "limit": limit},
-            timeout=8,
-        )
+        # HYPE is not on Binance spot — route to Binance Futures REST
+        if symbol in _FUTURES_KLINES_ASSETS:
+            r = requests.get(
+                f"{BINANCE_FAPI}/klines",
+                params={"symbol": f"{symbol}USDT", "interval": interval, "limit": limit},
+                timeout=8,
+            )
+        else:
+            r = requests.get(
+                f"{BINANCE_API}/klines",
+                params={"symbol": f"{symbol}USDT", "interval": interval, "limit": limit},
+                timeout=8,
+            )
         return r.json() if r.status_code == 200 else []
     except Exception:
         return []
@@ -177,9 +189,15 @@ def _fetch_spread(token_id: str) -> Optional[float]:
 # ── Asynchronous Non-Blocking High-Frequency Adapters ─────────────────────────
 
 async def _fetch_klines_async(session: aiohttp.ClientSession, symbol: str, interval: str, limit: int) -> list:
-    """Fetch Binance klines using non-blocking, cached, collapsed requests."""
+    """Fetch Binance klines using non-blocking, cached, collapsed requests.
+    Routes HYPE to Binance Futures REST (fapi) since HYPEUSDT does not exist on Binance spot.
+    """
     async def _fetch():
-        url = f"{BINANCE_API}/klines"
+        # HYPE is not on Binance spot — route to Binance Futures REST
+        if symbol in _FUTURES_KLINES_ASSETS:
+            url = f"{BINANCE_FAPI}/klines"
+        else:
+            url = f"{BINANCE_API}/klines"
         params = {"symbol": f"{symbol}USDT", "interval": interval, "limit": limit}
         async with session.get(url, params=params, timeout=8) as r:
             if r.status == 200:
