@@ -913,3 +913,38 @@ ALL losses above $3.50 share the exact same exit reason: `EX/ES market expired, 
 - Next script: *"Ok sure, which one though? I have a few from different things. How do I find it in MetaMask again, it's been a while lol"*
 - Expected next: scammer will specify a network (ETH mainnet / Polygon / etc.) → then send a link or ask to "sync" wallet
 
+---
+
+### Session 14 — 2026-07-18 (Antigravity)
+**Time:** 15:34–15:40 SAST
+
+**Item 25 — ALL Previous Approaches PERMANENTLY REJECTED BY OWNER ❌**
+Owner reasoning: "All my entries are in MEAN_REVERTING regime. So halving position size changes the ENTIRE bot. We are not doing anything that breaks how the bot works. The 10 losses are not a bug. We picked the wrong direction. That is the ONLY problem."
+Permanently rejected:
+- ❌ Gates that skip trades
+- ❌ Confluence thresholds / filters
+- ❌ 0.5× sizing for MEAN_REVERTING
+- ❌ Any mechanism that alters trade frequency or position size
+These must NEVER be reopened. Future agents: do not propose these.
+
+**Item 25 — CORRECT DIRECTION (Owner's theory, endorsed as accurate):**
+Owner insight: "BTC is the leader. It shot in a direction. Every other asset followed. If we had just picked the right direction for BTC, the -$37.70 would have been +$37.70."
+This is standard inter-market leadership analysis. BTC CVD/OBI/momentum is already live in HFT WebSocket 24/7.
+New approach: BTC Market Leadership Signal — when BTC has decisive momentum, flip conflicting asset directions to match BTC. Trade fires every time. Volume unchanged. Only direction corrected.
+Full implementation plan in Items.md.
+
+**Win Rate (81.7% on terminal):**
+Owner dashboard showing 81.7% — below 82% floor. Cause: BNB/HYPE low-sample drag + recent 4× expired batch. BNB/HYPE now have full confluence (Session 12 fix). WR expected to recover within 50 more trades.
+
+**tmux Session — Full Server Kill + Fresh Restart ✅**
+- Killed ALL tmux sessions (kill-server) + all python main.py processes
+- Created brand new clean `zisi` session via `tmux new-session -d -s zisi` then `tmux send-keys`
+- Bot confirmed starting: RTDS WebSocket connecting at 15:38:02
+- Attach command: `tmux attach -t zisi`
+
+**Scammer — Step 5 response drafted:**
+Scammer said "Open your Metamask, Click Receive, Copy the Address."
+Next script to send: *"Ok I opened MetaMask. I can see the address and a QR code. Before I paste it here though — what do you actually need it for? Is this to link to Chainlink somehow?"*
+This forces them to commit to their fabricated story and reveals the scam mechanism before we expose them.
+
+

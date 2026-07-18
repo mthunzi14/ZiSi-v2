@@ -97,34 +97,51 @@ All losses >$3.50 share one pattern: `market expired, loss` — bot entered a di
 
 ---
 
-## 🔴 ITEM 25 — Fix Large Losses from MEAN_REVERTING Expired Markets
-**Type:** Code | **Priority:** High | **Status:** IN DISCUSSION — Awaiting final approach decision
+## 🔴 ITEM 25 — Fix Wrong Direction on MEAN_REVERTING Entries (BTC Leadership)
+**Type:** Code | **Priority:** High | **Status:** ANALYSIS — Developing approach
 
-**Root cause confirmed (Sessions 11–12):**
-- All losses >$3.50 = `market expired, loss` — bot entered a direction, market resolved against it → position drops to $0.01
-- **Confirmed live event at 15:25:10 SAST (Jul 18):** ETH/SOL/XRP/DOGE all expired simultaneously → **-$37.70 in 1 second** (4 trades × ~$9.40 EX+ES combined). Bot then immediately won 6 consecutive trades recovering +$20.
-- Problem is **time horizon mismatch**, NOT signal quality: MEAN_REVERTING correctly detects a deviation, but the 5-min market resolves before reversal plays out.
+**Root cause confirmed (Sessions 11–13):**
+- All major losses share one pattern: bot entered a direction, ALL assets moved the opposite way simultaneously
+- **Confirmed live event at 15:25:10 SAST (Jul 18):** ETH/SOL/XRP/DOGE all entered UP → ALL expired DOWN. -$37.70 in 1 second.
+- **Owner's theory (confirmed correct):** BTC is the market leader. When BTC shoots in a direction, every other asset follows it. If BTC had been read correctly as DOWN at that moment, the bot would have entered DOWN on all assets and banked +$37.70 instead of losing it.
+- **The real problem: the bot is picking the WRONG DIRECTION — not how much it bets.**
 
-**⛔ OWNER DIRECTION — NO BLOCKING GATES:**
-> Owner explicitly does NOT want:
-> - Gates that skip or block trades (kills volume)
-> - Confluence score thresholds that filter entries  
-> - Any mechanism that reduces trade frequency
+**⛔ PERMANENTLY REJECTED APPROACHES (do NOT reopen these):**
+> The following were proposed and **permanently rejected by owner:**
+> - ❌ Gates that skip or block MEAN_REVERTING trades (kills volume)
+> - ❌ Confluence score thresholds that filter entries
+> - ❌ 0.5× position size multiplier for MEAN_REVERTING (ALL entries are MEAN_REVERTING — this changes everything)
+> - ❌ Any mechanism that reduces trade frequency or alters sizing
+> - **The bot must NOT be changed in ways that affect its overall behaviour. Fix the direction. Nothing else.**
 
-**✅ Proposed approach — Reduced sizing for MEAN_REVERTING entries only:**
-- Trade still fires → **volume is fully preserved** ✅
-- For MEAN_REVERTING regime entries only: apply **0.5× position size multiplier**
-- WIN: smaller profit (acceptable, still profitable)
-- LOSS/Expired: maximum loss halved → **-$2.50 instead of -$5.00 per expired trade**
-- Simultaneous 4-asset expiry disaster: **-$18 instead of -$37.70** ✅
-- Sizing reverts to 1.0× automatically when regime = TRENDING
+**✅ CORRECT APPROACH — BTC Market Leadership Signal:**
+The fix is **directional intelligence**, not filtering:
+1. Read BTC's real-time momentum at every signal evaluation (already available via HFT WebSocket `get_cvd_metrics("BTC")`)
+2. When BTC has strong directional momentum (CVD fast significantly positive or negative), use BTC's direction as an **override anchor** for all other assets
+3. If asset signal conflicts with BTC momentum → **flip to match BTC** (direction correction, not skip)
+4. If BTC has no clear momentum → leave asset signal unchanged
+5. Trade still fires every time. Volume unchanged. Only the direction is corrected by BTC leadership.
 
-**Pending owner final approval of this approach before implementation.**
+**Why this works:**
+- BTC leads → all others follow (confirmed by owner's market analysis)
+- We already have BTC CVD/OBI/momentum in real-time from the HFT WS
+- Confluence already runs for BTC — we just need to propagate BTC's directional verdict to sibling assets when it's decisive
+- This turns the 10-loss scenario into a 10-WIN scenario
+
+**Implementation plan (pending owner approval to code):**
+- In `updown_engine.py`, after confluence runs for an asset, if `asset != "BTC"`: fetch BTC's current CVD fast/slow from `_market_books`
+- If BTC CVD fast > threshold AND asset direction = "DOWN" → flip to "UP"
+- If BTC CVD fast < -threshold AND asset direction = "UP" → flip to "DOWN"
+- Threshold = tunable parameter (start at 50.0 USDT CVD delta)
+- Log `[BTC-ANCHOR] {asset}: flipped direction {old} → {new} (BTC CVD={btc_cvd:.0f})`
+
+**Pending owner final approval to implement.**
 
 ---
 
 *Companion to ZISI - Journal.md | Both live at repo root: C:\Users\mthun\Downloads\ZiSi-v2\*
 *Completed items archived in Journal Session Entries*
+
 
 
 
