@@ -703,6 +703,50 @@ PBot Sweeper (98.9% WR): enters at T-1.5s to T-0.5s before candle close via LAT-
 - "Polygon" in voice transcription = Polymarket (transcription error).
 
 
+### Session 10 — 2026-07-18 (Antigravity)
+**Time:** 14:43–14:48 SAST
+
+**Tmux session confirmed + restart process documented:**
+- VPS tmux session `zisi` was already running (created 08:32 SAST, owner was attached).
+- Orphan nohup process (PID 2864701) was killed, fresh process (PID 2866488) launched inside tmux.
+- Owner attaches via: `ssh root@204.168.222.48 -t "tmux attach -t zisi"`
+- **Rule for all agents:** Always restart bot inside tmux session `zisi`, never with bare nohup. Use:
+  ```
+  pkill -f main.py; sleep 1
+  tmux kill-session -t zisi 2>/dev/null; sleep 0.5
+  tmux new-session -d -s zisi
+  tmux send-keys -t zisi 'cd /root/ZiSi-v2 && source venv/bin/activate && python app/main.py' Enter
+  ```
+
+**Per-Asset Win Rate Deep Analysis (1,082 closed trades):**
+- Overall corrected WR (excl BE): **84.2%** (890W / 167L / 25BE)
+- Overall P&L: +$1,447.44
+
+| Asset | Trades | W | L | BE | WR | PnL |
+|---|---|---|---|---|---|---|
+| BTC | 186 | 152 | 32 | 2 | **82.6%** | +$231.33 |
+| ETH | 213 | 176 | 33 | 4 | **84.2%** | +$278.83 |
+| SOL | 201 | 166 | 28 | 7 | **85.6%** | +$286.08 |
+| XRP | 238 | 195 | 35 | 8 | **84.8%** | +$306.00 |
+| DOGE | 222 | 189 | 30 | 3 | **86.3%** | +$351.04 |
+| **BNB** | **16** | **9** | **6** | **1** | **⚠️ 60.0%** | +$0.69 |
+| **HYPE** | **6** | **3** | **3** | **0** | **⚠️ 50.0%** | -$6.53 |
+
+**Diagnosis:**
+- BTC/ETH/SOL/XRP/DOGE are all individually above 82% — healthy and consistent.
+- BNB: 60% WR on only 16 trades — statistically too small to be reliable; signal calibration not yet locked in.
+- HYPE: 50% WR on only 6 trades — literally coin flip; essentially no history yet.
+- Root cause: Both are new assets with insufficient sample size for the engine to have calibrated edge. The engine's rolling outcomes window for these is nearly empty (2–10 historical trades vs 186–238 for established assets).
+- These two assets are dragging the aggregate WR down from what would be ~85%+ toward ~84%.
+
+**Discord Scam Playbook — documented for education:**
+- Scammer `admin.livechainlink` is running a classic "fake support" draining attack.
+- Their sequence: wallet app question → RPC ID → fake connect link → drain/seed phrase steal.
+- Owner is intentionally playing along to expose the full playbook. No real wallet exists — safe to observe.
+- When scammer sends a link: screenshot and share for logging. Do NOT click.
+
+
+
 
 
 ### Session 3 — 2026-07-18 (Antigravity)
