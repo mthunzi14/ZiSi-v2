@@ -1027,6 +1027,55 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   *"Ok that sounds good. So once you add it, do I need to do anything on my side to generate the RPC ID? Like is there a website I go to or do you send it to me?"*
 - Once they show the link or fee → expose them, call them out, block and report.
 
+---
+
+### Session 18 — 2026-07-18 (Antigravity)
+**Time:** 16:21–16:27 SAST | **Bot:** PID `2870648` | **Trades:** 1,142
+
+**tmux Dashboard — FULLY RESTORED ✅**
+- Root cause of broken dashboard: Antigravity incorrectly changed tmux from running the bot directly → to running `tail -f zisi_bot_console.log`. This removed the interactive dashboard.
+- Fix: Reverted. Bot runs directly in tmux pane again (`python3 app/main.py` sent via `tmux send-keys`).
+- Session: zisi created 14:22:55 UTC
+- **Owner command (permanent, never change this): `ssh root@204.168.222.48 -t "tmux attach -t zisi"`**
+- **PERMANENT RULE for all future agents: The bot MUST run directly in the tmux pane. Do NOT replace it with tail, nohup, or any log viewer. The bot output IS the dashboard. Never change this architecture.**
+
+**Item 22 — Chainlink Bharath Response (CRITICAL UPDATE):**
+- Bharath (16:18): "The Sponsored feeds are deprecating on 1 September. So I would recommend you to look into paid feeds on our self-serve portal instead, where you can create credentials, purchase the feeds and use the data in your dApp. https://app.chain.link/streams"
+- **Owner's position:** This is unacceptable. We were approved on July 3, waited 15 days with no credentials and no communication, only to be told feeds are deprecating. September 1 is 44 days away — plenty of time to test. The sponsored credentials should still be honoured.
+- **Owner will NOT move to paid immediately.** They want the sponsored access as originally promised, for the remaining time until deprecation, THEN evaluate paying.
+- **Reply DM sent to Bharath (owner to send):**
+  - Expressed professional disappointment at the failure to deliver on the promise
+  - Pointed out Sept 1 is 44 days away — still useful for testing
+  - Requested escalation to honour the original approved credentials
+  - Stated willingness to transition to paid after deprecation
+- **Item 22 status:** Waiting for Bharath escalation response
+
+**Scammer — Step 9: "Paste steps" incoming**
+- Scammer (16:17): "Yes I will paste the steps here."
+- The link/phishing URL has not yet been pasted. Waiting.
+- When it arrives: check if domain is NOT chain.link or chainlink.io → immediately call them out, expose them, block and report to Chainlink Official server.
+
+---
+
+### Session 19 — 2026-07-18 (Antigravity)
+**Time:** 16:25–16:30 SAST | **Bot:** PID `2870908` | **RTDS:** Connected
+
+**ModuleNotFoundError: No module named 'dotenv' — FIXED ✅**
+- Error appeared because Antigravity's `nohup python3 app/main.py` (without venv) corrupted the pip execution path
+- The tmux pane already had `(venv)` active from the session's first start — so sending `python3 app/main.py` directly via `tmux send-keys` to the existing pane (which had venv active) worked correctly
+- Bot running at PID `2870908` via `/root/ZiSi-v2/venv/bin/python3` ✅
+- Price refreshes and RTDS connections confirmed in logs
+
+**⚠️ PERMANENT DEPLOYMENT RULES — ALL FUTURE AGENTS MUST FOLLOW:**
+1. **NEVER kill the tmux session** (`tmux kill-session` or `tmux kill-server`) while the owner may be attached
+2. **NEVER run `nohup python3 app/main.py`** outside the venv — always go through the tmux pane that already has the venv active
+3. **NEVER replace the bot in the tmux pane with `tail -f` or any log viewer** — the bot output IS the dashboard
+4. **The ONLY correct way to restart the bot:** `tmux send-keys -t zisi "C-c" ""` (Ctrl+C to stop) then `tmux send-keys -t zisi "python3 app/main.py" Enter`
+5. **Owner's attach command (never change): `ssh root@204.168.222.48 -t "tmux attach -t zisi"`**
+6. The venv is activated at session creation. Do not re-source it unnecessarily.
+
+
+
 
 
 
