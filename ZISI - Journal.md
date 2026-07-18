@@ -527,6 +527,61 @@ PBot Sweeper (98.9% WR): enters at T-1.5s to T-0.5s before candle close via LAT-
 - Section 15: Owner Philosophy — "reinforce the bot, never break it, no arbitrary gates"
 - Section 16: Standards — SAST, trade analysis format, P&L calc, wallet pull endpoint
 
+### Session 4 — 2026-07-18 (Antigravity) — Verification Sweep
+**Time:** 10:29 SAST
+
+**VPS verified via git log + grep:**
+
+| Item | Verified Status |
+|---|---|
+| 11 — Delete Overlay B | ✅ DONE — grep returns empty |
+| 14 — VPS sync | ✅ DONE — 8 commits live on VPS |
+| 18 — Remove Pyth from source | ✅ DONE — no source file hits |
+| 23 — Fix HYPE/BNB trades | ✅ DONE — commit `005cdf0` unlocks both assets |
+| 24 — Timezone display polish | ✅ DONE — per Session 3 Journal entry |
+| 25 — L2 log consolidation | ✅ DONE — per Session 3 Journal entry |
+| 3 — Slippage telemetry | ✅ DONE — commit `e4c1275` |
+| 6/7 — Kelly floor/ceiling/dampener | ✅ DONE — commit `69e0544` |
+| 5a — Kalshi source removal | ⚠️ NEEDS CONFIRM — venv package still installed, source grep needed (excluding venv/) |
+| 13 — Wallet file deletion | ❌ NOT DONE — 6 non-owner files still in wallet/ |
+| 16b — BNB in RTDS | ❌ NOT DONE — grep returns empty in polymarket_rtds_ingest.py |
+
+**Items doc rewritten** to only show the 5 remaining open items: 5a, 13, 16b, 19 (blocked), 20 (on hold), 22 (owner action).
+
+**Notable commits this session by coding tool:**
+- `005cdf0` — BNB + HYPE unlocked as tradeable assets
+- `69e0544` — Kelly floor raised, ceiling raised, streak dampener disabled, slippage alert = 8¢
+- `e4c1275` — Slippage telemetry + fill rate tracking implemented
+- `b6c408a` — Journal + Items updated by coding tool (Session 3)
+
+### Session 5 — 2026-07-18 (Antigravity — Acting as Coding Tool)
+**Time:** 12:44–12:55 SAST
+**Commit:** `01aa716`
+
+**Root cause diagnosed and fixed:**
+
+**HYPE "Insufficient candles (0 < 16)":**
+- Root cause: `HYPEUSDT` does not exist on Binance spot (`api.binance.com`). The engine was doing `f"{symbol}USDT"` → `HYPEUSDT` → Binance returns HTTP 400 → 0 candles returned → every HYPE cycle immediately aborted with the "Insufficient candles" error.
+- HYPE (Hyperliquid) is listed as `HYPEUSDT` on **Binance Futures** (`fapi.binance.com`) only.
+- **Fix 1:** Added `BINANCE_FAPI = "https://fapi.binance.com/fapi/v1"` and `_FUTURES_KLINES_ASSETS = {"HYPE"}` to `updown_engine.py`. Both `_fetch_klines()` and `_fetch_klines_async()` now branch to the futures REST endpoint for HYPE. File: `core/engine/updown_engine.py` lines 59-63, 128-145, 179-198.
+- **Fix 2:** `pre_warm_cvd()` in `spot_websocket_ingest.py` also called Binance spot for aggTrades. Fixed to route HYPE to `fapi.binance.com/fapi/v1/aggTrades`. File: `core/engine/spot_websocket_ingest.py` lines 31-41.
+
+**BNB "L2 book illiquid":**
+- Root cause: BNB Polymarket market had volume = $0 on the tested candle (off-peak hours). The L2 spread check (`> 15c`) is correctly identifying a genuinely thin book. This is not a bug — it's the system working as intended. BNB will trade when liquidity is present. No code change needed here.
+
+**Verified startup after deployment:**
+- `[HFT-WS] Connecting FUTURES: 3 streams for 1 symbols` ✅ HYPE correctly on Binance Futures WS
+- `[HFT-WS] Connecting SPOT: 18 streams for 6 symbols` ✅ other 6 assets on spot
+- `BOT STARTUP COMPLETE / READY TO TRADE / ACTIVE SCANNING` ✅
+- No "Insufficient candles" error in startup logs ✅
+
+**Items status:**
+- Item 23 (HYPE/BNB fix): ✅ DONE — remove from ZISI - Items.md
+- Item 16b (BNB RTDS): confirmed BNB is already in RTDS subscription at line 134. ✅ DONE — remove from Items.
+- Antigravity role note: Acting as coding tool this session — coding tool hit usage limit.
+
+
+
 ### Session 3 — 2026-07-18 (Antigravity)
 **Time:** 09:36 SAST
 
