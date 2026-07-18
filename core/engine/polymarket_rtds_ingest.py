@@ -2,6 +2,12 @@
 polymarket_rtds_ingest.py - Real-Time Polymarket RTDS Chainlink Feed Ingest.
 Streams real-time updates for crypto_prices_chainlink over a public connection,
 caching prices and tracking candle boundary opens.
+
+Three-Tier Oracle Stack:
+  Tier 1 (PRIMARY):   Chainlink RTDS via public Polymarket WebSocket (live)
+                      → Upgrade path: Chainlink Data Streams (HMAC) — plug-and-play on credential receipt
+  Tier 2 (SECONDARY): Binance REST fallback — polls every 30s when RTDS is down
+  Tier 3 (TERTIARY):  Coinbase REST cross-validation — polls every 45s as independent sanity check
 """
 
 import asyncio
@@ -67,6 +73,7 @@ class PolymarketRTDSIngest:
             self._task = asyncio.create_task(self._socket_loop())
             self._disk_task = asyncio.create_task(self._write_cache_to_disk_loop())
             self._binance_task = asyncio.create_task(self._binance_poll_loop())
+            self._coinbase_task = asyncio.create_task(self._coinbase_poll_loop())
             log.info("[RTDS-WS] Ingest daemon started -> %s", self.ws_url)
 
     def stop(self):
@@ -77,13 +84,22 @@ class PolymarketRTDSIngest:
             self._disk_task.cancel()
         if hasattr(self, "_binance_task") and self._binance_task:
             self._binance_task.cancel()
+        if hasattr(self, "_coinbase_task") and self._coinbase_task:
+            self._coinbase_task.cancel()
         log.info("[RTDS-WS] Ingest daemon stopped.")
 
     async def _binance_poll_loop(self):
-        """Poll Binance REST every 30 seconds as price backstop — ensures cards stay green even without RTDS."""
+        """Poll Binance REST every 30 seconds as Tier 2 price backstop."""
         while self.running:
             await asyncio.sleep(30)
             await self._refresh_from_binance()
+
+    async def _coinbase_poll_loop(self):
+        """Poll Coinbase REST every 45 seconds as Tier 3 independent cross-validation oracle."""
+        await asyncio.sleep(15)  # Stagger startup: fire 15s after Binance first poll window
+        while self.running:
+            await asyncio.sleep(45)
+            await self._refresh_from_coinbase()
 
     async def _write_cache_to_disk_loop(self):
         """Periodically dump the global price cache to a JSON file for the Node backend to ingest."""
@@ -190,7 +206,7 @@ class PolymarketRTDSIngest:
             log.warning("[RTDS-WS] Failed to send PING: %s", e)
 
     async def _refresh_from_binance(self):
-        """Fetch spot prices from Binance REST as fallback when RTDS WS is down."""
+        """Tier 2: Fetch spot prices from Binance REST as fallback when RTDS WS is down."""
         SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT", "XRP": "XRPUSDT", "DOGE": "DOGEUSDT", "BNB": "BNBUSDT"}
         try:
             connector = aiohttp.TCPConnector(enable_cleanup_closed=True)
@@ -211,9 +227,58 @@ class PolymarketRTDSIngest:
                             price = float(item.get("price", 0))
                             if price > 0:
                                 _chainlink_prices[asset] = {"price": price, "timestamp": now}
-                    log.debug("[RTDS-WS] Binance REST fallback: updated %d prices", len(data))
+                    log.debug("[RTDS-WS] Tier2/Binance REST: updated %d prices", len(data))
         except Exception as e:
-            log.debug("[RTDS-WS] Binance fallback failed: %s", e)
+            log.debug("[RTDS-WS] Tier2/Binance fallback failed: %s", e)
+
+    async def _refresh_from_coinbase(self):
+        """Tier 3: Fetch prices from Coinbase REST as independent cross-validation oracle."""
+        # Coinbase Advanced Trade product IDs for each asset
+        PRODUCTS = {
+            "BTC": "BTC-USD",
+            "ETH": "ETH-USD",
+            "SOL": "SOL-USD",
+            "XRP": "XRP-USD",
+            "DOGE": "DOGE-USD",
+            "BNB": "BNB-USD",
+        }
+        try:
+            connector = aiohttp.TCPConnector(enable_cleanup_closed=True)
+            async with aiohttp.ClientSession(connector=connector) as session:
+                # Only update assets that are stale (> 60s since last Chainlink/Binance update)
+                now = time.time()
+                stale_assets = []
+                async with _price_lock:
+                    for asset in PRODUCTS:
+                        entry = _chainlink_prices.get(asset)
+                        if not entry or (now - entry.get("timestamp", 0)) > 60.0:
+                            stale_assets.append(asset)
+
+                if not stale_assets:
+                    log.debug("[RTDS-WS] Tier3/Coinbase: all prices fresh — skipping poll")
+                    return
+
+                updated = 0
+                for asset in stale_assets:
+                    product_id = PRODUCTS[asset]
+                    try:
+                        url = f"https://api.coinbase.com/v2/prices/{product_id}/spot"
+                        async with session.get(url, timeout=aiohttp.ClientTimeout(total=6)) as resp:
+                            if resp.status != 200:
+                                continue
+                            data = await resp.json()
+                            amount = float(data.get("data", {}).get("amount", 0))
+                            if amount > 0:
+                                async with _price_lock:
+                                    _chainlink_prices[asset] = {"price": amount, "timestamp": now}
+                                updated += 1
+                    except Exception as e:
+                        log.debug("[RTDS-WS] Tier3/Coinbase: failed for %s: %s", asset, e)
+
+                if updated:
+                    log.debug("[RTDS-WS] Tier3/Coinbase: updated %d stale price(s)", updated)
+        except Exception as e:
+            log.debug("[RTDS-WS] Tier3/Coinbase fallback failed: %s", e)
 
     async def _process_message(self, data: dict):
         topic = data.get("topic")
