@@ -868,3 +868,48 @@ ALL losses above $3.50 share the exact same exit reason: `EX/ES market expired, 
 - Scammer responded: "Ok good, kindly paste the VM wallet address."
 - Next script to send: *"Ok sure, which one though? I have a few from different things. How do I find it in MetaMask again, it's been a while lol"*
 - Scammer will now either ask for a specific wallet type, send instructions to open MetaMask → or escalate to a link.
+
+---
+
+### Session 13 — 2026-07-18 (Antigravity)
+**Time:** 15:26–15:35 SAST
+**Balance at session start:** $1,476.83 → **$1,497.29 at session end** (recovered +$20.46)
+
+**10× Large Loss Event — Root Cause Confirmed:**
+- **Time:** 15:25:10–15:25:11 SAST (4 trades expired simultaneously at the 15:25 candle boundary)
+- **Assets affected:** ETH, SOL, XRP, DOGE (all UP direction)
+- **Damage:** -$37.70 in ~1 second ($3.93 + $4.38 + $4.88 + $4.94 each × EX tranche, ES similar)
+- **Recovery:** Bot immediately fired 6 consecutive wins between 15:26–15:27, recovering +$20.46
+- **Verdict:** NOT a bug. Same MEAN_REVERTING expired market pattern as identified in Session 11. All 4 assets in MEAN_REVERTING regime, all 4 markets resolved in continuation direction at expiry.
+- **Why it felt like 10 losses:** EX + ES tranches for each trade = 2 log entries per trade. 4 trades × 2 tranches ≈ 8–10 balance update events in ~1 second.
+
+**Item 22 — AWAITING RESPONSE ✅**
+- Owner confirmed all follow-up emails sent, Discord escalation done
+- Status: Waiting for Chainlink provisioning team to respond
+- When credentials arrive → HMAC slot into `_socket_loop()` in `polymarket_rtds_ingest.py` — zero other code changes
+
+**Item 24 — MONITORING ACTIVE ✅**
+- Live trade count: 1,130 (up from 1,082 in Session 11)
+- Overall WR: ~84% — above 82% floor ✅
+- BNB/HYPE now have full confluence filtering (deployed Session 12) — expecting WR improvement over next 50 trades each
+
+**Item 25 — Updated Direction (Owner instruction):**
+- **NO blocking gates.** Owner does not want any mechanism that reduces trade frequency or filters entries
+- This is documented in Items.md and must be respected by ALL future coding agents
+- **New approach for owner approval:** Apply **0.5× position size multiplier for MEAN_REVERTING regime entries only**
+  - Trade still fires → full volume preserved
+  - MAX loss per expired trade: -$2.50 (halved)
+  - MAX simultaneous 4-asset expiry disaster: -$18 (vs -$37.70 before)
+  - WIN payouts slightly smaller but still profitable
+  - Sizing auto-reverts to 1.0× when regime = TRENDING
+- **STILL awaiting owner final approval before any code is written**
+
+**Item 19 Real-Time clarification:**
+- "Tier 3" = Coinbase REST (45s polling) — fires ONLY when both Chainlink RTDS AND Binance REST are both simultaneously down. Extremely rare in practice. REST polling is adequate for this rarely-triggered backup.
+- Tier 1 (Chainlink RTDS WebSocket) = real-time. Tier 2 (Binance REST 30s) = near real-time. Tier 3 (Coinbase REST 45s) = fallback only.
+
+**Scammer — Step 5:**
+- Scammer: "Open your Metamask, Click Receive, Copy the Address."
+- Next script: *"Ok sure, which one though? I have a few from different things. How do I find it in MetaMask again, it's been a while lol"*
+- Expected next: scammer will specify a network (ETH mainnet / Polygon / etc.) → then send a link or ask to "sync" wallet
+
