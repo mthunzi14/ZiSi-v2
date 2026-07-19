@@ -413,6 +413,21 @@ async def _validate_trade_slot(
 
     open_positions = state_manager.get_open_positions()
 
+    # ── Universal Active Slot Dedup: block duplicate entries on same asset + timeframe ──
+    _tf_tag = f"[{timeframe}]"
+    _asset_tag = f"[{asset}]"
+    _active_same_slot = any(
+        _asset_tag in p.get("event_title", "") and _tf_tag in p.get("event_title", "")
+        for p in open_positions
+    )
+    if _active_same_slot:
+        log.info(
+            "[ACTIVE-SLOT-DEDUP] %s/%s: active position already open on %s/%s — skip duplicate entry",
+            asset, timeframe, asset, timeframe
+        )
+        context.log_skip("active_slot_dedup", asset, timeframe)
+        return False, {"skip_reason": "active_slot_dedup"}
+
     # FV same-asset active dedup: block new FV entry if another FV position is already active on this asset.
     # Fixes race condition where candle-open FV signal fires before the previous candle's exit is written
     # to closed[] in positions_state.json — causing the disk-based cooldown to miss back-to-back losses.
