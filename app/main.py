@@ -292,20 +292,25 @@ async def _validate_trade_slot(
     detected_regime = getattr(engine, "_detected_regime_calculated", "MEAN_REVERTING")
     if detected_regime in ("TRENDING", "VOLATILE_CHAOS") and _entry_source in ("SIG", "SIGNAL", "FAIR_VAL"):
         last_rsi = getattr(engine, "_last_rsi", 50.0) or 50.0
-        if direction in ("NO", "DOWN") and last_rsi > 52.0:
-            log.info(
-                "[TREND-BLOCK] Blocked %s/%s %s: background regime is %s (UP trend, RSI=%.1f)",
-                asset, timeframe, direction, detected_regime, last_rsi
-            )
-            context.log_skip("trend_blocker", asset, timeframe)
-            return False, {"skip_reason": "trend_blocker"}
-        elif direction in ("YES", "UP") and last_rsi < 48.0:
-            log.info(
-                "[TREND-BLOCK] Blocked %s/%s %s: background regime is %s (DOWN trend, RSI=%.1f)",
-                asset, timeframe, direction, detected_regime, last_rsi
-            )
-            context.log_skip("trend_blocker", asset, timeframe)
-            return False, {"skip_reason": "trend_blocker"}
+        # Exhaustion-Exemption: do not block trades if RSI is in extreme zones (<30 or >70)
+        # where mean-reversion pullbacks carry a very high win rate.
+        if last_rsi < 30.0 or last_rsi > 70.0:
+            pass
+        else:
+            if direction in ("NO", "DOWN") and last_rsi > 52.0:
+                log.info(
+                    "[TREND-BLOCK] Blocked %s/%s %s: background regime is %s (UP trend, RSI=%.1f)",
+                    asset, timeframe, direction, detected_regime, last_rsi
+                )
+                context.log_skip("trend_blocker", asset, timeframe)
+                return False, {"skip_reason": "trend_blocker"}
+            elif direction in ("YES", "UP") and last_rsi < 48.0:
+                log.info(
+                    "[TREND-BLOCK] Blocked %s/%s %s: background regime is %s (DOWN trend, RSI=%.1f)",
+                    asset, timeframe, direction, detected_regime, last_rsi
+                )
+                context.log_skip("trend_blocker", asset, timeframe)
+                return False, {"skip_reason": "trend_blocker"}
 
     score = signal["score"]
     market = signal["market"]
