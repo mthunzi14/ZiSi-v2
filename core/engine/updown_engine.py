@@ -1418,15 +1418,6 @@ class UpDownEngine:
         if score < 0.55 and not is_dual_eligible:
             return make_neutral_signal(reason=f"score={score:.2f} < threshold=0.55")
 
-        # Loss streak conviction guard: if asset is on >= 3 loss streak, require score >= 0.70 to avoid bleeding
-        consecutive_losses = self._recent_closed_loss_streak()
-        if consecutive_losses >= 3 and score < 0.70 and not is_dual_eligible:
-            log.info(
-                "[LOSS-STREAK-BRAKE] %s/%s: %d consecutive losses — requiring score >= 0.70 (got %.2f), skip weak signal",
-                self.asset, self.timeframe, consecutive_losses, score
-            )
-            return make_neutral_signal(reason=f"loss_streak_brake_{consecutive_losses}losses")
-
 
 
 

@@ -172,12 +172,12 @@ class BinanceWebSocketIngest:
         # Determine the data directory relative to this file
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         data_dir = os.path.join(base_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)
         target_file = os.path.join(data_dir, "hft_metrics.json")
         temp_file = target_file + ".tmp"
         
         while self.running:
             try:
-                os.makedirs(data_dir, exist_ok=True)
                 metrics = {}
                 async with _market_books_lock:
                     for s in self.symbols:
@@ -195,13 +195,10 @@ class BinanceWebSocketIngest:
                             "last_tick": book.get("timestamp", 0.0)
                         }
                 
-                try:
-                    with open(temp_file, "w") as f:
-                        json.dump(metrics, f, indent=4)
-                    os.replace(temp_file, target_file)
-                except Exception:
-                    with open(target_file, "w") as f:
-                        json.dump(metrics, f, indent=4)
+                # Write safely to data/hft_metrics.json
+                os.makedirs(os.path.dirname(target_file), exist_ok=True)
+                with open(target_file, "w") as f:
+                    json.dump(metrics, f, indent=4)
             except Exception as e:
                 log.debug("[HFT-WS] Failed to dump metrics: %r", e)
             await asyncio.sleep(0.2)
