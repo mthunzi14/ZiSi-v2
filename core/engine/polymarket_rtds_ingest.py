@@ -74,6 +74,7 @@ class PolymarketRTDSIngest:
             self._disk_task = asyncio.create_task(self._write_cache_to_disk_loop())
             self._binance_task = asyncio.create_task(self._binance_poll_loop())
             self._coinbase_task = asyncio.create_task(self._coinbase_poll_loop())
+            self._hype_task = asyncio.create_task(self._hype_poll_loop())
             log.info("[RTDS-WS] Ingest daemon started -> %s", self.ws_url)
 
     def stop(self):
@@ -86,6 +87,8 @@ class PolymarketRTDSIngest:
             self._binance_task.cancel()
         if hasattr(self, "_coinbase_task") and self._coinbase_task:
             self._coinbase_task.cancel()
+        if hasattr(self, "_hype_task") and self._hype_task:
+            self._hype_task.cancel()
         log.info("[RTDS-WS] Ingest daemon stopped.")
 
     async def _binance_poll_loop(self):
@@ -100,6 +103,15 @@ class PolymarketRTDSIngest:
         while self.running:
             await asyncio.sleep(45)
             await self._refresh_from_coinbase()
+
+    async def _hype_poll_loop(self):
+        """Poll Binance Futures REST every 10 seconds to keep HYPE price fresh in the cache."""
+        while self.running:
+            try:
+                await self._refresh_hype()
+            except Exception:
+                pass
+            await asyncio.sleep(10)
 
     async def _write_cache_to_disk_loop(self):
         """Periodically dump the global price cache to a JSON file for the Node backend to ingest."""
@@ -325,5 +337,24 @@ class PolymarketRTDSIngest:
                     for k in old_keys:
                         _chainlink_candle_opens[key].pop(k)
 
+    async def _refresh_hype(self):
+        """Fetch HYPE price from Binance Futures REST since it is not on Spot or Coinbase."""
+        try:
+            connector = aiohttp.TCPConnector(enable_cleanup_closed=True)
+            async with aiohttp.ClientSession(connector=connector) as session:
+                url = "https://fapi.binance.com/fapi/v1/ticker/price?symbol=HYPEUSDT"
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        price = float(data.get("price", 0))
+                        if price > 0:
+                            now = time.time()
+                            async with _price_lock:
+                                _chainlink_prices["HYPE"] = {"price": price, "timestamp": now}
+                            log.debug("[RTDS-WS] Futures REST: updated HYPE price to %.4f", price)
+        except Exception as e:
+            log.debug("[RTDS-WS] Futures REST HYPE refresh failed: %s", e)
+
 
 polymarket_rtds_ingest = PolymarketRTDSIngest()
+

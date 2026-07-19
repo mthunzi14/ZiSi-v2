@@ -187,9 +187,18 @@ async def binance_spot_listener():
                         msg = await ws.recv()
                         data = json.loads(msg)
                         symbol = data.get("s", "")
-                        price = float(data.get("c", 0.0))
+                        if not symbol:
+                            continue
                         
-                        asset = symbol.replace("USDT", "")
+                        event_type = data.get("e", "")
+                        if event_type == "bookTicker":
+                            bid = float(data.get("b", 0.0))
+                            ask = float(data.get("a", 0.0))
+                            price = (bid + ask) / 2.0 if (bid > 0 and ask > 0) else (bid or ask)
+                        else:
+                            price = float(data.get("c", 0.0))
+                        
+                        asset = symbol.upper().replace("USDT", "")
                         if asset in g_state.spot_prices:
                             with g_state.lock:
                                 g_state.spot_prices[asset] = price
@@ -197,7 +206,7 @@ async def binance_spot_listener():
                 await asyncio.sleep(2)  # Reconnect
                 
     spot_url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/dogeusdt@ticker/bnbusdt@ticker"
-    futures_url = "wss://fstream.binance.com/ws/hypeusdt@ticker"
+    futures_url = "wss://fstream.binance.com/ws/hypeusdt@bookTicker"
     
     await asyncio.gather(
         listen_loop("SPOT", spot_url),
