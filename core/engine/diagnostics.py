@@ -60,9 +60,10 @@ class RouteDiagnostics:
         }
         try:
             with _lock:
-                tmp_path = _DIAGNOSTICS_FILE.with_suffix(".tmp")
-                tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
                 import os
+                import uuid
+                tmp_path = _DIAGNOSTICS_FILE.with_name(f"{_DIAGNOSTICS_FILE.stem}_{uuid.uuid4().hex}.tmp")
+                tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
                 os.replace(tmp_path, _DIAGNOSTICS_FILE)
         except Exception as exc:
             log.warning("[DIAGNOSTICS] Failed to save diagnostics state: %s", exc)

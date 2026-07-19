@@ -368,7 +368,8 @@ class PortfolioHeat:
                 "last_updated": time.time(),
             }
 
-            tmp_path = _HEAT_STATE_FILE.with_suffix(".tmp")
+            import uuid
+            tmp_path = _HEAT_STATE_FILE.with_name(f"{_HEAT_STATE_FILE.stem}_{uuid.uuid4().hex}.tmp")
             tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
             os.replace(tmp_path, _HEAT_STATE_FILE)
         except OSError as exc:

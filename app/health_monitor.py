@@ -408,9 +408,10 @@ def startup_recovery() -> bool:
             )
         data["last_updated"] = datetime.now(timezone.utc).isoformat()
         with GLOBAL_POSITIONS_LOCK:
-            tmp_path = POSITIONS_FILE.with_suffix(".tmp")
-            tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
             import os as _os
+            import uuid as _uuid
+            tmp_path = POSITIONS_FILE.with_name(f"{POSITIONS_FILE.stem}_{_uuid.uuid4().hex}.tmp")
+            tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
             _os.replace(tmp_path, POSITIONS_FILE)
 
         log.info(

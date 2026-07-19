@@ -174,7 +174,6 @@ class BinanceWebSocketIngest:
         data_dir = os.path.join(base_dir, "data")
         os.makedirs(data_dir, exist_ok=True)
         target_file = os.path.join(data_dir, "hft_metrics.json")
-        temp_file = target_file + ".tmp"
         
         while self.running:
             try:
@@ -196,9 +195,12 @@ class BinanceWebSocketIngest:
                         }
                 
                 # Write safely to data/hft_metrics.json
+                import uuid
                 os.makedirs(os.path.dirname(target_file), exist_ok=True)
-                with open(target_file, "w") as f:
+                temp_file = os.path.join(data_dir, f"hft_metrics_{uuid.uuid4().hex}.tmp")
+                with open(temp_file, "w") as f:
                     json.dump(metrics, f, indent=4)
+                os.replace(temp_file, target_file)
             except Exception as e:
                 log.debug("[HFT-WS] Failed to dump metrics: %r", e)
             await asyncio.sleep(0.2)

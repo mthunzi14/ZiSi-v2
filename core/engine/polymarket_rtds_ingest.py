@@ -121,7 +121,8 @@ class PolymarketRTDSIngest:
                 async with _price_lock:
                     cache_copy = dict(_chainlink_prices)
                 
-                cl_temp = os.path.join(base_dir, "chainlink_prices.json.tmp")
+                import uuid
+                cl_temp = os.path.join(base_dir, f"chainlink_prices_{uuid.uuid4().hex}.tmp")
                 cl_target = os.path.join(base_dir, "chainlink_prices.json")
                 with open(cl_temp, "w") as f:
                     json.dump(cache_copy, f, indent=2)

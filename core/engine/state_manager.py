@@ -5,7 +5,9 @@ Saves account balance to disk so it survives restarts.
 
 import json
 import logging
+import os
 import threading
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -18,6 +20,27 @@ _lock             = threading.RLock()
 GLOBAL_POSITIONS_LOCK = threading.Lock()
 _balance: float          = _DEFAULT_BALANCE
 _starting_balance: float = _DEFAULT_BALANCE
+
+
+def _safe_atomic_write_json(target_path: Path, data: dict, indent: int = 2, default=str) -> None:
+    """Safely write JSON to target_path atomically using a unique temp filename."""
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = target_path.with_name(f"{target_path.stem}_{uuid.uuid4().hex}.tmp")
+    try:
+        tmp_path.write_text(json.dumps(data, indent=indent, default=default), encoding="utf-8")
+        os.replace(tmp_path, target_path)
+    except Exception as exc:
+        log.warning("[STATE] Atomic write failed for %s: %s", target_path.name, exc)
+        try:
+            target_path.write_text(json.dumps(data, indent=indent, default=default), encoding="utf-8")
+        except Exception:
+            pass
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
 
 
 def _read_starting_balance() -> float:
@@ -132,10 +155,7 @@ def decrement_gas(amount: float = 0.005) -> float:
         if gas < 2.0:
             log.warning("[GAS-WARN] Mock POL gas balance is low: %.4f POL (warning < 2 POL)", gas)
         
-        import os
-        tmp_file = _STATE_FILE.with_suffix(".tmp")
-        tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-        os.replace(tmp_file, _STATE_FILE)
+        _safe_atomic_write_json(_STATE_FILE, existing)
         return gas
 
 
@@ -181,10 +201,7 @@ def update_heartbeat(trades_executed: int = 0, paused: bool = False, reason: str
         existing["paused"]              = paused
         existing["last_updated"]        = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         existing["last_change_reason"]  = reason
-        import os
-        tmp_file = _STATE_FILE.with_suffix(".tmp")
-        tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-        os.replace(tmp_file, _STATE_FILE)
+        _safe_atomic_write_json(_STATE_FILE, existing)
         _record_history(_balance, round(_balance - starting, 2))
 
 
@@ -256,10 +273,7 @@ def _write_state(reason: str = "") -> None:
         existing["pnl"]     = round(_balance - starting, 2)
         existing["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         existing["last_change_reason"] = reason
-        import os
-        tmp_file = _STATE_FILE.with_suffix(".tmp")
-        tmp_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-        os.replace(tmp_file, _STATE_FILE)
+        _safe_atomic_write_json(_STATE_FILE, existing)
     _record_history(_balance, round(_balance - starting, 2))
 
 
@@ -397,10 +411,7 @@ def force_confirm(position: dict) -> None:
                 if pos.get("order_id") == position.get("order_id"):
                     pos["confirmed"] = True
                     break
-            tmp_path = _POSITIONS_FILE.with_suffix(".tmp")
-            tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            import os as _os
-            _os.replace(tmp_path, _POSITIONS_FILE)
+            _safe_atomic_write_json(_POSITIONS_FILE, data)
     except Exception as exc:
         log.warning("[STATE] force_confirm failed: %s", exc)
 
@@ -494,15 +505,5 @@ def cleanup_expired_positions() -> int:
         summary["active_count"] = len(survivors)
         data["summary"] = summary
 
-        try:
-            tmp_path = _POSITIONS_FILE.with_suffix(".tmp")
-            tmp_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
-            import os as _os
-            _os.replace(tmp_path, _POSITIONS_FILE)
-        except Exception as exc:
-            log.warning("[STATE] Failed to save cleanup state atomically: %s", exc)
-            _POSITIONS_FILE.write_text(
-                json.dumps(data, indent=2, default=str),
-                encoding="utf-8",
-            )
+        _safe_atomic_write_json(_POSITIONS_FILE, data, default=str)
         return len(zombies)
