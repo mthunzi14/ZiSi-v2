@@ -21,6 +21,13 @@ except ImportError:
 
 log = logging.getLogger("zisi.engine")
 
+# ── User Sizing Settings (Sprint 12) ──
+# SIZING_BALANCE sets the baseline capital used for sizing.
+try:
+    from config import SIZING_BALANCE
+except ImportError:
+    SIZING_BALANCE = None
+
 # Live engine instances keyed by "ASSET/timeframe" for outcome feedback
 _ENGINE_REGISTRY: dict[str, "UpDownEngine"] = {}
 
@@ -1111,31 +1118,9 @@ class UpDownEngine:
             raw_dir = _dec["direction"]
             score_base = _dec["score"]
 
-            divergence_flipped = False
             if _dec["blocked"]:
-                flipped = False
-                if rsi is not None and fast_cvd is not None:
-                    is_originally_up = ofi < 0
-                    is_originally_down = ofi > 0
-                    
-                    if is_originally_up and fast_cvd < 0:
-                        log.warning("\033[38;2;245;245;220m[INVERSION] %s/%s: UP blocked by negative OFI (%.3f) but CVD confirms selling (fast_cvd=%.2f) — inverting to DOWN\033[0m",
-                                    self.asset, self.timeframe, ofi, fast_cvd)
-                        raw_dir = "DOWN"
-                        score_base = min(0.85, 0.50 + abs(binance_obi or ofi) * 0.35)
-                        flipped = True
-                        divergence_flipped = True
-                    elif is_originally_down and fast_cvd > 0:
-                        log.warning("\033[38;2;245;245;220m[INVERSION] %s/%s: DOWN blocked by positive OFI (%.3f) but CVD confirms buying (fast_cvd=%.2f) — inverting to UP\033[0m",
-                                    self.asset, self.timeframe, ofi, fast_cvd)
-                        raw_dir = "UP"
-                        score_base = min(0.85, 0.50 + abs(binance_obi or ofi) * 0.35)
-                        flipped = True
-                        divergence_flipped = True
-
-                if not flipped:
-                    log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
-                    return make_neutral_signal(reason=_dec.get("reason", "spot_ofi_divergence"))
+                log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
+                return make_neutral_signal(reason=_dec.get("reason", "spot_ofi_divergence"))
             if _dec["is_reversal"]:
                 log.warning("[REVERSAL] %s/%s RSI=%.2f reversal-snipe %s.", self.asset, self.timeframe, rsi, raw_dir)
             elif raw_dir is None:
@@ -1164,10 +1149,7 @@ class UpDownEngine:
                         return make_neutral_signal(reason=_dec.get("reason", "neutral_rsi"))
 
                 # Apply regime (fade weak momentum in mean-reversion; follow strong trends)
-                if divergence_flipped:
-                    direction = raw_dir
-                else:
-                    direction = apply_regime(raw_dir, regime, mom=mom)
+                direction = apply_regime(raw_dir, regime, mom=mom)
                 if self.invert_signal:
                     direction = "DOWN" if direction == "UP" else "UP"
 
@@ -1528,8 +1510,6 @@ class UpDownEngine:
         up_price, dn_price = None, None
         attempts = 2 if is_latency_scan else 4
         for attempt in range(attempts):
-            if attempt > 0 or not is_latency_scan:
-                await asyncio.sleep(0.5 if is_latency_scan else (1.0 if attempt == 0 else 1.5))
             up_price, up_spread = polymarket_l2_gateway.get_price(up_tk)
             dn_price, dn_spread = polymarket_l2_gateway.get_price(dn_tk)
             
@@ -1556,6 +1536,10 @@ class UpDownEngine:
                 spread = (dn_spread or 0.02) + 0.02
                 if spread <= effective_max_spread:
                     return derived_up, dn_price, spread
+
+            # Only sleep if we have remaining attempts and didn't resolve
+            if attempt < attempts - 1:
+                await asyncio.sleep(0.5 if is_latency_scan else (1.0 if attempt == 0 else 1.5))
 
         # Single REST fallback check executed exactly once if all WebSocket attempts failed
         up_book = await _fetch_clob_book_async(session, up_tk)
@@ -1888,11 +1872,15 @@ class UpDownEngine:
 
     def compute_size(self, score: float, price: float, balance: float, confidence: float = None) -> float:
         """Return USD amount to bet, sized by directional CONFIDENCE (Dynamic Kelly) scaled by regime and asset weight."""
+        # Determine the balance to size against (Sprint 12 user-controlled baseline setting)
+        # Cap at SIZING_BALANCE if defined to prevent over-sizing, but support smaller balances in tests
+        sizing_balance = min(balance, SIZING_BALANCE) if SIZING_BALANCE is not None else balance
+
         # ── Edge Architecture Adaptive Kelly Sizer (Advancement D) ──
         if getattr(self, "last_edge_context", None):
             try:
                 from core.risk.position_sizer import PositionSizer
-                sizer = PositionSizer(account_balance=balance, max_cycle_capital=balance)
+                sizer = PositionSizer(account_balance=sizing_balance, max_cycle_capital=sizing_balance)
                 
                 sig_dict = {
                     "signal_type": "TYPE_A_HIGH" if (score >= 0.75) else "TYPE_A_LOW",
@@ -1922,7 +1910,7 @@ class UpDownEngine:
                 if price < 0.35 and conf < 0.75:
                     _bk_frac = min(_bk_frac, 0.05)
                 # Scale unified max cap dynamically with balance growth factor
-                growth_factor = max(1.0, balance / 120.0)
+                growth_factor = max(1.0, sizing_balance / 120.0)
                 unified_max_cap = max(5.00 * growth_factor, min(40.00 * growth_factor, (5.00 + (conf - 0.50) * 80.0) * growth_factor))
                 usd_size = sizer.calculate_adaptive(
                     signal=sig_dict,
@@ -2029,11 +2017,11 @@ class UpDownEngine:
             log.info("[SIZE] Price %.4f extremely expensive -> applying 75%% scaling (x0.25)", price)
 
         # Dynamic max cap based on AI confidence scaled with growth_factor
-        growth_factor = max(1.0, balance / 120.0)
+        growth_factor = max(1.0, sizing_balance / 120.0)
         max_usd_cap = min(20.00 * growth_factor, (5.00 + (score - 0.50) * 40.0) * growth_factor)
         max_usd_cap = max(5.00 * growth_factor, max_usd_cap)
 
-        raw_usd = kelly_pct * balance * regime_mult * price_scalar
+        raw_usd = kelly_pct * sizing_balance * regime_mult * price_scalar
 
         # Retrieve and apply session sizing multiplier (Sprint 11)
         session_sizing_mult = 1.0

@@ -33,13 +33,14 @@ log = logging.getLogger("zisi.whale_tracker")
 # ── Binance endpoint ─────────────────────────────────────────────────────────
 _TRADES_URL = "https://api.binance.com/api/v3/trades"
 
-# ── Asset → Binance spot symbol ──────────────────────────────────────────────
 _ASSET_MAP: dict[str, str] = {
     "BTC": "BTCUSDT",
     "ETH": "ETHUSDT",
     "SOL": "SOLUSDT",
     "XRP": "XRPUSDT",
     "DOGE": "DOGEUSDT",
+    "BNB": "BNBUSDT",
+    "HYPE": "HYPEUSDT",
 }
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -217,9 +218,10 @@ class WhaleTracker:
             if now - ts < _CACHE_TTL:
                 return cached
 
+        url = "https://fapi.binance.com/fapi/v1/trades" if asset_key == "HYPE" else _TRADES_URL
         try:
             async with session.get(
-                _TRADES_URL,
+                url,
                 params={"symbol": symbol, "limit": str(_TRADES_LIMIT)},
                 timeout=aiohttp.ClientTimeout(total=5),
             ) as resp:

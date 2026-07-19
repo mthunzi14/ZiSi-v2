@@ -694,6 +694,7 @@ def place_order(
             direction, shares, entry_price, actual_cost,
             _display_title[:55],
         )
+        slp_taken = round((entry_price - signal_price) * 100, 1) if (signal_price > 0.0) else 0.0
         order = {
             "order_id": order_id,
             "event_id": event_id,
@@ -703,11 +704,13 @@ def place_order(
             "amount_spent": actual_cost,
             "shares_acquired": shares,
             "entry_price": entry_price,
+            "signal_price": signal_price or entry_price,
             "timestamp": timestamp,
             "status": "FILLED",
             "market": market,
             "entry_spot": entry_spot,
             "yes_market_id": yes_market_id,
+            "slp": slp_taken,
             **({"expiry_ts": expiry_ts} if expiry_ts else {}),
         }
         # Decrement mock gas
@@ -787,6 +790,7 @@ def place_order(
             log.error("[TRADE] Live transaction %s failed confirmation status. Discarding order state.", tx_id)
             return None
 
+    slp_taken = round((entry_price - signal_price) * 100, 1) if (signal_price > 0.0) else 0.0
     order = {
         "order_id":        resolved_id,
         "event_id":        event_id,
@@ -795,10 +799,12 @@ def place_order(
         "amount_spent":    amount_dollars,
         "shares_acquired": shares,
         "entry_price":     entry_price,
+        "signal_price":    signal_price or entry_price,
         "timestamp":       timestamp,
         "status":          api_status,
         "market":          market,
         "entry_spot":      entry_spot,
+        "slp":             slp_taken,
     }
 
     if api_status in ("PENDING", "PARTIALLY_FILLED"):
@@ -2005,6 +2011,8 @@ def record_tranche_close(pos: dict, tranche_name: str, exit_price: float, exit_r
             "trade_type":       _derive_trade_type(pos.get("entry_type","ZISI")),
             "regime":           pos.get("regime", "UNKNOWN"),
             "entry_spot":       pos.get("entry_spot", 0.0),
+            "slp":              pos.get("slp", 0.0),
+            "signal_price":     pos.get("signal_price", pos.get("entry_price", 0.0)),
         }
         
         closed_list.insert(0, tranche_record)

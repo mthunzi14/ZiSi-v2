@@ -540,69 +540,6 @@ class TestEdgesAndFilters(unittest.IsolatedAsyncioTestCase):
         any_tr_a = any(c.kwargs.get("tranche_name") == "A" for c in mock_tr_close.call_args_list)
         self.assertTrue(any_tr_a, "Tranche A close should be recorded")
 
-    @patch("app.main.request_trade_slot", return_value=(True, "slot_ok"))
-    @patch("app.main.global_diagnostics.get_risk_multiplier", return_value=1.0)
-    @patch("core.engine.state_manager.get_open_positions", return_value=[])
-    @patch("core.analytics.sentiment_daemon.sentiment_filter.get_size_multiplier", return_value=1.0)
-    async def test_trend_blocker_with_exhaustion_exemption(self, mock_fng, mock_open, mock_risk, mock_request):
-        from app.main import _validate_trade_slot
-        
-        # Mock engine and context
-        engine = MagicMock()
-        engine._detected_regime_calculated = "TRENDING"
-        engine.compute_size.return_value = 10.0
-        
-        # Test Case 1: RSI = 60 (No exhaustion), direction = DOWN, background = TRENDING -> Should be blocked
-        engine._last_rsi = 60.0
-        signal_down_norm = {
-            "direction": "DOWN",
-            "score": 0.90,
-            "entry_source": "SIG",
-            "market": {"up_price": 0.50, "dn_price": 0.50},
-            "whale_aligned": False,
-            "confluence_score": 10,
-        }
-        context1 = MagicMock()
-        allowed1, details1 = await _validate_trade_slot(
-            context1, engine, "BTC", "5m", 5, signal_down_norm, current_balance=200.0
-        )
-        self.assertFalse(allowed1, "Contrarian DOWN entry in uptrend (RSI=60) should be blocked by Trend-Blocker")
-        
-        # Test Case 2: RSI = 75 (Extreme overbought exhaustion), direction = DOWN, background = TRENDING -> Should NOT be blocked
-        engine._last_rsi = 75.0
-        signal_down_exhaust = {
-            "direction": "DOWN",
-            "score": 0.90,
-            "entry_source": "SIG",
-            "market": {"up_price": 0.50, "dn_price": 0.50},
-            "whale_aligned": False,
-            "confluence_score": 10,
-        }
-        context2 = MagicMock()
-        allowed2, details2 = await _validate_trade_slot(
-            context2, engine, "BTC", "5m", 5, signal_down_exhaust, current_balance=200.0
-        )
-        self.assertTrue(allowed2, "Extreme overbought contrarian entry (RSI=75) should bypass Trend-Blocker via Exhaustion-Exemption")
-        
-        # Test Case 3: RSI = 25 (Extreme oversold exhaustion), direction = UP, background = TRENDING -> Should NOT be blocked
-        engine._last_rsi = 25.0
-        signal_up_exhaust = {
-            "direction": "UP",
-            "score": 0.90,
-            "entry_source": "SIG",
-            "market": {"up_price": 0.50, "dn_price": 0.50},
-            "whale_aligned": False,
-            "confluence_score": 10,
-        }
-        context3 = MagicMock()
-        allowed3, details3 = await _validate_trade_slot(
-            context3, engine, "BTC", "5m", 5, signal_up_exhaust, current_balance=200.0
-        )
-        self.assertTrue(allowed3, "Extreme oversold contrarian entry (RSI=25) should bypass Trend-Blocker via Exhaustion-Exemption")
-
 
 if __name__ == "__main__":
     unittest.main()
-
-
-

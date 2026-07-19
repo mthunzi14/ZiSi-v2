@@ -288,29 +288,7 @@ async def _validate_trade_slot(
     _entry_source = signal.get("entry_source", "SIG")
     direction = signal["direction"]
 
-    # ── TREND-BLOCKER (prevent blind entries against strong trends in hardlocked MR mode) ──
-    detected_regime = getattr(engine, "_detected_regime_calculated", "MEAN_REVERTING")
-    if detected_regime in ("TRENDING", "VOLATILE_CHAOS") and _entry_source in ("SIG", "SIGNAL", "FAIR_VAL"):
-        last_rsi = getattr(engine, "_last_rsi", 50.0) or 50.0
-        # Exhaustion-Exemption: do not block trades if RSI is in extreme zones (<30 or >70)
-        # where mean-reversion pullbacks carry a very high win rate.
-        if last_rsi < 30.0 or last_rsi > 70.0:
-            pass
-        else:
-            if direction in ("NO", "DOWN") and last_rsi > 52.0:
-                log.info(
-                    "[TREND-BLOCK] Blocked %s/%s %s: background regime is %s (UP trend, RSI=%.1f)",
-                    asset, timeframe, direction, detected_regime, last_rsi
-                )
-                context.log_skip("trend_blocker", asset, timeframe)
-                return False, {"skip_reason": "trend_blocker"}
-            elif direction in ("YES", "UP") and last_rsi < 48.0:
-                log.info(
-                    "[TREND-BLOCK] Blocked %s/%s %s: background regime is %s (DOWN trend, RSI=%.1f)",
-                    asset, timeframe, direction, detected_regime, last_rsi
-                )
-                context.log_skip("trend_blocker", asset, timeframe)
-                return False, {"skip_reason": "trend_blocker"}
+
 
     score = signal["score"]
     market = signal["market"]
@@ -1280,7 +1258,7 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             live_price, _ = polymarket_l2_gateway.get_price(market_id)
             if live_price and live_price > 0.0:
                 slippage = live_price - entry_price
-                _max_slippage = 0.15
+                _max_slippage = 0.03
                 if slippage > _max_slippage:
                     log.warning(
                         "[TRADE] SLIPPAGE_ABORT: %s/%s %s Live price %.4f is > %.1f¢ higher than signal price %.4f. Aborting trade execution.",

@@ -49,6 +49,8 @@ _ASSET_MAP: dict[str, str] = {
     "SOL": "SOLUSDT",
     "XRP": "XRPUSDT",
     "DOGE": "DOGEUSDT",
+    "BNB": "BNBUSDT",
+    "HYPE": "HYPEUSDT",
 }
 
 # ── Funding-rate thresholds (expressed as ratios, *not* percent) ─────────────

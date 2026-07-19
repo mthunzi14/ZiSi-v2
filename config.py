@@ -65,7 +65,8 @@ ENABLE_NCS: bool = False
 ENABLE_SWEEPER: bool = False
 ENABLE_LATENCY_ARB: bool = False
 
-
+# Sizing settings (Sprint 12 user-controlled baseline setting)
+SIZING_BALANCE: float = 1200.0
 
 # ── Backward-compat aliases (old modules still import these) ─────────────────
 PEAK_TRADING_HOURS_UTC    = TIME_GATE_UTC  # replaced by TIME_GATE_UTC in new code
@@ -154,6 +155,7 @@ def load_config() -> dict:
         "RISK_PER_TRADE_PERCENT": float(os.getenv("RISK_PER_TRADE_PERCENT", "2")),
         "MAX_SIMULTANEOUS_TRADES": int(os.getenv("MAX_SIMULTANEOUS_TRADES", "6")),
         "MIN_EVENT_LIQUIDITY_USD": float(os.getenv("MIN_EVENT_LIQUIDITY_USD", "500")),
+        "SIZING_BALANCE": float(os.getenv("SIZING_BALANCE", str(SIZING_BALANCE))),
 
         # Logging
         "LOG_TO_DRIVE": os.getenv("LOG_TO_DRIVE", "true").lower() == "true",

@@ -105,13 +105,13 @@ class PolymarketRTDSIngest:
             await self._refresh_from_coinbase()
 
     async def _hype_poll_loop(self):
-        """Poll Binance Futures REST every 10 seconds to keep HYPE price fresh in the cache."""
+        """Poll Binance Futures REST every 2 seconds to keep HYPE price fresh in the cache."""
         while self.running:
             try:
                 await self._refresh_hype()
             except Exception:
                 pass
-            await asyncio.sleep(10)
+            await asyncio.sleep(2)
 
     async def _write_cache_to_disk_loop(self):
         """Periodically dump the global price cache to a JSON file for the Node backend to ingest."""

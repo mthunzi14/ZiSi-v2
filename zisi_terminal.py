@@ -202,6 +202,7 @@ async def binance_spot_listener():
                         if asset in g_state.spot_prices:
                             with g_state.lock:
                                 g_state.spot_prices[asset] = price
+                            g_state.redraw_event.set()
             except Exception:
                 await asyncio.sleep(2)  # Reconnect
                 
@@ -232,6 +233,7 @@ def process_clob_message(data: dict):
                 with g_state.lock:
                     g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
                     g_state.clob_spreads[aid] = spread
+                g_state.redraw_event.set()
                     
     # Handle best_bid_ask
     elif event_type == "best_bid_ask":
@@ -244,6 +246,7 @@ def process_clob_message(data: dict):
             with g_state.lock:
                 g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
                 g_state.clob_spreads[aid] = spread
+            g_state.redraw_event.set()
                 
     # Handle book snapshots
     elif event_type == "book":
@@ -258,6 +261,7 @@ def process_clob_message(data: dict):
             with g_state.lock:
                 g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
                 g_state.clob_spreads[aid] = spread
+            g_state.redraw_event.set()
 
 
 async def polymarket_clob_listener():
@@ -317,16 +321,34 @@ ws_thread.start()
 
 # ── File Loading & State Processing ───────────────────────────────────────────
 
+_file_caches = {}
+
 def load_json_file(file_path: Path) -> dict:
-    """Safely load JSON to avoid race conditions with bot processes."""
+    """Safely load JSON, caching by mtime to avoid redundant disk read/parse overhead."""
     if not file_path.exists():
         return {}
+    try:
+        mtime = os.path.getmtime(file_path)
+    except Exception:
+        mtime = 0.0
+        
+    global _file_caches
+    if file_path in _file_caches:
+        cached_mtime, cached_data = _file_caches[file_path]
+        if mtime == cached_mtime:
+            return cached_data
+
     for _ in range(3):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                _file_caches[file_path] = (mtime, data)
+                return data
         except (json.JSONDecodeError, PermissionError):
             time.sleep(0.05)
+            
+    if file_path in _file_caches:
+        return _file_caches[file_path][1]
     return {}
 
 
@@ -381,10 +403,12 @@ def generate_trade_history_report(closed_positions):
             f.write("\n".join(lines))
     except Exception:
         pass
+_last_closed_count = -1
 
 
 def sync_file_states():
     """Load latest states from local files into global state."""
+    global _last_closed_count
     account = load_json_file(STATE_FILE)
     positions = load_json_file(POSITIONS_FILE)
     regime = load_json_file(REGIME_FILE)
@@ -426,9 +450,11 @@ def sync_file_states():
             
         g_state.active_market_ids = active_ids.union(resolved_token_ids)
         
-        # Generate persistent trade history report locally
+        # Generate persistent trade history report locally only when new trades are closed
         closed_positions = list(positions.get("closed", []))
-        generate_trade_history_report(closed_positions)
+        if len(closed_positions) != _last_closed_count:
+            _last_closed_count = len(closed_positions)
+            generate_trade_history_report(closed_positions)
 
 
 def tail_log_file(file_path: Path, num_lines: int = 10, offset: int = 0) -> list[str]:
@@ -1229,27 +1255,14 @@ def build_regime_panel(fullscreen: bool = False) -> Panel:
 
     # Get live metrics
     curr_session = get_current_session()
-    avg_slippage = get_rolling_avg_slippage(50)
-    fill_rate = get_rolling_fill_rate(50)
 
     # Header Table
     header_table = Table.grid(expand=True, padding=(0, 2))
     header_table.add_column("Metric 1", style=f"bold {COLOR_LABEL}", width=20)
-    header_table.add_column("Value 1", justify="left", style=COLOR_VAL, width=24)
-    header_table.add_column("Metric 2", style=f"bold {COLOR_LABEL}", width=20)
-    header_table.add_column("Value 2", justify="left", style=COLOR_VAL)
+    header_table.add_column("Value 1", justify="left", style=COLOR_VAL)
     
-    display_reg = raw_reg.replace("_", " ")
     header_table.add_row(
-        "Regime:", f"[{regime_color}]{display_reg}[/{regime_color}]",
         "Session:", f"[bold {COLOR_ASSET}]{curr_session}[/bold {COLOR_ASSET}]"
-    )
-    
-    slippage_color = "#ff746c" if avg_slippage > 8.0 else "#c1e1c1"
-    fill_color = "#ff746c" if fill_rate < 90.0 else "#c1e1c1"
-    header_table.add_row(
-        "Avg Slippage:", f"[bold {slippage_color}]{avg_slippage:.2f}¢[/bold {slippage_color}]",
-        "Avg Fill Rate:", f"[bold {fill_color}]{fill_rate:.1f}%[/bold {fill_color}]"
     )
 
     # Combined Layout Container
@@ -1281,7 +1294,6 @@ def format_regime_str(regime: str) -> str:
 def build_active_positions_panel() -> Panel:
     """Build the active open positions table with full attributes and live PnL."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Regime", justify="center", header_style=COLOR_LABEL)
     table.add_column("Entry Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET)
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
     table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
@@ -1293,6 +1305,7 @@ def build_active_positions_panel() -> Panel:
     table.add_column("Mark Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("TP/Target", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("SLP", justify="right", header_style=COLOR_LABEL)
     table.add_column("Type", justify="center", header_style=COLOR_LABEL)
     table.add_column("Unrealized PnL", justify="right", header_style=COLOR_LABEL)
 
@@ -1406,8 +1419,14 @@ def build_active_positions_panel() -> Panel:
             
             formatted_entry_ts = format_iso_timestamp(pos.get("entry_time", ""))
 
+            slp_val = float(pos.get("slp", 0.0))
+            if abs(slp_val) < 0.01:
+                slp_str = "[grey50]0.0¢[/grey50]"
+            else:
+                slp_color = COLOR_PASTEL_RED if slp_val > 0.01 else COLOR_PASTEL_GREEN
+                slp_str = f"[{slp_color}]{slp_val:+.1f}¢[/{slp_color}]"
+
             table.add_row(
-                format_regime_str(pos.get("regime", "UNKNOWN")),
                 formatted_entry_ts,
                 asset,
                 tf,
@@ -1419,6 +1438,7 @@ def build_active_positions_panel() -> Panel:
                 format_cents(mark_token),
                 format_cents(float(pos.get('target_price', 0.99))),
                 hold_str,
+                slp_str,
                 type_str,
                 f"[{unreal_color}]${unreal:+.2f}[/{unreal_color}]"
             )
@@ -1430,7 +1450,6 @@ def build_active_positions_panel() -> Panel:
 def build_closed_positions_panel(num_lines: int = 15) -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Regime", justify="center", header_style=COLOR_LABEL)
     table.add_column("Closed Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET)
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
     table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
@@ -1439,6 +1458,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
     table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Exit Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("SLP", justify="right", header_style=COLOR_LABEL)
     table.add_column("Type", justify="center", header_style=COLOR_LABEL)
     table.add_column("Exit Reason", justify="left", header_style=COLOR_LABEL)
     table.add_column("PnL ($)", justify="right", header_style=COLOR_LABEL)
@@ -1513,8 +1533,14 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         else:
             type_str = f"[grey50]ES[/grey50]"
 
+        slp_val = float(pos.get("slp", 0.0))
+        if abs(slp_val) < 0.01:
+            slp_str = "[grey50]0.0¢[/grey50]"
+        else:
+            slp_color = COLOR_PASTEL_RED if slp_val > 0.01 else COLOR_PASTEL_GREEN
+            slp_str = f"[{slp_color}]{slp_val:+.1f}¢[/{slp_color}]"
+
         table.add_row(
-            format_regime_str(pos.get("regime", "UNKNOWN")),
             formatted_exit_ts,
             asset,
             tf,
@@ -1523,6 +1549,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
             format_cents(entry),
             format_cents(exit_pr),
             hold_str,
+            slp_str,
             type_str,
             reason_str,
             f"[{pnl_color}]${pnl:+.2f}[/{pnl_color}]"

@@ -15,17 +15,17 @@
 
 Owner requirement: WR must stay above **82%** at all times.
 
-**Live data (as of 2026-07-18 23:25 SAST):**
+**Live data (as of 2026-07-19 20:25 SAST - After Cutoff B Scrub):**
 | Asset | Trades | WR | Status |
 |---|---|---|---|
-| DOGE | 222+ | 86.3% | ✅ |
-| SOL | 201+ | 85.6% | ✅ |
-| XRP | 238+ | 84.8% | ✅ |
-| ETH | 213+ | 84.2% | ✅ |
-| BTC | 186+ | 82.6% | ✅ |
-| **BNB** | **35** | **75.0%** | 📈 Calibrating fast (24 wins, 8 losses / 75% WR) |
-| **HYPE** | **22** | **63.6%** | 📈 Calibrating slowly (14 wins, 8 losses / 63.6% WR) |
-| **OVERALL** | **~1,200** | **~83%** | ✅ Above floor |
+| DOGE | 255 | 86.5% | ✅ (218 wins, 34 losses, 3 BE) |
+| ETH | 235 | 84.0% | ✅ (194 wins, 37 losses, 4 BE) |
+| SOL | 243 | 82.6% | ✅ (195 wins, 41 losses, 7 BE) |
+| XRP | 269 | 82.4% | ✅ (216 wins, 46 losses, 7 BE) |
+| BTC | 213 | 81.9% | 📈 Calibrating (172 wins, 38 losses, 3 BE) |
+| **BNB** | **55** | **71.2%** | 📈 Calibrating (37 wins, 15 losses, 3 BE) |
+| **HYPE** | **42** | **69.0%** | 📈 Calibrating (29 wins, 13 losses) |
+| **OVERALL** | **1,311** | **82.6%** | ✅ Above floor (including BE trades as push) |
 
 **Key fix deployed (Session 12):** BNB and HYPE now have full confluence engine filtering (CVD/OBI/NIC). Previously running with zero confluence = coin-flip entries. WR for these two assets has improved significantly and is moving toward the 82% floor.
 
@@ -46,6 +46,20 @@ We need to:
 - Fixed HYPE connection status. Created a custom pipeline for HYPE (since it is not listed on spot markets) by connecting to the Binance Futures `bookTicker` stream in the terminal (`zisi_terminal.py`) and polling the Binance Futures REST API in `polymarket_rtds_ingest.py`. HYPE price is now fully active across the spot matrix, the Chainlink column cache, and backends on the VPS.
 
 **Done when:** Chainlink streams are successfully integrated, active, and feeding live price data to the trading engines in real-time.
+
+---
+
+## 🟡 ITEM 28 — System-Wide Execution and Price Latency Optimizations
+**Type:** Optimization | **Priority:** HIGH | **Status:** IN PROGRESS ⚡
+
+To ensure sub-millisecond execution and instant updates across all metrics:
+1. **[DONE] Remove Forced Price Resolving Lag:** Modified `_resolve_l2_prices` inside `updown_engine.py` to check the `polymarket_l2_gateway` cache immediately on attempt 0 instead of sleeping for 1.0s. This cuts lookup latency for standard signals from 1.0s to 0ms when prices are cached.
+2. **[DONE] Optimize Terminal Refresh and I/O:** Increased console rendering and file synchronization frequency from 3Hz (333ms) to 10Hz (100ms) for an instant visual refresh, while gating markdown report generation to prevent redundant disk I/O.
+3. **[DONE] Sizing Balance Configuration:** Added `SIZING_BALANCE: float = 1200.0` to `config.py` and updated `UpDownEngine.compute_size` to cap sizing at `$1,200` account balance, preventing exponential scaling during compounding growth while keeping tests 100% green.
+4. **[PENDING] Streamlined Cline Fetches:** Cache Binance klines or stream them via WebSocket to avoid HTTP GET REST API calls (~40-100ms lag) at trade boundaries.
+5. **[PENDING] Pyth Hermes Integration:** Activate the dormant Pyth Hermes Real-Time SSE price service to achieve sub-0.1ms oracle spot price updates.
+
+**Done when:** All local price lookups and pipeline latency benchmarks check out at sub-10ms.
 
 ---
 
