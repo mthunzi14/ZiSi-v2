@@ -1257,8 +1257,8 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
             live_price, _ = polymarket_l2_gateway.get_price(market_id)
             if live_price and live_price > 0.0:
+                _max_slippage = 0.25
                 slippage = live_price - entry_price
-                _max_slippage = 0.03
                 if slippage > _max_slippage:
                     log.warning(
                         "[TRADE] SLIPPAGE_ABORT: %s/%s %s Live price %.4f is > %.1f¢ higher than signal price %.4f. Aborting trade execution.",

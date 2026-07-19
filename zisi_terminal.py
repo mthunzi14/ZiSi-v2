@@ -1340,21 +1340,21 @@ def build_active_positions_panel() -> Panel:
             
             direction = pos.get("direction", "YES")
             dir_color = COLOR_PASTEL_GREEN if direction in ("YES", "UP") else COLOR_PASTEL_RED
-            size = float(pos.get("size", 0.0))
+            size = float(pos.get("size") or 0.0)
             
-            entry_token = float(pos.get("entry_price", 0.0))
-            entry_spot = float(pos.get("entry_spot", 0.0))
+            entry_token = float(pos.get("entry_price") or 0.0)
+            entry_spot = float(pos.get("entry_spot") or 0.0)
             
             # Get spot price: Chainlink first, Binance fallback
             live_spot = 0.0
             cl_entry = cl_copy.get(asset, {})
             if isinstance(cl_entry, dict):
-                live_spot = float(cl_entry.get("price", 0.0))
+                live_spot = float(cl_entry.get("price") or 0.0)
             else:
                 live_spot = float(cl_entry or 0.0)
             
             if live_spot <= 0.0:
-                live_spot = spot_copy.get(asset, 0.0)
+                live_spot = float(spot_copy.get(asset) or 0.0)
             
             # Determine resolving state
             is_resolving = (pos.get("status") == "RESOLVING")
@@ -1372,7 +1372,7 @@ def build_active_positions_panel() -> Panel:
                 else:
                     won = (live_spot < entry_spot)
                 mark_token = 0.99 if won else 0.01
-                unreal = (float(pos.get("shares", 0.0)) * mark_token) - size
+                unreal = (float(pos.get("shares") or 0.0) * mark_token) - size
             else:
                 # Fetch WebSocket token price
                 # If we have yes_market_id stored, query it as YES token is much more liquid.
@@ -1385,13 +1385,13 @@ def build_active_positions_panel() -> Panel:
                         mark_token = round(1.0 - yes_price, 4)
                     else:
                         mark_token = yes_price
-                    unreal = (float(pos.get("shares", 0.0)) * mark_token) - size
+                    unreal = (float(pos.get("shares") or 0.0) * mark_token) - size
                 else:
-                    mark_token = float(pos.get("current_price", entry_token))
-                    unreal = float(pos.get("unrealized_pnl", 0.0))
+                    mark_token = float(pos.get("current_price") or entry_token or 0.0)
+                    unreal = float(pos.get("unrealized_pnl") or 0.0)
             
             # Formulate spot entry estimations
-            entry_spot = float(pos.get("entry_spot", 0.0))
+            entry_spot = float(pos.get("entry_spot") or 0.0)
             if asset == "DOGE":
                 entry_spot_str = f"${entry_spot:.5f}" if entry_spot > 0 else "-"
                 mark_spot_str = f"${live_spot:.5f}" if live_spot > 0 else "-"
@@ -1400,7 +1400,7 @@ def build_active_positions_panel() -> Panel:
                 mark_spot_str = f"${live_spot:,.2f}" if live_spot > 0 else "-"
             
             unreal_color = COLOR_PASTEL_GREEN if unreal > 0.01 else (COLOR_PASTEL_RED if unreal < -0.01 else COLOR_LABEL)
-            hold_min = float(pos.get("hold_minutes", 0.0))
+            hold_min = float(pos.get("hold_minutes") or 0.0)
             hold_sec = int(hold_min * 60)
             hold_str = f"{hold_sec // 60}m {hold_sec % 60}s"
             
@@ -1419,7 +1419,7 @@ def build_active_positions_panel() -> Panel:
             
             formatted_entry_ts = format_iso_timestamp(pos.get("entry_time", ""))
 
-            slp_val = float(pos.get("slp", 0.0))
+            slp_val = float(pos.get("slp") or 0.0)
             if abs(slp_val) < 0.01:
                 slp_str = "[grey50]0.0¢[/grey50]"
             else:
