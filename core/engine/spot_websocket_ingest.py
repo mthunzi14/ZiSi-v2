@@ -195,12 +195,12 @@ class BinanceWebSocketIngest:
                             "last_tick": book.get("timestamp", 0.0)
                         }
                 
-                # Write atomically to prevent partial reads
-                with open(temp_file, "w") as f:
+                # Write safely to data/hft_metrics.json
+                os.makedirs(os.path.dirname(target_file), exist_ok=True)
+                with open(target_file, "w") as f:
                     json.dump(metrics, f, indent=4)
-                os.replace(temp_file, target_file)
             except Exception as e:
-                log.warning("[HFT-WS] Failed to dump metrics: %r", e)
+                log.debug("[HFT-WS] Failed to dump metrics: %r", e)
             await asyncio.sleep(0.2)
 
     async def _socket_loop(self):

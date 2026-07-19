@@ -1054,19 +1054,6 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         if (stats_b["wins"] + stats_b["losses"]) > 0:
             breakdown_rows.append((f"  {band_name}:", format_breakdown_line(stats_b)))
 
-    # Slippage Breakdown Display
-    breakdown_rows.append(("", ""))
-    breakdown_rows.append(("[bold grey70]Slippage Breakdown:[/bold grey70]", ""))
-    for slp_bucket in ["0 to 5¢", "5 to 10¢", "10 to 15¢", "15 to 20¢", "20 to 25¢"]:
-        stats_slp = slippage_stats[slp_bucket]
-        breakdown_rows.append((f"  Slippage {slp_bucket}:", format_breakdown_line(stats_slp)))
-
-    # Regime Breakdown Display
-    breakdown_rows.append(("", ""))
-    breakdown_rows.append(("[bold grey70]Regime Breakdown:[/bold grey70]", ""))
-    for regime_name, stats_r in sorted(regime_stats.items()):
-        breakdown_rows.append((f"  {regime_name.replace('_', ' ')}:", format_breakdown_line(stats_r)))
-
     # Session Breakdown Display
     if session_stats:
         breakdown_rows.append(("", ""))
@@ -1714,9 +1701,8 @@ def make_layout() -> Layout:
     )
     
     layout["upper_body"].split_row(
-        Layout(name="metrics", ratio=2),
-        Layout(name="prices", ratio=3),
-        Layout(name="regime", ratio=3)
+        Layout(name="metrics", ratio=1),
+        Layout(name="prices", ratio=1)
     )
     
     return layout
@@ -1828,7 +1814,6 @@ def main():
                 layout_default["header"].update(build_header_panel())
                 layout_default["metrics"].update(build_metrics_panel())
                 layout_default["prices"].update(build_spot_prices_panel())
-                layout_default["regime"].update(build_regime_panel(fullscreen=False))
                 layout_default["active_panel"].update(build_active_positions_panel())
                 layout_default["closed_panel"].update(build_closed_positions_panel(num_lines=closed_lines))
                 # Adjust logs height dynamically too
