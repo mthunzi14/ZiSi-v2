@@ -1232,20 +1232,7 @@ async def _place_corr_trades(
 
 def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, score, trade_type="SINGLE", strike_price=None) -> Optional[dict]:
     key = (asset, timeframe)
-    dir_colored = "\033[1;38;2;193;225;193mUP\033[0m" if direction == "UP" else "\033[1;38;2;255;116;108mDOWN\033[0m"
     with _placement_lock:
-        if key in _in_flight_placements:
-            log.warning("[CONCURRENT-GUARD] Aborting %s/%s %s trade: already has an in-flight placement", asset, timeframe, dir_colored)
-            return None
-        try:
-            from core.engine.state_manager import get_open_positions
-            from core.engine.session_governor import has_open_asset_tf_exposure
-            open_positions = get_open_positions()
-            if has_open_asset_tf_exposure(open_positions, asset, timeframe):
-                log.warning("[CONCURRENT-GUARD] Aborting %s/%s %s trade: already has open exposure", asset, timeframe, dir_colored)
-                return None
-        except Exception as e:
-            log.warning("[CONCURRENT-GUARD] Failed checking open exposure: %s", e)
         _in_flight_placements.add(key)
 
     try:

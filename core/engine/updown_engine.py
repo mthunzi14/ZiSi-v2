@@ -1065,11 +1065,9 @@ class UpDownEngine:
                     "status": "NEUTRAL"
                 }
                 
-                tmp = matrix_file.with_suffix(".tmp")
+                matrix_file.parent.mkdir(parents=True, exist_ok=True)
                 import json as _json
-                tmp.write_text(_json.dumps(mat_data, indent=2), encoding="utf-8")
-                import os as _os
-                _os.replace(tmp, matrix_file)
+                matrix_file.write_text(_json.dumps(mat_data, indent=2), encoding="utf-8")
             except Exception as me:
                 log.warning("Failed to write initial gate matrix: %s", me)
 
@@ -1256,11 +1254,9 @@ class UpDownEngine:
                                 "cvd_warmed": has_cvd,
                             }
 
-                            tmp = matrix_file.with_suffix(".tmp")
+                            matrix_file.parent.mkdir(parents=True, exist_ok=True)
                             import json as _json
-                            tmp.write_text(_json.dumps(mat_data, indent=2), encoding="utf-8")
-                            import os as _os
-                            _os.replace(tmp, matrix_file)
+                            matrix_file.write_text(_json.dumps(mat_data, indent=2), encoding="utf-8")
                         except Exception as me:
                             log.warning("Failed to write gate matrix: %s", me)
 
