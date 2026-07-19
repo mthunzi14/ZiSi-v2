@@ -1,5 +1,5 @@
 # ZISI — Items
-**Last Updated:** 2026-07-19 09:45 SAST
+**Last Updated:** 2026-07-19 11:55 SAST
 **Maintained by:** All agents (Antigravity + Coding Tool) + Owner
 
 > **How this document works:**
@@ -41,6 +41,9 @@ We need to:
 1. Store the credentials (endpoint URL, client ID, client secret, HMAC keys) securely.
 2. Implement the HMAC-based signature generation client and WebSocket listener for live price feeds (BTC, ETH, SOL, XRP, DOGE).
 3. Integrate parsing, data pipelines, and a seamless fallback layer to Polymarket's RTDS / Tier 2/3 REST polling.
+
+**Progress Update (Pre-Integration Complete):**
+- Fixed HYPE connection status. Created a custom pipeline for HYPE (since it is not listed on spot markets) by connecting to the Binance Futures `bookTicker` stream in the terminal (`zisi_terminal.py`) and polling the Binance Futures REST API in `polymarket_rtds_ingest.py`. HYPE price is now fully active across the spot matrix, the Chainlink column cache, and backends on the VPS.
 
 **Done when:** Chainlink streams are successfully integrated, active, and feeding live price data to the trading engines in real-time.
 
