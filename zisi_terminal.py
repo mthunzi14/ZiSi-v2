@@ -44,6 +44,15 @@ except ImportError:
 # Initialize console
 console = Console()
 
+def safe_float(val, default=0.0) -> float:
+    if val is None:
+        return float(default)
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return float(default)
+
+
 # Resolve paths
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
@@ -192,11 +201,11 @@ async def binance_spot_listener():
                         
                         event_type = data.get("e", "")
                         if event_type == "bookTicker":
-                            bid = float(data.get("b", 0.0))
-                            ask = float(data.get("a", 0.0))
+                            bid = safe_float(data.get("b", 0.0))
+                            ask = safe_float(data.get("a", 0.0))
                             price = (bid + ask) / 2.0 if (bid > 0 and ask > 0) else (bid or ask)
                         else:
-                            price = float(data.get("c", 0.0))
+                            price = safe_float(data.get("c", 0.0))
                         
                         asset = symbol.upper().replace("USDT", "")
                         if asset in g_state.spot_prices:
@@ -228,8 +237,8 @@ def process_clob_message(data: dict):
             best_bid = change.get("best_bid")
             best_ask = change.get("best_ask")
             if aid and best_bid is not None and best_ask is not None:
-                mid = (float(best_bid) + float(best_ask)) / 2
-                spread = float(best_ask) - float(best_bid)
+                mid = (safe_float(best_bid) + safe_float(best_ask)) / 2
+                spread = safe_float(best_ask) - safe_float(best_bid)
                 with g_state.lock:
                     g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
                     g_state.clob_spreads[aid] = spread
@@ -241,8 +250,8 @@ def process_clob_message(data: dict):
         best_bid = data.get("best_bid")
         best_ask = data.get("best_ask")
         if aid and best_bid is not None and best_ask is not None:
-            mid = (float(best_bid) + float(best_ask)) / 2
-            spread = float(best_ask) - float(best_bid)
+            mid = (safe_float(best_bid) + safe_float(best_ask)) / 2
+            spread = safe_float(best_ask) - safe_float(best_bid)
             with g_state.lock:
                 g_state.clob_prices[aid] = {"yes_price": mid, "last_update": time.time()}
                 g_state.clob_spreads[aid] = spread
@@ -254,8 +263,8 @@ def process_clob_message(data: dict):
         asks = data.get("asks", [])
         aid = data.get("asset_id") or data.get("token_id")
         if aid and bids and asks:
-            best_bid = float(bids[-1].get("price", 0))
-            best_ask = float(asks[0].get("price", 0))
+            best_bid = safe_float(bids[-1].get("price", 0))
+            best_ask = safe_float(asks[0].get("price", 0))
             mid = (best_bid + best_ask) / 2
             spread = best_ask - best_bid
             with g_state.lock:
@@ -357,10 +366,10 @@ def generate_trade_history_report(closed_positions):
     report_path = DATA_DIR / "trade_history_report.md"
     try:
         total = len(closed_positions)
-        wins = sum(1 for p in closed_positions if float(p.get("realized_pnl", 0.0)) > 0.01)
-        losses = sum(1 for p in closed_positions if float(p.get("realized_pnl", 0.0)) < -0.01)
-        pnl = sum(float(p.get("realized_pnl", 0.0)) for p in closed_positions)
-        breakevens = sum(1 for p in closed_positions if -0.01 <= float(p.get("realized_pnl", 0.0)) <= 0.01)
+        wins = sum(1 for p in closed_positions if safe_float(p.get("realized_pnl", 0.0)) > 0.01)
+        losses = sum(1 for p in closed_positions if safe_float(p.get("realized_pnl", 0.0)) < -0.01)
+        pnl = sum(safe_float(p.get("realized_pnl", 0.0)) for p in closed_positions)
+        breakevens = sum(1 for p in closed_positions if -0.01 <= safe_float(p.get("realized_pnl", 0.0)) <= 0.01)
         win_rate = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0.0
         
         lines = [
@@ -391,9 +400,9 @@ def generate_trade_history_report(closed_positions):
             elif "1H" in title.upper():
                 tf = "1h"
             
-            pnl_val = float(pos.get("realized_pnl", 0.0))
+            pnl_val = safe_float(pos.get("realized_pnl", 0.0))
             pnl_str = f"${pnl_val:+.2f}"
-            hold_min = float(pos.get("hold_hours", 0.0)) * 60
+            hold_min = safe_float(pos.get("hold_hours", 0.0)) * 60
             
             lines.append(
                 f"| {pos.get('exit_time', '')} | {asset} | {tf} | {pos.get('direction', 'YES')} | ${pos.get('size', 0.0):.2f} | {pos.get('entry_price', 0.0)} | {pos.get('exit_price', 0.0)} | {hold_min:.1f}m | {pos.get('exit_reason', '')} | {pnl_str} |"
@@ -430,7 +439,7 @@ def sync_file_states():
         for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
             if g_state.spot_prices.get(asset, 0.0) == 0.0:
                 cl_entry = chainlink.get(asset, {})
-                cl_price = float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else float(cl_entry or 0.0)
+                cl_price = safe_float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else safe_float(cl_entry or 0.0)
                 if cl_price > 0.0:
                     g_state.spot_prices[asset] = cl_price
         
@@ -697,7 +706,7 @@ def build_equity_chart(width: int = 34) -> str:
     if not history:
         return "[grey50]  Chart: No history recorded yet[/grey50]"
         
-    balances = [float(h["balance"]) for h in history]
+    balances = [safe_float(h["balance"]) for h in history]
     if len(balances) < 2:
         return "[grey50]  Chart: Accumulating data points...[/grey50]"
         
@@ -747,19 +756,19 @@ def build_equity_chart(width: int = 34) -> str:
 def build_metrics_panel(fullscreen: bool = False) -> Panel:
     """Build performance summary showing real-time fluctuating unrealized stats."""
     with g_state.lock:
-        start_bal = float(g_state.account_state.get("starting_balance", 50.00))
-        current_bal = float(g_state.account_state.get("balance", start_bal))
+        start_bal = safe_float(g_state.account_state.get("starting_balance", 50.00))
+        current_bal = safe_float(g_state.account_state.get("balance", start_bal))
         summary = g_state.positions_state.get("summary", {})
         active_positions = g_state.positions_state.get("active", [])
 
-    realized = float(summary.get("realized_pnl", 0.0))
+    realized = safe_float(summary.get("realized_pnl", 0.0))
     
     # Calculate live unrealized PnL from real-time WebSocket feeds
     total_live_unrealized = 0.0
     for pos in active_positions:
         market_id = pos.get("market_id")
-        shares = float(pos.get("shares", 0.0))
-        size = float(pos.get("size", 0.0))
+        shares = safe_float(pos.get("shares", 0.0))
+        size = safe_float(pos.get("size", 0.0))
         direction = pos.get("direction", "YES")
         
         live_entry = g_state.clob_prices.get(market_id)
@@ -769,7 +778,7 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
             unreal = (shares * live_price) - size
             total_live_unrealized += unreal
         else:
-            total_live_unrealized += float(pos.get("unrealized_pnl", 0.0))
+            total_live_unrealized += safe_float(pos.get("unrealized_pnl", 0.0))
 
     live_balance = current_bal + total_live_unrealized
     realized_roi = (realized / start_bal) * 100 if start_bal > 0 else 0.0
@@ -818,8 +827,8 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
             if f"[{possible}]" in title.upper() or possible in title.upper():
                 asset = possible
                 break
-        pnl = float(pos.get("realized_pnl", 0.0))
-        hold_hours = float(pos.get("hold_hours", 0.0))
+        pnl = safe_float(pos.get("realized_pnl", 0.0))
+        hold_hours = safe_float(pos.get("hold_hours", 0.0))
         hold_sec = int(hold_hours * 3600)
         
         # Regime stats
@@ -885,7 +894,7 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
                 runner_stats["breakevens"] += 1
 
         # Entry Bands stats
-        entry_price = float(pos.get("entry_price", 0.0))
+        entry_price = safe_float(pos.get("entry_price", 0.0))
         cents = round(entry_price * 100)
         if 0 <= cents <= 19:
             band_key = "0-19¢"
@@ -1080,7 +1089,7 @@ def build_spot_prices_panel() -> Panel:
         
         # Load values from local oracle dumps
         cl_entry = cl_copy.get(asset, {})
-        cl_price = float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else float(cl_entry or 0.0)
+        cl_price = safe_float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else safe_float(cl_entry or 0.0)
         if asset == "DOGE":
             cl_str = f"${cl_price:.5f}" if cl_price > 0 else "-"
         else:
@@ -1150,7 +1159,7 @@ def get_rolling_avg_slippage(window: int = 50) -> float:
                 try:
                     data = json.loads(line)
                     if "slippage_cents" in data:
-                        slippages.append(float(data["slippage_cents"]))
+                        slippages.append(safe_float(data["slippage_cents"]))
                 except Exception:
                     continue
                     
@@ -1351,7 +1360,7 @@ def build_active_positions_panel() -> Panel:
             if isinstance(cl_entry, dict):
                 live_spot = float(cl_entry.get("price") or 0.0)
             else:
-                live_spot = float(cl_entry or 0.0)
+                live_spot = safe_float(cl_entry or 0.0)
             
             if live_spot <= 0.0:
                 live_spot = float(spot_copy.get(asset) or 0.0)
@@ -1361,7 +1370,7 @@ def build_active_positions_panel() -> Panel:
             if not is_resolving and pos.get("expiry_ts"):
                 try:
                     import time
-                    is_resolving = (time.time() >= float(pos["expiry_ts"]))
+                    is_resolving = (time.time() >= safe_float(pos["expiry_ts"]))
                 except Exception:
                     pass
 
@@ -1436,7 +1445,7 @@ def build_active_positions_panel() -> Panel:
                 mark_spot_str,
                 format_cents(entry_token),
                 format_cents(mark_token),
-                format_cents(float(pos.get('target_price', 0.99))),
+                format_cents(safe_float(pos.get('target_price', 0.99))),
                 hold_str,
                 slp_str,
                 type_str,
@@ -1493,13 +1502,13 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         dir_color = COLOR_PASTEL_GREEN if direction in ("YES", "UP") else COLOR_PASTEL_RED
         
         # Format values
-        size = float(pos.get("size", 0.0))
-        entry = float(pos.get("entry_price", pos.get("entry_token_price", 0.0)))
-        exit_pr = float(pos.get("exit_price", pos.get("exit_token_price", 0.0)))
-        hold_hours = float(pos.get("hold_hours", 0.0))
+        size = safe_float(pos.get("size", 0.0))
+        entry = safe_float(pos.get("entry_price", pos.get("entry_token_price", 0.0)))
+        exit_pr = safe_float(pos.get("exit_price", pos.get("exit_token_price", 0.0)))
+        hold_hours = safe_float(pos.get("hold_hours", 0.0))
         hold_sec = int(hold_hours * 3600)
         hold_str = f"{hold_sec // 60}m {hold_sec % 60}s"
-        pnl = float(pos.get("realized_pnl", 0.0))
+        pnl = safe_float(pos.get("realized_pnl", 0.0))
         pnl_color = COLOR_PASTEL_GREEN if pnl > 0.01 else (COLOR_PASTEL_RED if pnl < -0.01 else COLOR_LABEL)
         
         formatted_exit_ts = format_iso_timestamp(pos.get("exit_time", ""))
@@ -1533,7 +1542,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         else:
             type_str = f"[grey50]ES[/grey50]"
 
-        slp_val = float(pos.get("slp", 0.0))
+        slp_val = safe_float(pos.get("slp", 0.0))
         if abs(slp_val) < 0.01:
             slp_str = "[grey50]0.0¢[/grey50]"
         else:
