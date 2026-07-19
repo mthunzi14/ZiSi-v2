@@ -542,9 +542,11 @@ class UpDownEngine:
             detector.update_context(obi=_obi_val, volume_ratio=_vol_ratio, write_to_disk=write_to_disk)
             detector.update_prices(closes, symbol=self.asset, write_to_disk=write_to_disk)
             self._current_regime_calculated = detector._current_regime
+            self._detected_regime_calculated = detector.detected_regime
         except Exception as e:
             log.warning("[ENGINE] Failed to update regime detector for %s: %s", self.asset, e)
             self._current_regime_calculated = "MEAN_REVERTING"
+            self._detected_regime_calculated = "MEAN_REVERTING"
 
         rsi = _compute_rsi(closes)
         self._last_rsi = rsi  # Store RSI for fair-value paper fallbacks

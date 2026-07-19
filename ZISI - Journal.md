@@ -1208,5 +1208,12 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   - Uploaded the sanitized files to the VPS, restarted the `ZiSi-Core-Engine` under PM2, and confirmed clean startup logs with the correct balance and trade count.
 - **Items & Artifacts Updated:**
   - Created [sunday_morning_autopsy.md](file:///C:/Users/mthun/.gemini/antigravity/brain/14e04d67-5e69-491a-9086-7b2c06bc7b3d/sunday_morning_autopsy.md) containing the full forensic analysis and recommendations.
-  - Added **ITEM 26** to `ZISI - Items.md` proposing the leader guard, price ceiling, and regime unlocking changes.
+  - Added **ITEM 26** and **ITEM 27** to `ZISI - Items.md`.
+
+**CORE ENGINE REFINEMENT (ITEM 26 COMPLETED):**
+- **Trend-Blocker Deployed**: Saved `_detected_regime_calculated` from the background `RegimeDetector` to `UpDownEngine`. Inside `_validate_trade_slot` (in `app/main.py`), if the background regime is `TRENDING` or `VOLATILE_CHAOS`, the bot now automatically blocks contrarian entries that fade the trend (i.e. blocking DOWN/NO entries during UP trends, and blocking UP/YES entries during DOWN trends). This preserves the hardlocked `MEAN_REVERTING` strategy edge while avoiding getting run over by runaway momentum candles.
+- **Tranche B Target Equalization**: Equalized Tranche B's target to Tranche A's target (`entry_price + 0.12`) for any entry price `>= 0.80` in `core/engine/trader.py`. This ensures expensive contracts exit 100% of their size at the scalp target in the same tick cycle, avoiding holding to expiry where resolution is capped.
+- **Verification & Unit Testing**: Added a new unit test `test_high_cents_tranche_targets` to [test_edges.py](file:///c:/Users/mthun/Downloads/ZiSi-v2/test/test_edges.py) confirming that both Tranche A and Tranche B targets align and close together in the same tick. All 65 unit tests compile and pass successfully.
+- **Items Updated**: Removed **ITEM 26** from `ZISI - Items.md` as completed. Appended **ITEM 27** (Chainlink Data Streams Integration) as a critical priority, pending credentials.
+
 

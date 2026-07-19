@@ -280,7 +280,10 @@ def _reconcile_pending_orders() -> None:
             event_title = meta.get("event_title", "")
             tp, sl = _calculate_exit_targets_fallback(price, amount, event_title, direction)
             tranche_a_target = min(0.99, round(price + 0.12, 4))
-            tranche_b_target = min(0.99, round(price + 0.28, 4))
+            if price >= 0.80:
+                tranche_b_target = tranche_a_target
+            else:
+                tranche_b_target = min(0.99, round(price + 0.28, 4))
 
             reconstructed[order_id] = {
                 "order_id":        order_id,
@@ -722,7 +725,10 @@ def place_order(
             tranche_b_target = 0.99
         else:
             tranche_a_target = min(0.99, round(entry_price + 0.12, 4))
-            tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
+            if entry_price >= 0.80:
+                tranche_b_target = tranche_a_target
+            else:
+                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
         _open_positions[order_id] = {
             **order,
             "target_price": tp,
@@ -817,7 +823,10 @@ def place_order(
             tranche_b_target = 0.99
         else:
             tranche_a_target = min(0.99, round(entry_price + 0.12, 4))
-            tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
+            if entry_price >= 0.80:
+                tranche_b_target = tranche_a_target
+            else:
+                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
         _open_positions[order["order_id"]] = {
             **order,
             "event_title":  event_title or event_id,
@@ -1366,7 +1375,10 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         
         tranche_b_target = pos.get("tranche_b_target")
         if not tranche_b_target:
-            tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
+            if entry_price >= 0.80:
+                tranche_b_target = tranche_a_target
+            else:
+                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
             pos["tranche_b_target"] = tranche_b_target
 
         tranche_a_closed = pos.get("tranche_a_closed", False)

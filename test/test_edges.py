@@ -485,7 +485,63 @@ class TestEdgesAndFilters(unittest.IsolatedAsyncioTestCase):
             expiry_ts=now + 30
         )
 
+    @patch("core.engine.trader._open_positions")
+    @patch("core.engine.trader.execute_exit")
+    @patch("core.engine.trader.record_tranche_close")
+    @patch("core.engine.trader.get_current_balance", return_value=1000.0)
+    @patch("core.engine.trader.update_balance")
+    @patch("core.engine.extraterrestrial_ws_gateway.polymarket_l2_gateway")
+    @patch("core.engine.data_fetcher.get_event_current_price")
+    @patch("core.engine.data_fetcher.fetch_market_resolution")
+    def test_high_cents_tranche_targets(
+        self, mock_resolution, mock_curr_price, mock_l2, mock_up_bal, mock_bal, mock_tr_close, mock_exit, mock_open
+    ):
+        mock_resolution.return_value = None
+        mock_curr_price.return_value = None
+        mock_l2.get_price.return_value = (None, None)
+
+        # Setup an open position with entry_price = 0.85
+        # Tranche B target must equal Tranche A target (0.85 + 0.12 = 0.97)
+        now = datetime.now(timezone.utc)
+        open_time = now - timedelta(minutes=1)
+        
+        pos = {
+            "order_id": "test_high_cents_order",
+            "market_id": "test_market_high_cents",
+            "event_title": "[UPDOWN][BTC][5m][SIG]",
+            "entry_price": 0.85,
+            "current_price": 0.97,  # price is at target 0.97
+            "open_time": open_time,
+            "status": "OPEN",
+            "direction": "YES",
+            "shares_acquired": 100.0,
+            "amount_spent": 85.0,
+            "tranche_a_target": 0.97,
+            "tranche_b_target": 0.97,
+            "tranche_a_closed": False,
+            "tranche_b_closed": False,
+        }
+
+        mock_open.items.return_value = [("test_high_cents_order", pos)]
+        # We also mock __contains__ and getitem so trader.py can look it up correctly
+        mock_open.__contains__.return_value = True
+        mock_open.__getitem__.return_value = pos
+
+        # Run exit check
+        check_and_close_paper_trades()
+
+        # Since current_price 0.97 >= tranche_a_target 0.97:
+        # 1. Tranche A close should be recorded
+        # 2. Since tranche_b_target is also 0.97, Tranche B target check will also be hit immediately
+        # 3. execute_exit should be called with TARGET
+        mock_exit.assert_called_once_with("test_high_cents_order", 0.97, exit_reason="TARGET")
+        
+        # Verify that record_tranche_close was called for Tranche A
+        any_tr_a = any(c.kwargs.get("tranche_name") == "A" for c in mock_tr_close.call_args_list)
+        self.assertTrue(any_tr_a, "Tranche A close should be recorded")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

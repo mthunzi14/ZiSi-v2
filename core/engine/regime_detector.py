@@ -105,6 +105,7 @@ class RegimeDetector:
 
         # Current state
         self._current_regime: str = "MEAN_REVERTING"
+        self._detected_regime: str = "MEAN_REVERTING"
         self._current_atr: float = 0.0
         self._regime_confidence: float = 0.0
 
@@ -201,6 +202,7 @@ class RegimeDetector:
         best_score = scores[best_regime]
         total = sum(scores.values()) or 1.0
         self._regime_confidence = round(best_score / total, 4)
+        self._detected_regime = best_regime
         self._current_regime = "MEAN_REVERTING"
 
         if write_to_disk:
@@ -334,6 +336,11 @@ class RegimeDetector:
         return self._current_regime
 
     @property
+    def detected_regime(self) -> str:
+        """The true background-detected regime (without hardcoding)."""
+        return self._detected_regime
+
+    @property
     def atr(self) -> float:
         """Current ATR as a percentage."""
         return self._current_atr
@@ -365,6 +372,7 @@ class RegimeDetector:
         cfg = REGIMES.get(self._current_regime, {})
         return {
             "regime": self._current_regime,
+            "detected_regime": self.detected_regime,
             "label": cfg.get("label", self._current_regime),
             "regime_confidence": self._regime_confidence,
             "atr_pct": self._current_atr,
@@ -394,6 +402,7 @@ class RegimeDetector:
         cfg = REGIMES.get(self._current_regime, REGIMES["COMPRESSION"])
         return {
             "regime": self._current_regime,
+            "detected_regime": self.detected_regime,
             "label": cfg["label"],
             "confidence": self._regime_confidence,
             "kelly_multiplier": cfg["kelly_mult"],
