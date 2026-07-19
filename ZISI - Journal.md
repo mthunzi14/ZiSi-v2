@@ -1190,3 +1190,23 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   - Verified local and VPS repositories are fully synced and cleanly running commit `a00455d` on the `stable-june22` branch.
   - Verified PM2 process `ZiSi-Core-Engine` is running online with zero errors.
   - Confirmed all 64 unit tests pass successfully locally.
+
+### Session 25 — 2026-07-19 (Antigravity)
+**Time:** 09:00–09:15 SAST | **Bot Status:** Wiped & Restarted (commit `a00455d3388413125015a4dea396c9fb6c7b1989`)
+
+**DATABASE PURGE AND LOSS THESIS ESTABLISHED:**
+- **Issue:** The bot suffered a series of drawdowns on Sunday morning (July 19) starting at `00:25` SAST, dragging the session win rate down to **57.7%** (15 wins, 11 losses) and net PNL to **-$64.11** before being wiped.
+- **Forensic Autopsy Results (Root Causes):**
+  1. **Hardlocked Regime**: Found that commit `29d83b18` (July 17) hardcoded the active regime to `MEAN_REVERTING` in `regime_detector.py`. This blinded the bot to trending conditions, forcing it to fade macro price expansions and take systematic losses during sustained upward trends on Sunday morning.
+  2. **Leader Guard Disabled**: The Altcoin Market Leader Corroboration Guard in `app/main.py` is commented out. This allowed the bot to enter multiple concurrent altcoin trades in the same direction against the BTC/ETH macro trend, leading to highly correlated basket losses (e.g. 4 simultaneous DOWN losses at `04:10` SAST).
+  3. **High Entry Prices**: No ceiling for standard `SIG` entries allowed the bot to buy YES contracts at >0.80 (e.g. `0.855` and `0.865` entries), where risk/reward is highly unfavorable and Tranche B targets are mathematically impossible to reach.
+- **Database Wipe & Reset:**
+  - Backed up all VPS JSON database files locally under `backups/`.
+  - Wiped all 46 closed tranche positions starting from the `00:25:14` BNB YES trade onwards from `positions_state.json`, `pos2.json`, and `pos_snapshot.json`.
+  - Restored `win_count` and `loss_count` summary telemetry to match the kept pre-wipe database size (1,226 trades total).
+  - Reset the current balance in `account_state.json` to **`$1,744.00`** (which includes the profit of the 3 early-morning wins on BTC/ETH before the loss sequence started) and `realized_pnl` to `1624.00`.
+  - Uploaded the sanitized files to the VPS, restarted the `ZiSi-Core-Engine` under PM2, and confirmed clean startup logs with the correct balance and trade count.
+- **Items & Artifacts Updated:**
+  - Created [sunday_morning_autopsy.md](file:///C:/Users/mthun/.gemini/antigravity/brain/14e04d67-5e69-491a-9086-7b2c06bc7b3d/sunday_morning_autopsy.md) containing the full forensic analysis and recommendations.
+  - Added **ITEM 26** to `ZISI - Items.md` proposing the leader guard, price ceiling, and regime unlocking changes.
+

@@ -1,5 +1,5 @@
 # ZISI — Items
-**Last Updated:** 2026-07-18 23:25 SAST
+**Last Updated:** 2026-07-19 09:15 SAST
 **Maintained by:** All agents (Antigravity + Coding Tool) + Owner
 
 > **How this document works:**
@@ -33,6 +33,22 @@ Owner requirement: WR must stay above **82%** at all times.
 
 ---
 
+## 🔴 ITEM 26 — Sunday Morning Loss Pattern (Regime, Leader Guard & Price Caps)
+**Type:** Coding | **Priority:** High | **Status:** PENDING OWNER APPROVAL ⏳
+
+Forensic autopsy of Sunday morning losses (wiped July 19) identified three gaps:
+1. **Hardlocked Regime**: Regime detector is hardlocked to `MEAN_REVERTING` in `regime_detector.py`, making the bot blind to strong trends and causing it to fade momentum waterfalls.
+2. **Disabled Leader Guard**: The Altcoin Market Leader Corroboration Guard in `app/main.py` is commented out, allowing the bot to enter multiple concurrent altcoin trades against the BTC/ETH macro trend.
+3. **High Entry Prices**: No maximum entry price ceiling for standard trades, allowing the bot to buy YES contracts at >0.80 where risk/reward is highly unfavorable and Tranche B targets are mathematically impossible.
+
+**Actions proposed:**
+- Re-enable Leader Corroboration Guard in `app/main.py` (uncomment lines 390-396).
+- Implement max entry price cap of `0.80` for standard single entries in `_validate_trade_slot` (in `app/main.py`).
+- Unlock the regime detector by reverting line 204 in `core/engine/regime_detector.py` to `self._current_regime = best_regime`.
+
+**Done when:** Code changes are implemented, unit tested, verified on VPS, and the bot runs dynamically without taking correlated basket losses against macro trends.
+
+---
+
 *Companion to ZISI - Journal.md | Both live at repo root: C:\Users\mthun\Downloads\ZiSi-v2\*
 *Completed items archived in Journal Session Entries*
-
