@@ -818,6 +818,13 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         "60-79¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
         "80-99¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []}
     }
+    slippage_stats = {
+        "0 to 5¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "5 to 10¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "10 to 15¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "15 to 20¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+        "20 to 25¢": {"wins": 0, "losses": 0, "breakevens": 0, "pnl": 0.0, "hold_secs": []},
+    }
     closed_pos = g_state.positions_state.get("closed", [])
 
     for pos in (closed_pos or []):
@@ -831,6 +838,32 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         hold_hours = safe_float(pos.get("hold_hours", 0.0))
         hold_sec = int(hold_hours * 3600)
         
+        # Slippage stats
+        raw_slp = pos.get("slp")
+        if raw_slp is None:
+            raw_slp = pos.get("slippage", 0.0)
+        slp_cents = abs(safe_float(raw_slp or 0.0))
+
+        if 0.0 <= slp_cents < 5.0:
+            slp_key = "0 to 5¢"
+        elif 5.0 <= slp_cents < 10.0:
+            slp_key = "5 to 10¢"
+        elif 10.0 <= slp_cents < 15.0:
+            slp_key = "10 to 15¢"
+        elif 15.0 <= slp_cents < 20.0:
+            slp_key = "15 to 20¢"
+        else:
+            slp_key = "20 to 25¢"
+
+        slippage_stats[slp_key]["pnl"] += pnl
+        slippage_stats[slp_key]["hold_secs"].append(hold_sec)
+        if pnl > 0.01:
+            slippage_stats[slp_key]["wins"] += 1
+        elif pnl < -0.01:
+            slippage_stats[slp_key]["losses"] += 1
+        else:
+            slippage_stats[slp_key]["breakevens"] += 1
+
         # Regime stats
         _reg = str(pos.get("regime", "UNKNOWN")).upper()
         if _reg not in regime_stats:
@@ -1020,6 +1053,13 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         stats_b = band_stats[band_name]
         if (stats_b["wins"] + stats_b["losses"]) > 0:
             breakdown_rows.append((f"  {band_name}:", format_breakdown_line(stats_b)))
+
+    # Slippage Breakdown Display
+    breakdown_rows.append(("", ""))
+    breakdown_rows.append(("[bold grey70]Slippage Breakdown:[/bold grey70]", ""))
+    for slp_bucket in ["0 to 5¢", "5 to 10¢", "10 to 15¢", "15 to 20¢", "20 to 25¢"]:
+        stats_slp = slippage_stats[slp_bucket]
+        breakdown_rows.append((f"  Slippage {slp_bucket}:", format_breakdown_line(stats_slp)))
 
     # Regime Breakdown Display
     breakdown_rows.append(("", ""))
