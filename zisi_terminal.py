@@ -16,9 +16,14 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-import select
-import termios
-import tty
+try:
+    import select
+    import termios
+    import tty
+except ImportError:
+    select = None
+    termios = None
+    tty = None
 
 # Try importing rich. Exit gracefully if missing.
 try:
@@ -1624,10 +1629,15 @@ def build_logs_panel(num_lines: int = 8) -> Panel:
 
 def run_keyboard_listener():
     """Background listener to process non-blocking keyboard controls for terminal scrollback."""
-    fd = sys.stdin.fileno()
-    if not os.isatty(fd):
+    if termios is None or tty is None or select is None:
         return
-    old_settings = termios.tcgetattr(fd)
+    try:
+        fd = sys.stdin.fileno()
+        if not os.isatty(fd):
+            return
+        old_settings = termios.tcgetattr(fd)
+    except Exception:
+        return
     try:
         tty.setcbreak(fd)
         while True:
