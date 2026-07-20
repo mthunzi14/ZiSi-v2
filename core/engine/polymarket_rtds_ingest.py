@@ -15,6 +15,8 @@ import logging
 import json
 import time
 import os
+import hmac
+import hashlib
 import aiohttp
 from typing import Dict, Optional, Tuple
 
@@ -26,6 +28,26 @@ _chainlink_prices: Dict[str, dict] = {}
 _chainlink_candle_opens: Dict[Tuple[str, int], Dict[int, float]] = {}
 
 _price_lock = asyncio.Lock()
+
+# Chainlink Data Streams HMAC Credentials (Item 27)
+CHAINLINK_DS_CLIENT_ID = os.getenv("CHAINLINK_DS_CLIENT_ID", "")
+CHAINLINK_DS_CLIENT_SECRET = os.getenv("CHAINLINK_DS_CLIENT_SECRET", "")
+CHAINLINK_DS_CANDLESTICK_API_KEY = os.getenv("CHAINLINK_DS_CANDLESTICK_API_KEY", "")
+
+
+def generate_chainlink_hmac_headers(method: str, path: str, body: str = "") -> dict:
+    """Generate HMAC-SHA256 headers for Chainlink Data Streams API calls."""
+    ts = str(int(time.time() * 1000))
+    body_hash = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    raw_str = f"{method.upper()}\n{path}\n{body_hash}\n{CHAINLINK_DS_CLIENT_ID}\n{ts}"
+    signature = hmac.new(CHAINLINK_DS_CLIENT_SECRET.encode("utf-8"), raw_str.encode("utf-8"), hashlib.sha256).hexdigest()
+    return {
+        "X-Authorization-User": CHAINLINK_DS_CLIENT_ID,
+        "X-Authorization-Key": signature,
+        "X-Authorization-Timestamp": ts,
+        "Content-Type": "application/json",
+    }
+
 
 
 async def get_chainlink_price(asset: str) -> Optional[Tuple[float, float]]:

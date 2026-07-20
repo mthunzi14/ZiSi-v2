@@ -135,7 +135,7 @@ def _calculate_exit_targets_fallback(entry_price: float, amount_spent: float, ti
 
         _is_short_tf = "5M" in _title_upper or "15M" in _title_upper or "UPDOWN" in _title_upper
         if _is_short_tf:
-            target = min(0.99, round(entry_price + 0.28, 4))
+            target = min(0.99, round(entry_price + 0.24, 4))
             log.debug("[SL-CALIB] Short-TF trade '%s' (entry=%.4f) -> target %.4f, stop -1.0", title, entry_price, target)
             return target, -1.0
 
@@ -283,7 +283,7 @@ def _reconcile_pending_orders() -> None:
             if price >= 0.80:
                 tranche_b_target = tranche_a_target
             else:
-                tranche_b_target = min(0.99, round(price + 0.28, 4))
+                tranche_b_target = min(0.99, round(price + 0.24, 4))
 
             reconstructed[order_id] = {
                 "order_id":        order_id,
@@ -731,7 +731,7 @@ def place_order(
             if entry_price >= 0.80:
                 tranche_b_target = tranche_a_target
             else:
-                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
+                tranche_b_target = min(0.99, round(entry_price + 0.24, 4))
         _open_positions[order_id] = {
             **order,
             "target_price": tp,
@@ -832,7 +832,7 @@ def place_order(
             if entry_price >= 0.80:
                 tranche_b_target = tranche_a_target
             else:
-                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
+                tranche_b_target = min(0.99, round(entry_price + 0.24, 4))
         _open_positions[order["order_id"]] = {
             **order,
             "event_title":  event_title or event_id,
@@ -1384,7 +1384,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
             if entry_price >= 0.80:
                 tranche_b_target = tranche_a_target
             else:
-                tranche_b_target = min(0.99, round(entry_price + 0.28, 4))
+                tranche_b_target = min(0.99, round(entry_price + 0.24, 4))
             pos["tranche_b_target"] = tranche_b_target
 
         tranche_a_closed = pos.get("tranche_a_closed", False)
@@ -1395,15 +1395,15 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 tranche_a_closed = True
                 pos["tranche_a_closed"] = True
                 
-                shares_a = shares * 0.5
+                shares_a = shares * 0.8
                 amount_spent = pos.get("amount_spent", shares * entry_price)
-                cost_a = amount_spent * 0.5
+                cost_a = amount_spent * 0.8
                 exit_val_a = round(shares_a * exit_price, 2)
                 profit_a = round(exit_val_a - cost_a, 2)
                 
                 trade_desc = _get_trade_desc(pos)
                 log.info(
-                    "[ES-EXIT] %s (%s) ES (50%%) Scalped at %s (entry %s) | PnL = %+.2f$ | EX still open",
+                    "[ES-EXIT] %s (%s) ES (80%%) Scalped at %s (entry %s) | PnL = %+.2f$ | EX still open",
                     trade_desc, order_id, format_cents(exit_price), format_cents(entry_price), profit_a
                 )
                 new_bal = get_current_balance() + profit_a
@@ -1412,7 +1412,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 except Exception as ex:
                     log.error("Failed to update balance for ES exit: %s", ex)
                 
-                # Reduce active position sizing by half for remaining Tranche B
+                # Reduce active position sizing by 80% for remaining 20% Tranche B
                 record_tranche_close(
                     pos,
                     tranche_name="A",
@@ -1422,8 +1422,8 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                     shares_closed=shares_a,
                     cost_closed=cost_a
                 )
-                pos["shares_acquired"] = round(shares * 0.5, 4)
-                pos["amount_spent"] = round(amount_spent * 0.5, 2)
+                pos["shares_acquired"] = round(shares * 0.2, 4)
+                pos["amount_spent"] = round(amount_spent * 0.2, 2)
                 pos["tranche_a_profit"] = profit_a
                 pos["stop_loss"] = entry_price  # Lock in breakeven stop loss for remaining Tranche B
                 persist_positions()
@@ -1489,15 +1489,15 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 tranche_name="A",
                 exit_price=exit_price,
                 exit_reason=exit_reason,
-                profit=round(profit_b * 0.5, 2),
-                shares_closed=round(shares_held * 0.5, 4),
-                cost_closed=round(cost_held * 0.5, 2)
+                profit=round(profit_b * 0.8, 2),
+                shares_closed=round(shares_held * 0.8, 4),
+                cost_closed=round(cost_held * 0.8, 2)
             )
             # Add ES portion profit silently to balance (EX portion is added by execute_exit)
-            update_balance(get_current_balance() + round(profit_b * 0.5, 2), silent=True)
-            pos["shares_acquired"] = round(shares_held * 0.5, 4)
-            pos["amount_spent"] = round(cost_held * 0.5, 2)
-            pos["tranche_a_profit"] = round(profit_b * 0.5, 2)
+            update_balance(get_current_balance() + round(profit_b * 0.8, 2), silent=True)
+            pos["shares_acquired"] = round(shares_held * 0.2, 4)
+            pos["amount_spent"] = round(cost_held * 0.2, 2)
+            pos["tranche_a_profit"] = round(profit_b * 0.8, 2)
             pos["tranche_a_closed"] = True
 
         result = execute_exit(order_id, exit_price, exit_reason=exit_reason)
