@@ -1383,4 +1383,14 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 - **Clean Slate Command Issued:** Confirmed current test session will be archived and scrubbed, resetting balance back to $50.00 USDC upon deployment of Chainlink Data Streams + 80/20 tranche split.
 - **Chainlink Mainnet HMAC Key Handshake:** Credentials received via 1Password from Ramon Arceo (`ramon.arceo@smartcontract.com`) and Bharath (Chainlink Labs). Ready for immediate `.env` key insertion and `DataStreamsIngest` module implementation.
 
+### Session 33 — 2026-07-20 (Antigravity)
+**Time:** 17:35–17:50 SAST | **Bot Status:** Active & Deployed ($50.00 USDC Clean Slate on `main` @ `cb6c79a`)
+
+**CHAINLINK DATA STREAMS HMAC INTEGRATION & CLEAN SLATE DEPLOYMENT:**
+- **Item 27 — Chainlink Data Streams Credentials Injected:** Locked Client ID `128265c1...`, Secret, and Candlestick Key into `.env`. Integrated HMAC-SHA256 signature generator (`generate_chainlink_hmac_headers`) into `polymarket_rtds_ingest.py`.
+- **Item 33 — 80/20 ES/EX Ratio & +24¢ EX Target Deployed:** Updated `core/engine/trader.py` to process **80% ES / 20% EX** tranche split on partial target exits and set EX target exit to `entry_price + 0.24` (+24¢ target, double ES!). Verified 12/12 pytest unit tests pass cleanly.
+- **Executed VPS Clean Slate Reset ($50.00 USDC):** Archived test session state to `/root/ZiSi-v2/backups/archive_session_test_20260720_174739.json`. Reset `positions_state.json`, `account_state.json`, and `antifragile_state.json` to **$50.00 USDC starting balance**.
+- **VPS Process Status:** Restarted `ZiSi-Core-Engine` under PM2 (PID `2942401`, status `online`) and launched interactive dashboard inside `tmux` session `zisi`.
+
+
 
