@@ -134,7 +134,7 @@ def fetch_asset_slug(asset: str, ts: int) -> tuple[str, dict]:
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=3) as r:
+        with urllib.request.urlopen(req, timeout=1.0) as r:
             data = json.loads(r.read())
             if data and isinstance(data, list) and len(data) > 0:
                 event_slug = data[0].get("slug", "")
@@ -158,14 +158,14 @@ def update_active_market_ids():
     now = time.time()
     ts_current = int(now // 300) * 300
     
-    # Compile 10 tasks to run concurrently (5 assets * 2 boundaries)
+    # Compile 16 tasks to run concurrently in parallel (8 assets * 2 boundaries)
     tasks = []
     for asset in assets:
         for ts in [ts_current, ts_current + 300]:
             tasks.append((asset, ts))
             
     new_tokens = {}
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=16) as executor:
         results = executor.map(lambda t: fetch_asset_slug(t[0], t[1]), tasks)
         for asset, token_dict in results:
             if token_dict:
@@ -220,7 +220,7 @@ async def binance_spot_listener():
             except Exception:
                 await asyncio.sleep(2)  # Reconnect
                 
-    spot_url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/dogeusdt@ticker/bnbusdt@ticker"
+    spot_url = "wss://stream.binance.com:9443/ws/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/dogeusdt@ticker/bnbusdt@ticker/linkusdt@ticker"
     futures_url = "wss://fstream.binance.com/ws/hypeusdt@bookTicker"
     
     await asyncio.gather(
