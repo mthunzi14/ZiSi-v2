@@ -1469,6 +1469,17 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Cleared anti-fragile & rolling slippage states.
 - **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `6c74257`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2946842` is **online** on clean slate!
 
+### Session 40 — 2026-07-20 (Antigravity)
+**Time:** 21:35–21:48 SAST | **Bot Status:** Active & Deployed ($50.00 USDC Clean Slate on `main` @ `c5a8416`)
+
+**CRITICAL FORENSIC DISCOVERY: 29.0¢ SLIPPAGE BUG CAUGHT & ELIMINATED:**
+- **The Smoking Gun:** In-depth trade log audit revealed orders executing at 29.0¢ slippage (e.g., XRP signal generated at 40.5¢, order executed at 69.5¢).
+- **Root Cause Identified (`app/main.py`):** `_max_slippage` inside `_place_trade()` was set to `0.40` (40.0¢), allowing fast orderbook repricings to slip up to 40¢ higher than signal price.
+- **The Fix (`app/main.py`):** Reduced `_max_slippage` in `_place_trade()` from `0.40` to **`0.05` (5.0¢)**. Any order with >5.0¢ slippage is now instantly aborted (`SLIPPAGE_ABORT`).
+- **Clean Slate Reset Executed:** Reset account balance to **$50.00 USDC** and cleared position/slippage states.
+- **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `c5a8416`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2949515` is **online** with tight 5¢ slippage enforcement!
+
+
 
 
 
