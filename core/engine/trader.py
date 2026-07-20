@@ -1937,7 +1937,7 @@ def format_cents(val: float) -> str:
 def _get_trade_desc(pos: dict) -> str:
     title = pos.get("event_title", "")
     asset = "UNKNOWN"
-    for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
+    for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
         if f"[{possible}]" in title.upper() or possible in title.upper():
             asset = possible
             break

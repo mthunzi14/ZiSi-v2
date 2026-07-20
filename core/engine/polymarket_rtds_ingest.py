@@ -182,7 +182,7 @@ class PolymarketRTDSIngest:
                         self.last_msg_ts = time.time()
 
                         subscriptions = []
-                        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
+                        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
                             subscriptions.append({
                                 "topic": "crypto_prices_chainlink",
                                 "type": "update",
@@ -242,7 +242,7 @@ class PolymarketRTDSIngest:
 
     async def _refresh_from_binance(self):
         """Tier 2: Fetch spot prices from Binance REST as fallback when RTDS WS is down."""
-        SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT", "XRP": "XRPUSDT", "DOGE": "DOGEUSDT", "BNB": "BNBUSDT"}
+        SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT", "XRP": "XRPUSDT", "DOGE": "DOGEUSDT", "BNB": "BNBUSDT", "LINK": "LINKUSDT"}
         try:
             connector = aiohttp.TCPConnector(enable_cleanup_closed=True)
             async with aiohttp.ClientSession(connector=connector) as session:
@@ -283,6 +283,7 @@ class PolymarketRTDSIngest:
             "XRP": "XRP-USD",
             "DOGE": "DOGE-USD",
             "BNB": "BNB-USD",
+            "LINK": "LINK-USD",
         }
         try:
             connector = aiohttp.TCPConnector(enable_cleanup_closed=True)

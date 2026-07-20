@@ -96,7 +96,7 @@ class GlobalDashboardState:
     def __init__(self):
         self.lock = threading.Lock()
         # Live WebSocket data (added DOGE)
-        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0, "BNB": 0.0, "HYPE": 0.0}
+        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0, "BNB": 0.0, "HYPE": 0.0, "LINK": 0.0}
         self.clob_prices = {}  # token_id -> {"yes_price": float, "last_update": float}
         self.clob_spreads = {}  # token_id -> float
         
@@ -154,7 +154,7 @@ def fetch_asset_slug(asset: str, ts: int) -> tuple[str, dict]:
 
 def update_active_market_ids():
     """Query Polymarket Gamma API concurrently to resolve YES/NO token IDs for all assets."""
-    assets = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]
+    assets = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]
     now = time.time()
     ts_current = int(now // 300) * 300
     
@@ -395,7 +395,7 @@ def generate_trade_history_report(closed_positions):
         for pos in closed_positions:
             title = pos.get("event_title", "")
             asset = "UNKNOWN"
-            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
@@ -441,7 +441,7 @@ def sync_file_states():
         g_state.potential_trades = potential_trades
         
         # Pre-populate spot prices from Chainlink at startup to prevent "CONNECTING..."
-        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
+        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
             if g_state.spot_prices.get(asset, 0.0) == 0.0:
                 cl_entry = chainlink.get(asset, {})
                 cl_price = safe_float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else safe_float(cl_entry or 0.0)
@@ -1365,7 +1365,7 @@ def build_active_positions_panel() -> Panel:
             
             # Asset parse (added DOGE)
             asset = "UNKNOWN"
-            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
@@ -1516,7 +1516,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         
         # Asset parse
         asset = "UNKNOWN"
-        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
+        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
             if f"[{possible}]" in title.upper() or possible in title.upper():
                 asset = possible
                 break
