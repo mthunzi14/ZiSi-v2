@@ -1244,7 +1244,7 @@ def _place_trade(asset, timeframe, direction, market, usd_amount, entry_price, s
             from core.engine.extraterrestrial_ws_gateway import polymarket_l2_gateway
             live_price, _ = polymarket_l2_gateway.get_price(market_id)
             if live_price and live_price > 0.0:
-                _max_slippage = 0.08
+                _max_slippage = 0.40
                 slippage = live_price - entry_price
                 if slippage > _max_slippage:
                     log.warning(

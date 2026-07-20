@@ -38,6 +38,24 @@ _DEFAULT_PAYOUT_RATIO: float = 1.50
 
 # Position size guards
 _MIN_POSITION_USD: float = 1.00
+
+
+def get_tiered_sizing_caps(balance: float) -> tuple[float, float]:
+    """
+    Tiered Fixed-Tranche Compounding Position Sizer (Item 29):
+    - Tier 1 ($50 - $300 balance): $5.00 - $15.00
+    - Tier 2 ($300 - $1,000 balance): $20.00 - $40.00
+    - Tier 3 ($1,000+ balance): $50.00 flat cap
+    """
+    if balance < 300.0:
+        min_s = min(5.00, max(1.00, balance * 0.05))
+        max_s = min(15.00, max(min_s, balance * 0.20))
+        return min_s, max_s
+    elif balance < 1000.0:
+        return 20.00, 40.00
+    else:
+        return 50.00, 50.00
+
 _MAX_POSITION_USD: float = 500.00
 _MAX_BANKROLL_FRACTION: float = 0.05  # Never risk >5% per trade
 

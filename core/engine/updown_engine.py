@@ -1957,10 +1957,11 @@ class UpDownEngine:
                     )
 
                 # REBUILD: BTC > ETH asset weighting — set all to 1.0 (100%) as requested
-                _asset_w = {"BTC": 1.0, "ETH": 1.0, "SOL": 1.0, "XRP": 1.0, "DOGE": 1.0}.get(self.asset, 1.0)
-                usd_size *= _asset_w
+                from core.risk.position_sizer import get_tiered_sizing_caps
+                min_cap, max_cap = get_tiered_sizing_caps(balance)
+                usd_size = max(min_cap, min(max_cap, usd_size))
 
-                log.debug("[SIZE] Adaptive Kelly cost $%.2f (conf=%.2f, asset_w=%.2f)", usd_size, conf, _asset_w)
+                log.debug("[SIZE] Adaptive Kelly cost $%.2f (conf=%.2f, tiered_caps: $%.2f - $%.2f)", usd_size, conf, min_cap, max_cap)
                 return usd_size
             except Exception as e:
                 log.warning("[SIZE] Failed to compute adaptive Kelly size, falling back: %s", e)
@@ -2039,7 +2040,11 @@ class UpDownEngine:
                 "[SIZE] %s/%s loss streak brake active (%d losses) -> halving size",
                 self.asset, self.timeframe, consecutive_losses,
             )
-        
+
+        from core.risk.position_sizer import get_tiered_sizing_caps
+        min_cap, max_cap = get_tiered_sizing_caps(balance)
+        usd = max(min_cap, min(max_cap, usd))
+
         shares = round(usd / price)
         return shares * price  # actual cost from shares-first rounding
 

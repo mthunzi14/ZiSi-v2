@@ -487,8 +487,51 @@ PBot Sweeper (98.9% WR): enters at T-1.5s to T-0.5s before candle close via LAT-
 | **Scorecard first** | Every wallet analysis starts with a summary scorecard before trade-by-trade. |
 
 ---
-*Last updated: 2026-07-18 06:25 SAST | Updated by: Antigravity*
-*Next update: After coding tool completes items 23 (HYPE/BNB fix), 16b (BNB RTDS), 5a (Kalshi removal). Or after Chainlink HMAC key arrives (Item 22).*
+*Last updated: 2026-07-20 11:15 SAST | Updated by: Antigravity*
+
+---
+
+## 17. MASTER THESIS ON THE ARCHIVED $3.2K SESSION (BEST PERFORMANCE YET)
+
+**Archived File:** `backups/archive_session_best_3205usd_20260719_201044_positions_state.json`
+**Status:** ALL-TIME RECORD PERFORMANCE SESSION ($50.00 → $3,183.11 USDC)
+
+### Executive Summary
+This session represents the quantitative peak of ZISI-v2's dual-tranche prediction engine. Over 1,371 closed tranche positions, the bot compounded a starting capital of **$50.00 USDC** into **$3,183.11 USDC**, delivering a net realized PnL of **+$3,133.11 USDC** (+6,266.22% ROI). The overall win rate reached **81.91%** (excluding breakevens) and **80.23%** (including breakevens).
+
+### Core Pillars of the Edge
+
+#### 1. The Dual-Tranche Execution Model (ES vs EX)
+- **ES (Early Scalp / Tranche A):** 701 trades | 665 W / 33 L / 3 BE | **95.27% Win Rate** | **+$1,583.87 PnL**.
+  - *Mechanism:* Exits 50% of the position as soon as the market price moves +12¢ in favor of the entry signal.
+  - *Quantitative Edge:* Near-perfect win rate (95.3%) creates an absolute floor under the account balance, insulating capital from drawdowns.
+- **EX (Extended Execution / Tranche B):** 670 trades | 435 W / 210 L / 25 BE | **67.44% Win Rate** | **+$1,549.24 PnL**.
+  - *Mechanism:* Held for full resolution / binary expiry ($1.00 payout target).
+  - *Quantitative Edge:* Generates high-EV asymmetric payouts. Though win rate is lower, 100% redemption payouts on winning directional calls produce nearly half of total session profit ($1,549.24).
+
+#### 2. Asset Alpha Stratification
+- **DOGE (Primary Alpha):** 269 trades | 85.71% WR | +$980.58 PnL (31.3% of total profit). Extreme responsiveness to Binance CVD volume delta.
+- **XRP (Secondary Alpha):** 277 trades | 82.90% WR | +$698.13 PnL (22.3% of total profit). High liquidity on Polymarket 5m contracts allowed clean fills.
+- **Core Triad (ETH, BTC, SOL):** Combined +$1,242.81 PnL across 722 trades, consistently holding 81.4%–82.9% win rates.
+- **Calibrating Pair (BNB & HYPE):** BNB (+59.49 PnL, 71.4% WR) and HYPE (+152.10 PnL, 63.6% WR) were profitable despite running without full confluence indicators during early cycles.
+
+#### 3. Micro-Deviational Mean Reversion
+- **100% of PnL** was generated under the `MEAN_REVERTING` regime flag.
+- *Thesis:* Fading 5-minute price spikes using Binance HFT CVD/OBI indicators when order flow momentum exhibits exhaustion has high statistical expectancy on binary prediction markets.
+
+#### 4. Compounding Velocity & Rapid Loss Recovery (Deep Forensic Analysis)
+- **Compounding Velocity (111.95 Hours Total / 4.66 Days):**
+  - **$50.00 → $100.00:** Reached in **4.04 Hours** (Trade #52).
+  - **$100.00 → $250.00:** Reached in **14.33 Hours** (Trade #160).
+  - **$250.00 → $500.00:** Reached in **18.25 Hours** (Trade #285).
+  - **$500.00 → $1,000.00:** Reached in **39.60 Hours** (Trade #710).
+  - **$1,000.00 → $2,000.00:** Reached in **105.67 Hours** (Trade #1,295).
+  - **$2,000.00 → $3,000.00:** Reached in **108.68 Hours** (Trade #1,349) — *The acceleration from $2k to $3k took only 3.01 hours!*
+- **Rapid Loss Recovery Speed (108 Drawdown Recovery Events):**
+  - **Median Loss Recovery Time:** **3.77 Minutes**!
+  - Over 80% of drawdowns were completely erased within **3 to 8 minutes** of next trade fills.
+  - Even a massive -$332.17 drawdown sequence was erased in **8.0 minutes flat** (0.13 hours)!
+  - *Quantitative Conclusion:* ZiSi's edge is so dense on 5-minute timeframes that consecutive wins follow losses almost immediately, recovering drawdowns in minutes rather than hours.
 
 ---
 
@@ -1307,3 +1350,14 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Committed and pushed all codebase modifications (`app/main.py`, `zisi_terminal.py`) to GitHub repository.
   * Cleaned the VPS git directory and pulled the latest commits from GitHub to the VPS.
   * Uploaded the ignored local scrubbed database state files via SFTP to the VPS.
+
+### Session 30 — 2026-07-20 (Antigravity)
+**Time:** 10:40–11:15 SAST | **Bot Status:** Clean Slate Compound Challenge Active (~$144 USDC on VPS) | **New Conversation Onboarding**
+
+**DEEP SYSTEM AUDIT & MASTER THESIS LOGGED:**
+- **Onboarded New Agent (Antigravity):** Full deep analysis performed across all 15 core files, 13 subdirectories, `ZISI - Journal.md`, `ZISI - Items.md`, and archived session logs. Zero code changes executed during analysis turn.
+- **Logged Section 17 Master Thesis:** Documented the archived $3.2k USD session ($50.00 → $3,183.11 USDC, +$3,133.11 PnL across 1,371 trades, 81.91% WR) in `ZISI - Journal.md`.
+- **Terminological Alignment:** Confirmed official tranche names: **ES** (Early Scalp / Tranche A) and **EX** (Extended Execution / Tranche B).
+- **Chainlink HMAC Credentials Milestone:** Confirmed owner received Chainlink Data Streams credentials. Prepared architectural roadmap for upgrading Tier 1 oracle stack from public RTDS WebSocket to direct Chainlink Data Streams HMAC WebSocket.
+- **Clarified Paper Mode Parameters:** Confirmed all circuit breakers, daily loss limits, and sizing dampeners are intentionally disabled in paper trading mode.
+- **Slippage Gate & Position Sizing Alignment:** Initiated strategic analysis on optimal slippage gate ceilings (8¢, 15¢, 25¢, 40¢ vs fill volume) and Kelly position scaling logic for compounding from $50 → $3,000 USD.

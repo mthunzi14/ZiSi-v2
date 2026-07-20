@@ -1765,14 +1765,14 @@ def main():
         Layout(name="metrics_panel", ratio=1)
     )
     
-    # 3Hz fluid rendering loop (3 updates per second) to eliminate SSH buffer lag and enable instant loading
-    with Live(layout_default, refresh_per_second=3, screen=True) as live:
+    # 10Hz fluid rendering loop (10 updates per second) for zero-latency keyboard input and instant rendering
+    with Live(layout_default, refresh_per_second=10, screen=True) as live:
         last_fs_mode = None
         while True:
             now = time.time()
             
-            # Sync local file states at 3Hz (fluid rendering speed) to ensure real-time oracle price updates
-            if now - last_file_sync >= 0.33:
+            # Sync local file states at 10Hz (fluid rendering speed) to ensure real-time oracle price updates
+            if now - last_file_sync >= 0.10:
                 sync_file_states()
                 last_file_sync = now
                 
@@ -1838,8 +1838,8 @@ def main():
             except Exception:
                 pass
                 
-            # Sleep for up to 0.33s, but wake up instantly if a redraw is triggered (zero-latency keyboard input)
-            g_state.redraw_event.wait(timeout=0.33)
+            # Sleep for up to 0.10s, but wake up instantly if a redraw is triggered (zero-latency keyboard input)
+            g_state.redraw_event.wait(timeout=0.10)
             g_state.redraw_event.clear()
 
 
