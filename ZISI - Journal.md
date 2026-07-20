@@ -1392,5 +1392,19 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 - **Executed VPS Clean Slate Reset ($50.00 USDC):** Archived test session state to `/root/ZiSi-v2/backups/archive_session_test_20260720_174739.json`. Reset `positions_state.json`, `account_state.json`, and `antifragile_state.json` to **$50.00 USDC starting balance**.
 - **VPS Process Status:** Restarted `ZiSi-Core-Engine` under PM2 (PID `2942401`, status `online`) and launched interactive dashboard inside `tmux` session `zisi`.
 
+### Session 34 — 2026-07-20 (Antigravity)
+**Time:** 18:00–18:15 SAST | **Bot Status:** Active & Deployed (Commit `ecc99b0` on `main`) | **Forensic Skip Audit & Unblock Fix**
+
+**SIGNAL SKIP INVESTIGATION & ORACLE UNBLOCK FIX:**
+- **Forensic Audit of User Log Screenshot:** Diagnosed why `17:55:09` SAST signal logged `Skipped (RSI=91.6 < trigger=54.5) | score=0.00`.
+  * **Root Cause 1 (Primary Blocker):** `get_chainlink_candle_open()` returned `None` during initial post-reset candle startup. Line 769 of `updown_engine.py` returned `None`, causing `generate_signal()` to return `None` (logged as `no_signal` / `score=0.00`).
+  * **Root Cause 2 (Log Format Bug):** Line 248 of `signal_core.py` printed `RSI=91.6 < trigger=54.5` when RSI was above trigger but momentum/OFI was below confirmation threshold.
+- **Unblocked Fallback Code Deployed:**
+  * Updated `updown_engine.py` (lines 762–778): If `_cl_open` is initializing, ZiSi instantly falls back to Binance spot open price (`klines[-1][1]`). Signal evaluation is **NEVER BLOCKED**.
+  * Updated `polymarket_rtds_ingest.py` (line 262): Pre-populates candle open prices on all REST price refreshes.
+  * Updated `signal_core.py` (lines 236–260): Fixed skip reason format string to report exact momentum/OFI conditions.
+- **Verified & Redeployed:** 12/12 pytest tests passed. Committed `ecc99b0`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). `ZiSi-Core-Engine` (PM2 PID `2942796`) is online and evaluating continuously without blocking.
+
+
 
 
