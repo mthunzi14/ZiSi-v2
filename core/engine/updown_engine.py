@@ -1843,12 +1843,12 @@ class UpDownEngine:
             # Wait a short stagger (50ms) for other concurrent engine instances to register
             await asyncio.sleep(0.05)
             
-            # Only the first engine registration will print the aggregated warning log
+            # Only the first engine registration will print the aggregated log
             if _poll_key in _WAITING_POLLS_ASSETS and f"{self.asset}/{self.timeframe}" == _WAITING_POLLS_ASSETS[_poll_key][0]:
                 if _poll_key not in _WAITING_POLLS_LOGGED:
                     _WAITING_POLLS_LOGGED.add(_poll_key)
                     _assets_str = ", ".join(_WAITING_POLLS_ASSETS[_poll_key])
-                    log.info("[ENGINE] Waiting for market creation/resolution (attempt %d/15) for: %s", poll_attempt+1, _assets_str)
+                    log.info("[ENGINE] No active Polymarket contract found for: %s (attempt %d/2)", _assets_str, poll_attempt+1)
 
             # Periodic cleanup to prevent growth
             if len(_WAITING_POLLS_ASSETS) > 50:
@@ -1856,7 +1856,7 @@ class UpDownEngine:
                     _WAITING_POLLS_ASSETS.pop(k, None)
                     _WAITING_POLLS_LOGGED.discard(k)
 
-            await asyncio.sleep(0.95)
+            await asyncio.sleep(0.10)
 
         return None
 
