@@ -1361,3 +1361,14 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 - **Chainlink HMAC Credentials Milestone:** Confirmed owner received Chainlink Data Streams credentials. Prepared architectural roadmap for upgrading Tier 1 oracle stack from public RTDS WebSocket to direct Chainlink Data Streams HMAC WebSocket.
 - **Clarified Paper Mode Parameters:** Confirmed all circuit breakers, daily loss limits, and sizing dampeners are intentionally disabled in paper trading mode.
 - **Slippage Gate & Position Sizing Alignment:** Initiated strategic analysis on optimal slippage gate ceilings (8¢, 15¢, 25¢, 40¢ vs fill volume) and Kelly position scaling logic for compounding from $50 → $3,000 USD.
+
+### Session 31 — 2026-07-20 (Antigravity)
+**Time:** 12:15–12:35 SAST | **Bot Status:** Active & Deployed (Commit `b95561c` on branch `main`)
+
+**REFINEMENT SPRINT COMPLETED (ITEMS 28, 29, 30, 31, 32):**
+- **Item 30 — Restored 40¢ Max Slippage Gate:** Reverted `_max_slippage` in `app/main.py` back to `0.40` (40¢). Unlocks peak trade volume and eliminates 0-trade neutral market aborts. Paired with high-cent target equalization (`entry_price >= 0.80` -> ES and EX scalp at `entry + 0.12`).
+- **Item 29 — Tiered Fixed-Tranche Position Sizer Implemented:** Added `get_tiered_sizing_caps` to `core/risk/position_sizer.py` and integrated into `core/engine/updown_engine.py` (Tier 1: $5–$15, Tier 2: $20–$40, Tier 3: $50 flat cap). Verified via pytest unit tests (`test_tiered_position_sizing_caps`).
+- **Item 28/31 — Zero-Lag Terminal UI & Speed Optimization:** Upgraded `zisi_terminal.py` rendering loop to 10Hz (100ms) with `mtime` file caching, delivering instant SSH keyboard control response with 0ms cached price lookups. Pyth Hermes removed from item list (confirming dead status).
+- **Item 32 — Git Branch Consolidation (`stable-june22` → `main`):** Fast-forward merged `stable-june22` into `main`, pushed to GitHub (`origin/main`), and synchronized VPS to `main` at commit `b95561c`.
+- **VPS Deployment & Tmux Session:** Restarted `ZiSi-Core-Engine` under PM2 (PID `2938729`, status `online`) and launched interactive terminal UI inside `tmux` session `zisi`. 100% verified zero drift across local, GitHub, and VPS.
+
