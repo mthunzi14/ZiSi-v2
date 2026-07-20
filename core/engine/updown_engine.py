@@ -749,7 +749,7 @@ class UpDownEngine:
                 cl_fresh = False
                 if cl_details:
                     cl_now, cl_ts = cl_details
-                    if time.time() - cl_ts <= 5.0:
+                    if time.time() - cl_ts <= 60.0:
                         cl_fresh = True
 
                 _custom_strike = None

@@ -57,7 +57,7 @@ MAX_TOTAL_OPEN: int = 8
 
 # Fair-value (Type-1) primary entry. When True, a spot-distance mispricing that
 # clears EDGE_MARGIN fires an entry at the real L2 quote BEFORE the momentum cascade.
-FAIR_VALUE_MODE: bool = True
+FAIR_VALUE_MODE: bool = False
 
 # Strategy scope configurations
 SKIP_WEEKEND_SIGNAL: bool = False
