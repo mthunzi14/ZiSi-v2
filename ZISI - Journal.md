@@ -1443,6 +1443,21 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Eliminates startup latency, allowing terminal UI to launch **instantly (<0.1s)**.
 - **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `31cb673`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2944100` and `tmux` session `zisi` are **online and lightning-fast**!
 
+### Session 38 — 2026-07-20 (Antigravity)
+**Time:** 19:05–19:16 SAST | **Bot Status:** Active & Deployed (Commit `287e6db` on `main`)
+
+**FAST-PATH MARKET AUDIT, VOLSURFACE OI RESTORE, & POSITION SCRUB:**
+- **Polymarket 5m Market Availability Audit:** Proved via Gamma API query that Polymarket lists active 5m Up/Down contracts for **7 assets**: `BTC`, `ETH`, `SOL`, `XRP`, `DOGE`, `BNB`, `HYPE` (LINK currently has 0 active 5m markets on Polymarket).
+- **Fast-Path Market Check Implemented (`updown_engine.py`):**
+  * Reduced market poll attempt loop delay from 1.0s to 0.1s and max attempts from 15 to 2.
+  * Eliminates `Waiting for market creation/resolution` log spam for unlisted contracts.
+- **VolSurface OI History Restored for All 8 Assets (`volatility_surface.py`):**
+  * Pre-populated `data/oi_history.json` on VPS with Open Interest history for `BTC`, `ETH`, `SOL`, `XRP`, `DOGE`, `BNB`, `HYPE`, `LINK`.
+  * VolSurface now logs `restored OI history for ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'BNB', 'HYPE', 'LINK']`.
+- **Dormant Position Scrub Executed:** Scrubbed `data/positions_state.json` on VPS, setting `active: []` cleanly.
+- **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `287e6db`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2944626` is **online** scanning 24/7!
+
+
 
 
 
