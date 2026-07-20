@@ -1418,6 +1418,21 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Reset `positions_state.json`, `account_state.json`, and `antifragile_state.json` to **$50.00 USDC starting balance** before candle boundary.
 - **VPS Process Status:** `ZiSi-Core-Engine` (PM2 PID `2943067`) is **online** and scanning cleanly.
 
+### Session 36 — 2026-07-20 (Antigravity)
+**Time:** 18:27–18:38 SAST | **Bot Status:** Active & Deployed ($58.00+ USDC on `main` @ `28e9631`)
+
+**8TH ASSET INTEGRATION (LINK) & PERFORMANCE EXPANSION:**
+- **+$8.00 USDC Net PnL Gain (+16.0% ROI) Recorded:** User reported initial 4 clean slate trades produced +$8.00 net gain ($50.00 → $58.00 USDC).
+- **Explanation of `score=0.00` on Skipped Logs:** Explained to user that `score=0.00` is the default display for `NEUTRAL` skipped evaluations (where direction triggers are not confirmed). Confirmed `score` evaluates to `0.55`, `0.65`, `0.75` when candidate directional triggers are processed.
+- **Seamless 8th Asset (LINK) Integration across All Tiers:**
+  * `config.py`: Added `"LINK"` to `ASSETS` and `"LINK": ["5m"]` to `TIMEFRAMES`.
+  * `polymarket_rtds_ingest.py`: Subscribed to `link/usd` on Chainlink RTDS WS, added `"LINK": "LINKUSDT"` to Binance Tier 2 fallback, and `"LINK": "LINK-USD"` to Coinbase Tier 3 fallback.
+  * `portfolio_heat.py`, `volatility_surface.py`, `whale_tracker.py`: Added `"LINK"` to tracked asset maps and rolling 60-tick correlation dampeners.
+  * `trader.py`: Added `"LINK"` to event title asset parser.
+  * `zisi_terminal.py`: Added `"LINK"` to spot prices, market resolver, price matrix, active positions, and closed positions tables.
+- **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `28e9631`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2943490` is **online** evaluating 8 active assets 24/7!
+
+
 
 
 
