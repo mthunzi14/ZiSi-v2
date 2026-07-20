@@ -1372,3 +1372,15 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 - **Item 32 — Git Branch Consolidation (`stable-june22` → `main`):** Fast-forward merged `stable-june22` into `main`, pushed to GitHub (`origin/main`), and synchronized VPS to `main` at commit `b95561c`.
 - **VPS Deployment & Tmux Session:** Restarted `ZiSi-Core-Engine` under PM2 (PID `2938729`, status `online`) and launched interactive terminal UI inside `tmux` session `zisi`. 100% verified zero drift across local, GitHub, and VPS.
 
+### Session 32 — 2026-07-20 (Antigravity)
+**Time:** 16:45–17:30 SAST | **Bot Status:** Ready for HMAC Integration & Clean Slate Reset | **Forensic Audit & Architectural Strategy**
+
+**DEEP FORENSIC LOSS AUDIT & TRANCHE RATIO OPTIMIZATION:**
+- **Live VPS Forensic Audit (316 Trades):** Proved mathematically that expired losses (68.8% of all losses) were driven by order-book fill latency creating **15.5¢–24.5¢ entry slippage** on expensive contracts (e.g. `11:40:05` SAST multi-asset loss where entry was filled at 0.74–0.80 vs signal 0.49–0.63).
+- **Approved Item 33 (80/20 ES/EX Tranche Ratio & +24¢ EX Target):**
+  * Sizing ratio set to **80% ES (Early Scalp) / 20% EX (Extended Execution)** to lock in the 95.3% win rate capital floor of ES while preserving asymmetric trend upside in EX.
+  * EX target set to `entry_price + 0.24` (+24¢ target, double ES scalp target!).
+- **Clean Slate Command Issued:** Confirmed current test session will be archived and scrubbed, resetting balance back to $50.00 USDC upon deployment of Chainlink Data Streams + 80/20 tranche split.
+- **Chainlink Mainnet HMAC Key Handshake:** Credentials received via 1Password from Ramon Arceo (`ramon.arceo@smartcontract.com`) and Bharath (Chainlink Labs). Ready for immediate `.env` key insertion and `DataStreamsIngest` module implementation.
+
+

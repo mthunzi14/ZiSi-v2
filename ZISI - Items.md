@@ -1,5 +1,5 @@
 # ZISI — Items
-**Last Updated:** 2026-07-19 11:55 SAST
+**Last Updated:** 2026-07-20 17:25 SAST
 **Maintained by:** All agents (Antigravity + Coding Tool) + Owner
 
 > **How this document works:**
@@ -47,6 +47,19 @@ We need to:
 - Credentials officially received by Owner on 2026-07-19. Ready for implementation.
 
 **Done when:** Chainlink streams are successfully integrated, active, and feeding live price data to trading engines.
+
+---
+
+## 🟢 ITEM 33 — 80/20 ES/EX Tranche Ratio & 24¢ EX Target Refinement
+**Type:** Coding | **Priority:** HIGH | **Status:** APPROVED & QUEUED 🎯
+
+Implement Owner's approved Tranche System Optimization:
+- **Tranche Allocation:** 80% ES (Early Scalp) / 20% EX (Extended Execution).
+- **ES Target:** `entry_price + 0.12` (+12¢ target exit, 95.3% WR capital floor engine).
+- **EX Target:** `entry_price + 0.24` (+24¢ target exit, double ES scalp target!).
+- **High-Cent Target Rule:** For entries $\ge 0.80$, both ES and EX targets equalize to `entry_price + 0.12`.
+
+**Done when:** `trader.py` and `updown_engine.py` process 80/20 tranche split and +24¢ EX target with unit test verification.
 
 ---
 
