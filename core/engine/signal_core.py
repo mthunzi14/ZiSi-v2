@@ -237,25 +237,21 @@ def _get_skip_detail_reason(rsi, mom, ofi, rsi_up_eff, rsi_up_soft_eff, rsi_dn_e
     if rsi > 50.0:
         if rsi <= rsi_up_soft_eff:
             return f"RSI={rsi:.1f} <= soft_trigger={rsi_up_soft_eff:.1f}"
-        if rsi > rsi_up_soft_eff and rsi <= rsi_up_eff:
-            if mom < p["mom_up_soft"]:
-                return f"RSI={rsi:.1f} (soft), but Mom={mom:.4f} < soft_trigger={p['mom_up_soft']:.4f}"
-            if ofi <= p["ofi_confirm_up"]:
-                return f"RSI={rsi:.1f} (soft), but OFI={ofi:+.2f} <= trigger={p['ofi_confirm_up']:+.2f}"
-        if rsi > rsi_up_eff:
-            if mom < p["mom_up"]:
-                return f"RSI={rsi:.1f} > trigger={rsi_up_eff:.1f}, but Mom={mom:.4f} < trigger={p['mom_up']:.4f}"
-        return f"RSI={rsi:.1f} < trigger={rsi_up_eff:.1f}"
+        if mom < p["mom_up_soft"]:
+            return f"RSI={rsi:.1f}, but Mom={mom:.4f} < soft_trigger={p['mom_up_soft']:.4f}"
+        if ofi <= p["ofi_confirm_up"]:
+            return f"RSI={rsi:.1f}, but OFI={ofi:+.2f} <= trigger={p['ofi_confirm_up']:+.2f}"
+        if mom < p["mom_up"]:
+            return f"RSI={rsi:.1f} > trigger={rsi_up_eff:.1f}, but Mom={mom:.4f} < trigger={p['mom_up']:.4f}"
+        return f"RSI={rsi:.1f} (neutral/no trigger)"
     else:
         if rsi >= rsi_dn_soft_eff:
             return f"RSI={rsi:.1f} >= soft_trigger={rsi_dn_soft_eff:.1f}"
-        if rsi < rsi_dn_soft_eff and rsi >= rsi_dn_eff:
-            if mom > p["mom_dn_soft"]:
-                return f"RSI={rsi:.1f} (soft), but Mom={mom:.4f} > soft_trigger={p['mom_dn_soft']:.4f}"
-            if ofi >= p["ofi_confirm_dn"]:
-                return f"RSI={rsi:.1f} (soft), but OFI={ofi:+.2f} >= trigger={p['ofi_confirm_dn']:+.2f}"
-        if rsi < rsi_dn_eff:
-            if mom > p["mom_dn"]:
-                return f"RSI={rsi:.1f} < trigger={rsi_dn_eff:.1f}, but Mom={mom:.4f} > trigger={p['mom_dn']:.4f}"
-        return f"RSI={rsi:.1f} > trigger={rsi_dn_eff:.1f}"
+        if mom > p["mom_dn_soft"]:
+            return f"RSI={rsi:.1f}, but Mom={mom:.4f} > soft_trigger={p['mom_dn_soft']:.4f}"
+        if ofi >= p["ofi_confirm_dn"]:
+            return f"RSI={rsi:.1f}, but OFI={ofi:+.2f} >= trigger={p['ofi_confirm_dn']:+.2f}"
+        if mom > p["mom_dn"]:
+            return f"RSI={rsi:.1f} < trigger={rsi_dn_eff:.1f}, but Mom={mom:.4f} > trigger={p['mom_dn']:.4f}"
+        return f"RSI={rsi:.1f} (neutral/no trigger)"
 

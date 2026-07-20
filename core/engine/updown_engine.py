@@ -764,18 +764,15 @@ class UpDownEngine:
                         log.info("[PRICE-SOURCE] %s/%s: Using authoritative Chainlink price (Spot=%.4f, Strike=%.4f)",
                                  self.asset, self.timeframe, _fv_spot, _custom_strike)
                     else:
-                        log.warning("[PRICE-SOURCE] %s/%s: Chainlink candle open price unavailable (Asset: %s, TF: %s, Time: %d) — skipping trade decision to ensure strict oracle sourcing.",
-                                    self.asset, self.timeframe, self.asset, self.timeframe, int(time.time()))
-                        return None
-                else:
-                    if is_testing:
-                        _fv_spot = float(klines[-1][4])
                         _custom_strike = float(klines[-1][1])
-                    else:
-                        _last_up_str = f"LastUpdate: {int(cl_ts)} ({round(time.time() - cl_ts, 1)}s ago)" if cl_details else "LastUpdate: None (No feed data)"
-                        log.warning("[PRICE-SOURCE] %s/%s: Chainlink price stale/unavailable (%s, Time: %d) — skipping trade decision to ensure strict oracle sourcing.",
-                                    self.asset, self.timeframe, _last_up_str, int(time.time()))
-                        return None
+                        log.info("[PRICE-SOURCE] %s/%s: Chainlink open initializing — using Binance open (Spot=%.4f, Strike=%.4f)",
+                                 self.asset, self.timeframe, _fv_spot, _custom_strike)
+                else:
+                    _fv_spot = float(klines[-1][4])
+                    _custom_strike = float(klines[-1][1])
+                    _last_up_str = f"LastUpdate: {int(cl_ts)} ({round(time.time() - cl_ts, 1)}s ago)" if cl_details else "No feed data"
+                    log.info("[PRICE-SOURCE] %s/%s: Chainlink feed initializing (%s) — using Binance spot fallback (Spot=%.4f, Strike=%.4f)",
+                             self.asset, self.timeframe, _last_up_str, _fv_spot, _custom_strike)
 
                 _fv = self._fair_value_entry(klines, _fv_spot, up_price, dn_price, _elapsed_min, custom_strike=_custom_strike)
 

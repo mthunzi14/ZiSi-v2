@@ -262,6 +262,13 @@ class PolymarketRTDSIngest:
                             price = float(item.get("price", 0))
                             if price > 0:
                                 _chainlink_prices[asset] = {"price": price, "timestamp": now}
+                                for interval in (300, 900, 3600):
+                                    candle_start = int(now // interval) * interval
+                                    key = (asset, interval)
+                                    if key not in _chainlink_candle_opens:
+                                        _chainlink_candle_opens[key] = {}
+                                    if candle_start not in _chainlink_candle_opens[key]:
+                                        _chainlink_candle_opens[key][candle_start] = price
                     log.debug("[RTDS-WS] Tier2/Binance REST: updated %d prices", len(data))
         except Exception as e:
             log.debug("[RTDS-WS] Tier2/Binance fallback failed: %s", e)
