@@ -1,7 +1,7 @@
 {
   "regime": "TRENDING",
   "atr_percentile": 30.0,
-  "WEEKEND": true,
+  "WEEKEND": false,
   "assets": {
     "BTC": {
       "rsi": 100.0,

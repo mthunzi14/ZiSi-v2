@@ -1263,6 +1263,12 @@ def check_updown_early_exits(get_all_trades_fn, execute_exit_fn, place_paper_tra
                     "[UPDOWN] TRAILING FLOOR: %s | HWM=%.3f ≥ 0.75 but price dropped to %.3f < 0.55 — exit",
                     order_id[:20], _hwm, current_price,
                 )
+            elif current_price > 0 and entry_price > 0 and current_price <= entry_price * 0.75:
+                exit_reason = "EARLY_CUTOFF_STOP"
+                log.info(
+                    "[UPDOWN] Option B Micro-Stop Loss trigger: %s | price=%.3f <= 75%% of entry (%.3f) — liquidating early to salvage capital",
+                    order_id[:20], current_price, entry_price * 0.75,
+                )
 
             if exit_reason:
                 try:

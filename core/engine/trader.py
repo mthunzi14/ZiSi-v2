@@ -1617,7 +1617,12 @@ def check_exit_condition(
     _is_short_tf = "5M" in _ev_title or "15M" in _ev_title or "UPDOWN" in _ev_title
     _trade_type = pos.get("trade_type", "SIGNAL")
     _is_ncs_or_sweep = _trade_type in ("NCS", "SWEEP", "REVERSAL-SNIPE")
-    effective_stop_loss = stop_loss if (stop_loss is not None and stop_loss > 0) else (-1.0 if _is_short_tf else stop_loss)
+    # Option B: Stop loss active for all contracts including 5m/15m (capped at 25% drop from entry)
+    if stop_loss is not None and stop_loss > 0:
+        effective_stop_loss = stop_loss
+    else:
+        effective_stop_loss = round(entry_price * 0.75, 4) if entry_price > 0 else 0.40
+
     effective_target_price = 0.99 if _is_ncs_or_sweep else target_price
     
     if _is_short_tf and effective_target_price <= entry_price:
@@ -1644,7 +1649,7 @@ def check_exit_condition(
     if current_price >= effective_target_price:
         should_exit = True
         reason = "TARGET_HIT"
-    elif current_price <= effective_stop_loss if (not _is_short_tf or effective_stop_loss > 0) else False:
+    elif effective_stop_loss > 0 and current_price <= effective_stop_loss:
         should_exit = True
         reason = "STOP_HIT"
     elif hours_held >= max_hold_hours:
