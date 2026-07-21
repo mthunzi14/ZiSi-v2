@@ -395,7 +395,7 @@ def generate_trade_history_report(closed_positions):
         for pos in closed_positions:
             title = pos.get("event_title", "")
             asset = "UNKNOWN"
-            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
@@ -441,7 +441,7 @@ def sync_file_states():
         g_state.potential_trades = potential_trades
         
         # Pre-populate spot prices from Chainlink at startup to prevent "CONNECTING..."
-        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
+        for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
             if g_state.spot_prices.get(asset, 0.0) == 0.0:
                 cl_entry = chainlink.get(asset, {})
                 cl_price = safe_float(cl_entry.get("price", 0.0)) if isinstance(cl_entry, dict) else safe_float(cl_entry or 0.0)
@@ -1771,8 +1771,8 @@ def main():
         while True:
             now = time.time()
             
-            # Sync local file states at 10Hz (fluid rendering speed) to ensure real-time oracle price updates
-            if now - last_file_sync >= 0.10:
+            # Sync local file states at 1.0s interval (prevents disk I/O lag while maintaining live WebSocket UI ticks)
+            if now - last_file_sync >= 1.0:
                 sync_file_states()
                 last_file_sync = now
                 
