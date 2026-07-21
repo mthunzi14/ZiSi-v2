@@ -1493,6 +1493,19 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 - **Specific Worthless Expiry Loss Scrub:** Scrubbed poison loss cluster records at 22:35 SAST from `positions_state.json`.
 - **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `f57f3f2`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2958590` is **online** evaluating 8 active assets 24/7!
 
+### Session 42 — 2026-07-21 (Antigravity)
+**Time:** 03:55–04:15 SAST | **Bot Status:** Active & Deployed ($232.07 USDC on `main` @ `f83b078`)
+
+**100 WINS / $232.07 USDC (+359.54% ROI) MILESTONE & COMPLETE LINK STRIP:**
+- **100 WINS Milestone ($50.00 → $232.07 USDC, 87.7% Win Rate):** User screenshot confirmed 115 total tranches with 100 WINS / 14 LOSSES / 1 BREAKEVEN! (+359.54% Net ROI).
+- **100% Complete LINK Removal (No History Remaining):**
+  * Stripped `"LINK"` from `config.py` (7 core assets), `zisi_terminal.py`, `polymarket_rtds_ingest.py`, `confluence_engine.py`, `trader.py`, `volatility_surface.py`, `whale_tracker.py`.
+- **Tightened MEAN_REVERTING Soft RSI Thresholds (`signal_core.py`):**
+  * Set `rsi_up_soft = 54.0` and `rsi_dn_soft = 46.0` in `MEAN_REVERTING` regime to block micro-noise coin-flip entries at RSI 50.0–52.0.
+- **Expired Loss Database Scrub:** Scrubbed all expired loss entries cleanly from `positions_state.json` on the VPS.
+- **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `f83b078`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2959505` is **online** evaluating 7 core assets 24/7!
+
+
 
 
 
