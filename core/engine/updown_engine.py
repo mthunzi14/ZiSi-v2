@@ -1127,11 +1127,11 @@ class UpDownEngine:
                 open_strike = market.get("strike_price", market.get("open_price", 0.0))
                 if chainlink_spot > 0 and open_strike > 0:
                     if raw_dir == "UP" and chainlink_spot < open_strike:
-                        log.info("[SPOT-STRIKE-ALIGN] %s/%s: Signal UP blocked — Chainlink spot %.4f < open strike %.4f", self.asset, self.timeframe, chainlink_spot, open_strike)
-                        return make_neutral_signal(reason="spot_below_strike_for_up")
+                        log.info("[SPOT-STRIKE-FLIP] %s/%s: Flipping signal UP -> DOWN (Chainlink spot %.4f < open strike %.4f)", self.asset, self.timeframe, chainlink_spot, open_strike)
+                        raw_dir = "DOWN"
                     elif raw_dir == "DOWN" and chainlink_spot > open_strike:
-                        log.info("[SPOT-STRIKE-ALIGN] %s/%s: Signal DOWN blocked — Chainlink spot %.4f > open strike %.4f", self.asset, self.timeframe, chainlink_spot, open_strike)
-                        return make_neutral_signal(reason="spot_above_strike_for_dn")
+                        log.info("[SPOT-STRIKE-FLIP] %s/%s: Flipping signal DOWN -> UP (Chainlink spot %.4f > open strike %.4f)", self.asset, self.timeframe, chainlink_spot, open_strike)
+                        raw_dir = "UP"
 
             if _dec["blocked"]:
                 log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
