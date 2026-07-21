@@ -1113,6 +1113,26 @@ class UpDownEngine:
             raw_dir = _dec["direction"]
             score_base = _dec["score"]
 
+            # Absolute Chainlink Spot vs Strike True Direction Protection
+            if raw_dir in ("UP", "DOWN") and market:
+                chainlink_spot = 0.0
+                try:
+                    from core.engine.polymarket_rtds_ingest import get_chainlink_price
+                    _cl_res = await get_chainlink_price(self.asset)
+                    if _cl_res:
+                        chainlink_spot = _cl_res[0]
+                except Exception:
+                    pass
+
+                open_strike = market.get("strike_price", market.get("open_price", 0.0))
+                if chainlink_spot > 0 and open_strike > 0:
+                    if raw_dir == "UP" and chainlink_spot < open_strike:
+                        log.info("[SPOT-STRIKE-ALIGN] %s/%s: Signal UP blocked — Chainlink spot %.4f < open strike %.4f", self.asset, self.timeframe, chainlink_spot, open_strike)
+                        return make_neutral_signal(reason="spot_below_strike_for_up")
+                    elif raw_dir == "DOWN" and chainlink_spot > open_strike:
+                        log.info("[SPOT-STRIKE-ALIGN] %s/%s: Signal DOWN blocked — Chainlink spot %.4f > open strike %.4f", self.asset, self.timeframe, chainlink_spot, open_strike)
+                        return make_neutral_signal(reason="spot_above_strike_for_dn")
+
             if _dec["blocked"]:
                 log.info("[ENGINE] %s/%s: Spot OFI divergence — blocking entry.", self.asset, self.timeframe)
                 return make_neutral_signal(reason=_dec.get("reason", "spot_ofi_divergence"))
