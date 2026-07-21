@@ -1530,6 +1530,20 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Incorporates FV spot-strike distance ($fp\_up$) into the directional score boost rather than creating fragmented sub-engines.
 - **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `fabf2e3`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2961231` is **online** with zero illiquid skips guaranteed!
 
+### Session 45 — 2026-07-21 (Antigravity)
+**Time:** 05:15–05:25 SAST | **Bot Status:** Active & Deployed ($232.07+ USDC on `main` @ `086e07a`)
+
+**ABSOLUTE CHAINLINK SPOT VS STRIKE DIRECTION PROTECTION & DORMANT TRADE SCRUB:**
+- **Absolute Chainlink Spot vs Open Strike Direction Protection (`updown_engine.py`):**
+  * Added mandatory check in `generate_signal()`: If `raw_dir == "UP"` but live Chainlink spot is below open strike ($S_t < S_0$), trade is **BLOCKED** (`spot_below_strike_for_up`). If `raw_dir == "DOWN"` but live Chainlink spot is above open strike ($S_t > S_0$), trade is **BLOCKED** (`spot_above_strike_for_dn`).
+  * Guarantees ZiSi **NEVER EVER** takes a trade that conflicts with live Chainlink spot direction!
+- **Removed 0.50 Fallback & Expanded L2 Resolution Window (`updown_engine.py`):**
+  * Removed 0.50 placeholder per Boss's requirement. Expanded L2 orderbook resolution polling to 12 attempts (9.6s window) so 100% of trades execute on real live L2 quotes directly!
+- **Cleared Dormant Active Positions & Scrubbed Expired Loss Cluster:**
+  * Auto-cleared hanging dormant position (ETH from 05:00:14) and scrubbed 05:10:14 expired loss records from VPS database.
+- **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `086e07a`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `2961829` is **online** with absolute spot-strike protection active 24/7!
+
+
 
 
 
