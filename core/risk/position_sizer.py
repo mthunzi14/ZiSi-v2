@@ -42,10 +42,11 @@ _MIN_POSITION_USD: float = 1.00
 
 def get_tiered_sizing_caps(balance: float) -> tuple[float, float]:
     """
-    Tiered Fixed-Tranche Compounding Position Sizer (Item 29):
+    Tiered Fixed-Tranche Compounding Position Sizer:
     - Tier 1 ($50 - $300 balance): $5.00 - $15.00
     - Tier 2 ($300 - $1,000 balance): $20.00 - $40.00
-    - Tier 3 ($1,000+ balance): $50.00 flat cap
+    - Tier 3 ($1,000 - $3,000 balance): $50.00 - $80.00
+    - Tier 4 ($3,000+ balance): $100.00 - $150.00
     """
     if balance < 300.0:
         min_s = min(5.00, max(1.00, balance * 0.05))
@@ -53,8 +54,10 @@ def get_tiered_sizing_caps(balance: float) -> tuple[float, float]:
         return min_s, max_s
     elif balance < 1000.0:
         return 20.00, 40.00
+    elif balance < 3000.0:
+        return 50.00, 80.00
     else:
-        return 50.00, 50.00
+        return 100.00, 150.00
 
 _MAX_POSITION_USD: float = 500.00
 _MAX_BANKROLL_FRACTION: float = 0.05  # Never risk >5% per trade

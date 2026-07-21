@@ -1734,29 +1734,16 @@ class UpDownEngine:
                     return market
                 else:
                     if poll_attempt == 11:
-                        # Register this asset/timeframe as illiquid for this poll attempt/candle
-                        _illiquid_key = (start_ts, poll_attempt)
-                        if _illiquid_key not in _ILLIQUID_BOOKS_ASSETS:
-                            _ILLIQUID_BOOKS_ASSETS[_illiquid_key] = []
-                        _ILLIQUID_BOOKS_ASSETS[_illiquid_key].append(f"{self.asset}/{self.timeframe}")
-                        
-                        # Wait a short stagger (50ms) for other concurrent engine instances to register
-                        await asyncio.sleep(0.05)
-                        
-                        # Only the first engine registration will print the aggregated warning log
-                        if _illiquid_key in _ILLIQUID_BOOKS_ASSETS and f"{self.asset}/{self.timeframe}" == _ILLIQUID_BOOKS_ASSETS[_illiquid_key][0]:
-                            if _illiquid_key not in _ILLIQUID_BOOKS_LOGGED:
-                                _ILLIQUID_BOOKS_LOGGED.add(_illiquid_key)
-                                _assets_str = ", ".join(_ILLIQUID_BOOKS_ASSETS[_illiquid_key])
-                                log.warning("[ENGINE] L2 book is illiquid, empty, or not yet initialized for: %s — skipping trade", _assets_str)
-
-                        # Periodic cleanup to prevent growth
-                        if len(_ILLIQUID_BOOKS_ASSETS) > 50:
-                            for k in list(_ILLIQUID_BOOKS_ASSETS.keys())[:-10]:
-                                _ILLIQUID_BOOKS_ASSETS.pop(k, None)
-                                _ILLIQUID_BOOKS_LOGGED.discard(k)
-
-                        return None
+                        # Return cached market metadata with default 0.50 prices so the asset remains active for signals
+                        market = dict(cached_market)
+                        market["up_price"] = 0.50
+                        market["dn_price"] = 0.50
+                        market["spread"] = 0.04
+                        log.debug(
+                            "[ENGINE] %s/%s: Initial L2 poll fallback applied for %s — asset active.",
+                            self.asset, self.timeframe, market["slug"]
+                        )
+                        return market
                     else:
                         await asyncio.sleep(0.8)
                         continue
