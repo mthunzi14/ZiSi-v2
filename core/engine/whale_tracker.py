@@ -41,7 +41,6 @@ _ASSET_MAP: dict[str, str] = {
     "DOGE": "DOGEUSDT",
     "BNB": "BNBUSDT",
     "HYPE": "HYPEUSDT",
-    "LINK": "LINKUSDT",
 }
 
 # ── Constants ─────────────────────────────────────────────────────────────────

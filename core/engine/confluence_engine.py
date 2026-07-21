@@ -65,7 +65,6 @@ _SYMBOL_MAP: dict[str, str] = {
     "SOL":  "SOLUSDT",
     "XRP":  "XRPUSDT",
     "DOGE": "DOGEUSDT",
-    "LINK": "LINKUSDT",
     "BNB":  "BNBUSDT",
     "ADA":  "ADAUSDT",
     "AVAX": "AVAXUSDT",

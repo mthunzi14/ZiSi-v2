@@ -47,15 +47,15 @@ REGIME_RSI_PARAMS = {
         "ofi_block_15m": 0.20,
     },
     "MEAN_REVERTING": {
-        "rsi_up":      55.0,   # lowered from 60 — oscillation peaks hit earlier in ranging markets
+        "rsi_up":      58.0,
         "mom_up":      0.015,
-        "rsi_up_soft": 50.0,   # lowered from 54
-        "mom_up_soft": 0.008,
+        "rsi_up_soft": 54.0,
+        "mom_up_soft": 0.010,
         "ofi_confirm_up": 0.40,
-        "rsi_dn":      45.0,   # raised from 40 — symmetric
+        "rsi_dn":      42.0,
         "mom_dn":      -0.015,
-        "rsi_dn_soft": 50.0,   # raised from 46
-        "mom_dn_soft": -0.008,
+        "rsi_dn_soft": 46.0,
+        "mom_dn_soft": -0.010,
         "ofi_confirm_dn": -0.40,
         "reversal_lo": 20.0,
         "reversal_hi": 80.0,

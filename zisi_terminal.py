@@ -154,7 +154,7 @@ def fetch_asset_slug(asset: str, ts: int) -> tuple[str, dict]:
 
 def update_active_market_ids():
     """Query Polymarket Gamma API concurrently to resolve YES/NO token IDs for all assets."""
-    assets = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]
+    assets = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]
     now = time.time()
     ts_current = int(now // 300) * 300
     
@@ -1110,7 +1110,7 @@ def build_spot_prices_panel() -> Panel:
         positions = list(g_state.positions_state.get("active", []))
 
     # Compile table rows for all assets
-    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
+    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
         spot_price = spot_copy.get(asset, 0.0)
         
         # Decimal formatting based on asset price scale
