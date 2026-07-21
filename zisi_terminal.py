@@ -1110,7 +1110,7 @@ def build_spot_prices_panel() -> Panel:
         positions = list(g_state.positions_state.get("active", []))
 
     # Compile table rows for all assets
-    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
+    for asset in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
         spot_price = spot_copy.get(asset, 0.0)
         
         # Decimal formatting based on asset price scale

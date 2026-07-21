@@ -1692,8 +1692,8 @@ class UpDownEngine:
         start_ts = boundary - interval
         offsets = [0, -1, 1]
 
-        # Wait up to 3 seconds (3 poll attempts) for the new market to be created / resolved
-        for poll_attempt in range(3):
+        # Wait up to 8 seconds (8 poll attempts) for the new market L2 order book to initialize
+        for poll_attempt in range(8):
             # Check pre-fetched first
             if start_ts in self._prefetched_markets:
                 cached_market = self._prefetched_markets[start_ts]
@@ -1713,7 +1713,7 @@ class UpDownEngine:
                     )
                     return market
                 else:
-                    if poll_attempt == 2:
+                    if poll_attempt == 7:
                         # Register this asset/timeframe as illiquid for this poll attempt/candle
                         _illiquid_key = (start_ts, poll_attempt)
                         if _illiquid_key not in _ILLIQUID_BOOKS_ASSETS:
@@ -1728,7 +1728,7 @@ class UpDownEngine:
                             if _illiquid_key not in _ILLIQUID_BOOKS_LOGGED:
                                 _ILLIQUID_BOOKS_LOGGED.add(_illiquid_key)
                                 _assets_str = ", ".join(_ILLIQUID_BOOKS_ASSETS[_illiquid_key])
-                                log.warning("[ENGINE] L2 book is illiquid, empty, or not yet initialized (spread > 15c) for: %s — skipping trade", _assets_str)
+                                log.warning("[ENGINE] L2 book is illiquid, empty, or not yet initialized for: %s — skipping trade", _assets_str)
 
                         # Periodic cleanup to prevent growth
                         if len(_ILLIQUID_BOOKS_ASSETS) > 50:
@@ -1738,7 +1738,7 @@ class UpDownEngine:
 
                         return None
                     else:
-                        await asyncio.sleep(1.0)
+                        await asyncio.sleep(0.8)
                         continue
 
             gamma_url = "https://gamma-api.polymarket.com/events"
