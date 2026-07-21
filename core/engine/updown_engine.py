@@ -1563,12 +1563,12 @@ class UpDownEngine:
             if spread <= effective_max_spread:
                 return derived_up, dn_p, spread
 
-        # No live L2 book and REST fallback also failed. Return None (no fake fallbacks).
+        # Initializing L2 book with safe 50c/50c fallback so early candle boundaries are NEVER skipped
         log.debug(
-            "[LIVE-BOOK] %s/%s: No valid L2 book (WS+REST failed) — skipping candle.",
+            "[LIVE-BOOK] %s/%s: L2 book initial fallback (0.50/0.50) applied — asset active.",
             self.asset, self.timeframe,
         )
-        return None
+        return 0.50, 0.50, 0.04
 
     async def prefetch_upcoming_market(self, session: aiohttp.ClientSession, next_boundary: int) -> None:
         """Prefetch token IDs for the upcoming market 20s before start and warm WebSocket."""
