@@ -1563,12 +1563,12 @@ class UpDownEngine:
             if spread <= effective_max_spread:
                 return derived_up, dn_p, spread
 
-        # Initializing L2 book with safe 50c/50c fallback so early candle boundaries are NEVER skipped
+        # Return None if live L2 quotes fail after max attempts (100% real L2 quotes only)
         log.debug(
-            "[LIVE-BOOK] %s/%s: L2 book initial fallback (0.50/0.50) applied — asset active.",
+            "[LIVE-BOOK] %s/%s: No valid live L2 orderbook quotes found on WS+REST — retrying next cycle.",
             self.asset, self.timeframe,
         )
-        return 0.50, 0.50, 0.04
+        return None
 
     async def prefetch_upcoming_market(self, session: aiohttp.ClientSession, next_boundary: int) -> None:
         """Prefetch token IDs for the upcoming market 20s before start and warm WebSocket."""
@@ -1692,8 +1692,8 @@ class UpDownEngine:
         start_ts = boundary - interval
         offsets = [0, -1, 1]
 
-        # Wait up to 8 seconds (8 poll attempts) for the new market L2 order book to initialize
-        for poll_attempt in range(8):
+        # Wait up to 12 seconds (12 poll attempts) for the new market L2 order book to initialize
+        for poll_attempt in range(12):
             # Check pre-fetched first
             if start_ts in self._prefetched_markets:
                 cached_market = self._prefetched_markets[start_ts]
@@ -1713,7 +1713,7 @@ class UpDownEngine:
                     )
                     return market
                 else:
-                    if poll_attempt == 7:
+                    if poll_attempt == 11:
                         # Register this asset/timeframe as illiquid for this poll attempt/candle
                         _illiquid_key = (start_ts, poll_attempt)
                         if _illiquid_key not in _ILLIQUID_BOOKS_ASSETS:
