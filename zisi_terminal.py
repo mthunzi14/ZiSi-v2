@@ -646,7 +646,7 @@ def build_header_panel() -> Panel:
     location_str = "Johannesburg"
 
     from config import IS_LIVE
-    mode_status = f"[bold red]● LIVE ACTIVE[/bold red]" if IS_LIVE else f"[bold green]● PAPER STAGING[/bold green]"
+    mode_status = f"[bold {COLOR_PASTEL_GREEN}]● LIVE ACTIVE[/bold {COLOR_PASTEL_GREEN}]" if IS_LIVE else f"[bold {COLOR_PASTEL_GREEN}]● PAPER STAGING[/bold {COLOR_PASTEL_GREEN}]"
 
     header_text = Text.assemble(
         ("ZiSi-v2 ", f"bold {COLOR_LABEL}"),  # Naming alignment: ZiSi-v2 in Titanium Gray
