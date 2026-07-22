@@ -1,0 +1,14 @@
+{
+  "zisi": {
+    "name": "ZiSi",
+    "trades": 163,
+    "wins": 84,
+    "losses": 79,
+    "win_rate": 51.5,
+    "wilson_low": 43.9,
+    "wilson_high": 59.1,
+    "pnl": 155.76,
+    "best": 44.1,
+    "worst": -26.22
+  }
+}

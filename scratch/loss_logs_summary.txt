@@ -1,0 +1,831 @@
+
+=== TARGET: 10:00 AM SAST (Five 15m losses) (Time Range: 10:00:00 - 10:01:00)
+================================================================================
+10:00:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1530% Kelly×1.00
+10:00:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0538% Kelly×1.00
+10:00:19 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782374400 up=0.3550 dn=0.6450 spread=0.0200
+10:00:19 [INFO ] zisi.engine: [ENGINE] XRP/5m Timeframe mismatch detected: market_start_ts=1782374400 last_kline_ts=1782374100 — skipping entry
+10:00:19 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 19.9s — retrying...
+10:00:19 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782374400 up=0.3250 dn=0.6750 spread=0.0200
+10:00:19 [INFO ] zisi.engine: [ENGINE] SOL/5m Timeframe mismatch detected: market_start_ts=1782374400 last_kline_ts=1782374100 — skipping entry
+10:00:19 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 19.9s — retrying...
+10:00:19 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782374400 up=0.5150 dn=0.4850 spread=0.0200
+10:00:19 [INFO ] zisi.engine: [ENGINE] ETH/5m Timeframe mismatch detected: market_start_ts=1782374400 last_kline_ts=1782374100 — skipping entry
+10:00:19 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 20.0s — retrying...
+10:00:19 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782374400 up=0.4650 dn=0.5350 spread=0.0200
+10:00:19 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782374400 up=0.3750 dn=0.6250 spread=0.0200
+10:00:19 [INFO ] zisi.engine: [ENGINE] SOL/15m Timeframe mismatch detected: market_start_ts=1782374400 last_kline_ts=1782373500 — skipping entry
+10:00:19 [INFO ] zisi.main: [MAIN] SOL/15m: No L2 book/signal at 20.0s — retrying...
+10:00:19 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782374400 up=0.4950 dn=0.5050 spread=0.0200
+10:00:19 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782374400 up=0.5050 dn=0.4950 spread=0.0200
+10:00:19 [INFO ] zisi.engine: [ENGINE] ETH/15m Timeframe mismatch detected: market_start_ts=1782374400 last_kline_ts=1782373500 — skipping entry
+10:00:19 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 20.0s — retrying...
+10:00:20 [DEBUG] zisi.regime_detector: [Regime] BTC price=61911.04 → regime=TRENDING (conf=47%) ATR=0.0869% Kelly×1.20 hurdle×0.85 exit=trailing
+10:00:21 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=64.50 Mom=-0.0084 -> NEUTRAL (dual-only path).
+10:00:21 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 21.0s — retrying...
+10:00:21 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782374400 up=0.3650 dn=0.6350 spread=0.0200
+10:00:21 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782374400 up=0.3850 dn=0.6150 spread=0.0200
+10:00:21 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782374400 up=0.2850 dn=0.7150 spread=0.0200
+10:00:21 [INFO ] zisi.edge_orchestrator: [EDGE] BTC DOWN | regime=MEAN_REVERTING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.50 whale=1.00 sentiment=1.00 → boost=-0.100
+10:00:21 [INFO ] zisi.engine: [ENGINE] BTC/15m SIGNAL: DOWN | Score=0.80 | up=0.4650 dn=0.5350 | dual=False | Bitcoin Up or Down - June 25, 4:00AM-4:15AM ET
+10:00:21 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.87 kelly_fraction=0.1962 | regime*1.20 anti*0.50 heat*1.00 whale*1.00 | -> $29.00 | cycle=$29.00/1 trades
+10:00:21 [INFO ] zisi.main: [TRADE OPENED] BTC/15m DOWN | $12.31 @ 0.5350 | score=0.80 | SINGLE
+10:00:22 [INFO ] zisi.main: [MAIN] XRP/15m: No L2 book/signal at 22.5s — retrying...
+10:00:22 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=55.93 Mom=0.1035 -> NEUTRAL (dual-only path).
+10:00:22 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 22.5s — retrying...
+10:00:22 [INFO ] zisi.main: [MAIN] DOGE/15m: No L2 book/signal at 22.5s — retrying...
+10:00:23 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:23 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0540% Kelly×1.00
+10:00:27 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782374400 up=0.3950 dn=0.6050 spread=0.0200
+10:00:27 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+10:00:27 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 27.8s — retrying...
+10:00:27 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782374400 up=0.6050 dn=0.3950 spread=0.0200
+10:00:27 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782374400 up=0.5550 dn=0.4450 spread=0.0200
+10:00:27 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782374400 up=0.3450 dn=0.6550 spread=0.0200
+10:00:27 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782374400 up=0.3850 dn=0.6150 spread=0.0200
+10:00:28 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=67.59 Mom=-0.0320 -> NEUTRAL (dual-only path).
+10:00:28 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 28.9s — retrying...
+10:00:28 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782374400 up=0.5450 dn=0.4550 spread=0.0200
+10:00:28 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=64.64 Mom=-0.0055 -> NEUTRAL (dual-only path).
+10:00:28 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 28.9s — retrying...
+10:00:28 [INFO ] zisi.engine: [ENGINE] SOL/5m: Spot OFI divergence — blocking entry.
+10:00:28 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 28.9s — retrying...
+10:00:29 [INFO ] zisi.edge_orchestrator: [EDGE] ETH DOWN | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.50 whale=0.75 sentiment=1.00 → boost=-0.180
+10:00:29 [INFO ] zisi.engine: [ENGINE] ETH/15m SIGNAL: DOWN | Score=0.72 | up=0.5550 dn=0.4450 | dual=False | Ethereum Up or Down - June 25, 4:00AM-4:15AM ET
+10:00:29 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.25 kelly_fraction=0.2050 | regime*1.00 anti*0.50 heat*1.00 whale*0.75 | -> $22.60 | cycle=$22.60/1 trades
+10:00:29 [INFO ] zisi.main: [TRADE OPENED] ETH/15m DOWN | $9.35 @ 0.4450 | score=0.72 | SINGLE
+10:00:29 [INFO ] zisi.edge_orchestrator: [EDGE] SOL DOWN | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.50 whale=1.10 sentiment=1.00 → boost=-0.050
+10:00:29 [INFO ] zisi.engine: [ENGINE] SOL/15m SIGNAL: DOWN | Score=0.75 | up=0.3850 dn=0.6150 | dual=False | Solana Up or Down - June 25, 4:00AM-4:15AM ET
+10:00:30 [INFO ] zisi.main: [LEADER-GUARD] SOL/15m DOWN: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+10:00:30 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782374400 up=0.4450 dn=0.5550 spread=0.0200
+10:00:30 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=53.23 Mom=0.0647 -> NEUTRAL (dual-only path).
+10:00:30 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 30.4s — retrying...
+10:00:30 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782374400 up=0.4400 dn=0.5600 spread=0.0400
+10:00:30 [INFO ] zisi.engine: [ENGINE] XRP/15m: Spot OFI divergence — blocking entry.
+10:00:30 [INFO ] zisi.main: [MAIN] XRP/15m: No L2 book/signal at 30.4s — retrying...
+10:00:30 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782374400 up=0.4550 dn=0.5450 spread=0.0200
+10:00:30 [INFO ] zisi.edge_orchestrator: [EDGE] DOGE DOWN | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.50 whale=1.00 sentiment=1.00 → boost=-0.100
+10:00:30 [INFO ] zisi.engine: [ENGINE] DOGE/15m SIGNAL: DOWN | Score=0.88 | up=0.4550 dn=0.5450 | dual=False | Dogecoin Up or Down - June 25, 4:00AM-4:15AM ET
+10:00:30 [INFO ] zisi.main: [LEADER-GUARD] DOGE/15m DOWN: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+10:00:30 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:30 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+10:00:30 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:30 [INFO ] zisi.main: [MAIN] BTC/5m SKIP (no_signal) 
+10:00:30 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:30 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 
+10:00:32 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:32 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+10:00:32 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:32 [INFO ] zisi.main: [MAIN] XRP/15m SKIP (no_signal) 
+10:00:35 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782374400 up=0.2550 dn=0.7450 spread=0.0200
+10:00:35 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+10:00:35 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 35.8s — retrying...
+10:00:37 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:37 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+10:00:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0998% Kelly×1.00
+10:00:02 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:02 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1880% Kelly×1.00
+10:00:07 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782460800 up=0.4950 dn=0.5050 spread=0.0200
+10:00:07 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782460800 up=0.4950 dn=0.5050 spread=0.0200
+10:00:07 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782460800 up=0.6750 dn=0.3250 spread=0.0200
+10:00:07 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782460800 up=0.5500 dn=0.4500 spread=0.2000
+10:00:07 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782460800 up=0.5700 dn=0.4300 spread=0.0800
+10:00:07 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782460800 up=0.6450 dn=0.3750 spread=0.0200
+10:00:07 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782460800 up=0.5550 dn=0.4450 spread=0.0200
+10:00:08 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782460800 up=0.6200 dn=0.3800 spread=0.1600
+10:00:08 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782460800 up=0.5950 dn=0.4050 spread=0.0200
+10:00:08 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 8.6s — retrying...
+10:00:08 [INFO ] zisi.main: [MAIN] DOGE/15m: No L2 book/signal at 8.6s — retrying...
+10:00:08 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 8.6s — retrying...
+10:00:08 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=63.76 Mom=-0.1040 -> NEUTRAL (dual-only path).
+10:00:08 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 8.6s — retrying...
+10:00:08 [INFO ] zisi.engine: [ENGINE] DOGE/5m: Spot OFI divergence — blocking entry.
+10:00:08 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 8.6s — retrying...
+10:00:08 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 8.8s — retrying...
+10:00:08 [INFO ] zisi.main: [MAIN] BTC/15m: No L2 book/signal at 8.8s — retrying...
+10:00:09 [INFO ] zisi.edge_orchestrator: [EDGE] XRP DOWN | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=0.75 sentiment=1.00 → boost=-0.180
+10:00:09 [INFO ] zisi.main: [MAIN] XRP/15m: No L2 book/signal at 9.4s — retrying...
+10:00:09 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782460800 up=0.6550 dn=0.3450 spread=0.0200
+10:00:09 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 9.4s — retrying...
+10:00:09 [INFO ] zisi.edge_orchestrator: [EDGE] SOL DOWN | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=0.75 sentiment=1.03 → boost=-0.153
+10:00:09 [INFO ] zisi.engine: [ENGINE] SOL/15m SIGNAL: DOWN | Score=0.75 | up=0.5550 dn=0.4450 | dual=False | Solana Up or Down - June 26, 4:00AM-4:15AM ET
+10:00:10 [INFO ] zisi.main: [LEADER-GUARD] SOL/15m DOWN: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+10:00:11 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:11 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1921% Kelly×1.00
+10:00:11 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:11 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1047% Kelly×1.00
+10:00:16 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782460800 up=0.7150 dn=0.2850 spread=0.0200
+10:00:16 [INFO ] zisi.engine: [ENGINE] ETH/5m: Spot OFI divergence — blocking entry.
+10:00:16 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 16.5s — retrying...
+10:00:16 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782460800 up=0.6150 dn=0.3850 spread=0.1800
+10:00:16 [INFO ] zisi.engine: [ENGINE] DOGE/15m: Spot OFI divergence — blocking entry.
+10:00:16 [INFO ] zisi.main: [MAIN] DOGE/15m: No L2 book/signal at 16.5s — retrying...
+10:00:16 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782460800 up=0.7650 dn=0.2350 spread=0.0200
+10:00:16 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+10:00:16 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 16.5s — retrying...
+10:00:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782460800 up=0.7300 dn=0.2700 spread=0.0400
+10:00:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: Spot OFI divergence — blocking entry.
+10:00:16 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 16.5s — retrying...
+10:00:16 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782460800 up=0.5850 dn=0.4150 spread=0.0200
+10:00:16 [INFO ] zisi.engine: [ENGINE] ETH/15m: Spot OFI divergence — blocking entry.
+10:00:16 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 16.6s — retrying...
+10:00:16 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782460800 up=0.6150 dn=0.3850 spread=0.0200
+10:00:16 [DEBUG] zisi.regime_detector: [Regime] BTC price=60567.93 → regime=TRENDING (conf=54%) ATR=0.1729% Kelly×1.20 hurdle×0.85 exit=trailing
+10:00:17 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782460800 up=0.6650 dn=0.3350 spread=0.0200
+10:00:17 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=65.55 Mom=-0.0330 -> NEUTRAL (dual-only path).
+10:00:17 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 17.0s — retrying...
+10:00:17 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782460800 up=0.6150 dn=0.3850 spread=0.0200
+10:00:17 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782460800 up=0.6650 dn=0.3350 spread=0.0200
+10:00:17 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 17.3s — retrying...
+10:00:17 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=TRENDING(×1.20) confluence=1(+0.00) heat=1.00 anti=0.60 whale=1.10 sentiment=1.03 → boost=0.077
+10:00:17 [INFO ] zisi.engine: [ENGINE] BTC/15m SIGNAL: UP | Score=0.83 | up=0.6150 dn=0.3850 | dual=False | Bitcoin Up or Down - June 26, 4:00AM-4:15AM ET
+10:00:17 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.63 kelly_fraction=0.1851 | regime*1.20 anti*0.60 heat*1.00 whale*1.10 | -> $31.47 | cycle=$31.47/1 trades
+10:00:17 [INFO ] zisi.main: [TRADE OPENED] BTC/15m UP | $9.84 @ 0.6150 | score=0.83 | SINGLE
+10:00:17 [INFO ] zisi.engine: [FAIR-VALUE] XRP/15m UP | fp=0.767 quote=0.615 edge=0.152 (moderate)
+10:00:17 [INFO ] zisi.edge_orchestrator: [EDGE] XRP UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=1.10 sentiment=1.00 → boost=-0.050
+10:00:17 [INFO ] zisi.engine: [ENGINE] XRP/15m SIGNAL: UP | Score=0.65 | up=0.6150 dn=0.3850 | dual=False | XRP Up or Down - June 26, 4:00AM-4:15AM ET
+10:00:18 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.63 kelly_fraction=0.1851 | regime*1.20 anti*0.60 heat*1.00 whale*1.10 | -> $28.26 | cycle=$28.26/1 trades
+10:00:19 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:19 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1040% Kelly×1.00
+10:00:23 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782460800 up=0.5550 dn=0.4450 spread=0.0200
+10:00:23 [INFO ] zisi.main: [TRADE OPENED] ETH/15m UP | $9.99 @ 0.5550 | score=0.83 | SIGNAL
+10:00:24 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782460800 up=0.5500 dn=0.4500 spread=0.2000
+10:00:24 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782460800 up=0.6350 dn=0.3650 spread=0.0200
+10:00:24 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782460800 up=0.7150 dn=0.2850 spread=0.0200
+10:00:24 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782460800 up=0.6150 dn=0.3850 spread=0.1800
+10:00:24 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782460800 up=0.5550 dn=0.4450 spread=0.0200
+10:00:24 [INFO ] zisi.engine: [ENGINE] DOGE/15m: Spot OFI divergence — blocking entry.
+10:00:24 [INFO ] zisi.main: [MAIN] DOGE/15m: No L2 book/signal at 24.6s — retrying...
+10:00:24 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 24.6s — retrying...
+10:00:24 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 24.6s — retrying...
+10:00:24 [INFO ] zisi.engine: [ENGINE] DOGE/5m: Spot OFI divergence — blocking entry.
+10:00:24 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 24.6s — retrying...
+10:00:24 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 24.7s — retrying...
+10:00:24 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782460800 up=0.5050 dn=0.4950 spread=0.0200
+10:00:25 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782460800 up=0.5450 dn=0.4550 spread=0.0200
+10:00:25 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=65.31 Mom=-0.0429 -> NEUTRAL (dual-only path).
+10:00:25 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 25.2s — retrying...
+10:00:25 [INFO ] zisi.engine: [ENGINE] SOL/5m: Spot OFI divergence — blocking entry.
+10:00:25 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 25.4s — retrying...
+10:00:27 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+10:00:27 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1005% Kelly×1.00
+10:00:29 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782460800 up=0.4250 dn=0.5750 spread=0.0200
+10:00:29 [INFO ] zisi.main: [TRADE OPENED] SOL/15m UP | $10.20 @ 0.4250 | score=0.83 | SIGNAL
+10:00:32 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782460800 up=0.5550 dn=0.4450 spread=0.1800
+10:00:32 [INFO ] zisi.main: [MAIN] DOGE/15m: No L2 book/signal at 32.5s — retrying...
+10:00:32 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782460800 up=0.6000 dn=0.4000 spread=0.0400
+10:00:32 [INFO ] zisi.engine: [ENGINE] ETH/5m: Spot OFI divergence — blocking entry.
+10:00:32 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 32.5s — retrying...
+10:00:32 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782460800 up=0.6700 dn=0.3250 spread=0.0300
+10:00:32 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+10:00:32 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 32.5s — retrying...
+10:00:32 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782460800 up=0.6100 dn=0.3900 spread=0.1200
+10:00:32 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 32.5s — retrying...
+10:00:32 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782460800 up=0.5350 dn=0.4650 spread=0.0200
+10:00:32 [INFO ] zisi.engine: [ENGINE] ETH/15m: Spot OFI divergence — blocking entry.
+10:00:32 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 32.5s — retrying...
+10:00:33 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782460800 up=0.4550 dn=0.5450 spread=0.0200
+10:00:33 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=64.13 Mom=-0.0910 -> NEUTRAL (dual-only path).
+10:00:33 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 33.1s — retrying...
+10:00:33 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782460800 up=0.3350 dn=0.6650 spread=0.0200
+10:00:33 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 33.3s — retrying...
+10:00:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:34 [INFO ] zisi.main: [MAIN] DOGE/15m SKIP (no_signal) 
+10:00:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:34 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+10:00:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:34 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+10:00:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:34 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+10:00:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:34 [INFO ] zisi.main: [MAIN] ETH/15m SKIP (no_signal) 
+10:00:35 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:35 [INFO ] zisi.main: [MAIN] BTC/5m SKIP (no_signal) 
+10:00:35 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782460800 up=0.5850 dn=0.4150 spread=0.0200
+10:00:35 [INFO ] zisi.main: [TRADE OPENED] XRP/15m UP | $9.95 @ 0.5850 | score=0.83 | SIGNAL
+10:00:35 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+10:00:35 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 
+10:00:40 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782460800 up=0.5900 dn=0.4100 spread=0.1600
+10:00:40 [INFO ] zisi.main: [TRADE OPENED] DOGE/15m UP | $10.03 @ 0.5900 | score=0.83 | SIGNAL
+
+=== TARGET: 12:40 PM SAST (XRP FV 5m loss) (Time Range: 12:40:00 - 12:41:30)
+================================================================================
+12:40:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+12:40:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0314% Kelly×1.00
+12:40:06 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782384000 up=0.5250 dn=0.4750 spread=0.0200
+12:40:06 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782384000 up=0.4300 dn=0.5700 spread=0.1600
+12:40:06 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782384000 up=0.5350 dn=0.4650 spread=0.0200
+12:40:06 [INFO ] zisi.engine: [ENGINE] ETH/5m Timeframe mismatch detected: market_start_ts=1782384000 last_kline_ts=1782383700 — skipping entry
+12:40:06 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 7.0s — retrying...
+12:40:06 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782384000 up=0.5350 dn=0.4650 spread=0.0200
+12:40:06 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782384000 up=0.6050 dn=0.3950 spread=0.0200
+12:40:06 [INFO ] zisi.engine: [ENGINE] SOL/5m Timeframe mismatch detected: market_start_ts=1782384000 last_kline_ts=1782383700 — skipping entry
+12:40:06 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 7.0s — retrying...
+12:40:23 [INFO ] zisi.trader: [TRADE CLOSED] SOL/5m UP | LOSS | entry=56¢ exit=1¢ | pnl=-3.81$ (-98.1%) | MARKET_EXPIRED | held=5m
+12:40:23 [INFO ] zisi.trader: [EXIT] ❌ LOSS | [UPDOWN][SOL][5m][SINGLE] Solana Up or Down - June | MARKET_EXPIRED @ 0.0100 | pnl=$-3.81 | bal=$668.48
+12:40:23 [INFO ] zisi.trader: [TRADE CLOSED] BTC/5m DOWN | WIN | entry=57¢ exit=99¢ | pnl=+7.05$ (72.1%) | TARGET_HIT | held=5m
+12:40:23 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 23.6s — retrying...
+12:40:23 [INFO ] zisi.trader: [EXIT] ✅ WIN | [UPDOWN][BTC][5m][SINGLE] Bitcoin Up or Down - Jun | TARGET_HIT @ 0.9900 | pnl=$+7.05 | bal=$664.67
+12:40:23 [DEBUG] zisi.regime_detector: [Regime] BTC price=61525.58 → regime=TRENDING (conf=54%) ATR=0.1542% Kelly×1.20 hurdle×0.85 exit=trailing
+12:40:24 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=MEAN_REVERTING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.70 whale=1.00 sentiment=1.00 → boost=-0.100
+12:40:24 [INFO ] zisi.engine: [ENGINE] BTC/5m SIGNAL: UP | Score=0.83 | up=0.5350 dn=0.4650 | dual=False | Bitcoin Up or Down - June 25, 6:40AM-6:45AM ET
+12:40:24 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.87 kelly_fraction=0.1962 | regime*1.20 anti*0.70 heat*1.00 whale*1.00 | -> $31.40 | cycle=$31.40/1 trades
+12:40:24 [INFO ] zisi.main: [TRADE OPENED] BTC/5m UP | $18.73 @ 0.5350 | score=0.83 | SINGLE
+12:40:24 [INFO ] zisi.edge_orchestrator: [EDGE] XRP UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.70 whale=0.90 sentiment=1.00 → boost=-0.130
+12:40:24 [INFO ] zisi.engine: [ENGINE] XRP/5m SIGNAL: UP | Score=0.77 | up=0.5250 dn=0.4750 | dual=False | XRP Up or Down - June 25, 6:40AM-6:45AM ET
+12:40:25 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.90 kelly_fraction=0.1974 | regime*1.20 anti*0.70 heat*1.00 whale*0.90 | -> $26.60 | cycle=$26.60/1 trades
+12:40:28 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782384000 up=0.5750 dn=0.4250 spread=0.0200
+12:40:28 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782384000 up=0.5050 dn=0.4950 spread=0.0200
+12:40:30 [INFO ] zisi.edge_orchestrator: [EDGE] SOL UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.70 whale=1.10 sentiment=1.00 → boost=-0.050
+12:40:30 [INFO ] zisi.engine: [ENGINE] SOL/5m SIGNAL: UP | Score=0.85 | up=0.5750 dn=0.4250 | dual=False | Solana Up or Down - June 25, 6:40AM-6:45AM ET
+12:40:30 [INFO ] zisi.edge_orchestrator: [EDGE] ETH UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.70 whale=1.00 sentiment=1.00 → boost=-0.100
+12:40:30 [INFO ] zisi.engine: [ENGINE] ETH/5m SIGNAL: UP | Score=0.80 | up=0.5050 dn=0.4950 | dual=False | Ethereum Up or Down - June 25, 6:40AM-6:45AM ET
+12:40:30 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.98 kelly_fraction=0.1995 | regime*1.00 anti*0.70 heat*1.00 whale*1.00 | -> $29.00 | cycle=$29.00/1 trades
+12:40:30 [INFO ] zisi.main: [TRADE OPENED] ETH/5m UP | $17.17 @ 0.5050 | score=0.80 | SINGLE
+12:40:31 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782384000 up=0.4150 dn=0.5850 spread=0.1000
+12:40:31 [INFO ] zisi.engine: [ENGINE] DOGE/5m: Spot OFI divergence — blocking entry.
+12:40:31 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 31.5s — retrying...
+12:40:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:40:33 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+12:40:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+12:40:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0975% Kelly×1.00
+12:40:06 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782470400 up=0.5350 dn=0.4750 spread=0.0200
+12:40:06 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470400 up=0.5450 dn=0.4600 spread=0.0500
+12:40:06 [INFO ] zisi.engine: [ENGINE] SOL/5m Timeframe mismatch detected: market_start_ts=1782470400 last_kline_ts=1782470100 — skipping entry
+12:40:06 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 7.0s — retrying...
+12:40:06 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782470400 up=0.5700 dn=0.4300 spread=0.2400
+12:40:06 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470400 up=0.5050 dn=0.5100 spread=0.0700
+12:40:06 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470400 up=0.6200 dn=0.3900 spread=0.0400
+12:40:06 [INFO ] zisi.engine: [ENGINE] ETH/5m Timeframe mismatch detected: market_start_ts=1782470400 last_kline_ts=1782470100 — skipping entry
+12:40:06 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 7.0s — retrying...
+12:40:07 [INFO ] zisi.edge_orchestrator: [EDGE] DOGE UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.50 whale=1.00 sentiment=1.00 → boost=-0.100
+12:40:08 [INFO ] zisi.engine: [ENGINE] DOGE/5m SIGNAL: UP | Score=0.88 | up=0.5700 dn=0.4300 | dual=False | Dogecoin Up or Down - June 26, 6:40AM-6:45AM ET
+12:40:08 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+12:40:08 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 8.0s — retrying...
+12:40:08 [DEBUG] zisi.regime_detector: [Regime] BTC price=59504.99 → regime=TRENDING (conf=54%) ATR=0.1138% Kelly×1.20 hurdle×0.85 exit=trailing
+12:40:09 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.75 kelly_fraction=0.1919 | regime*1.20 anti*0.50 heat*1.00 whale*1.00 | -> $35.40 | cycle=$35.40/1 trades
+12:40:09 [INFO ] zisi.main: [TRADE OPENED] DOGE/5m UP | $6.84 @ 0.5700 | score=0.88 | SINGLE
+12:40:09 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.50 whale=0.75 sentiment=1.00 → boost=-0.180
+12:40:09 [INFO ] zisi.engine: [ENGINE] BTC/5m SIGNAL: UP | Score=0.80 | up=0.5350 dn=0.4750 | dual=False | Bitcoin Up or Down - June 26, 6:40AM-6:45AM ET
+12:40:09 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.87 kelly_fraction=0.1962 | regime*1.20 anti*0.50 heat*1.00 whale*0.75 | -> $29.00 | cycle=$29.00/1 trades
+12:40:14 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470400 up=0.4750 dn=0.5250 spread=0.0200
+12:40:14 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470400 up=0.4850 dn=0.5150 spread=0.0200
+12:40:15 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470400 up=0.4150 dn=0.5850 spread=0.0200
+12:40:15 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+12:40:15 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 15.9s — retrying...
+12:40:15 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 15.9s — retrying...
+12:40:15 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 15.9s — retrying...
+12:40:23 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470400 up=0.4950 dn=0.5050 spread=0.0200
+12:40:23 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 23.8s — retrying...
+12:40:23 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470400 up=0.4850 dn=0.5150 spread=0.0200
+12:40:23 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470400 up=0.5650 dn=0.4350 spread=0.0200
+12:40:23 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 23.8s — retrying...
+12:40:24 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 24.1s — retrying...
+12:40:47 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470400 up=0.6650 dn=0.3350 spread=0.0200
+12:40:47 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470400 up=0.6450 dn=0.3550 spread=0.0200
+12:40:47 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470400 up=0.6650 dn=0.3350 spread=0.0200
+12:40:47 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 47.7s — retrying...
+12:40:47 [INFO ] zisi.engine: [FAIR-VALUE] SOL/5m DOWN | fp=0.300 quote=0.355 edge=0.345 (moderate)
+12:40:47 [INFO ] zisi.engine: [FAIR-VALUE] XRP/5m DOWN | fp=0.285 quote=0.335 edge=0.380 (moderate)
+12:40:49 [INFO ] zisi.edge_orchestrator: [EDGE] XRP DOWN | regime=TRENDING(×1.20) confluence=3(+0.10) heat=1.00 anti=0.50 whale=1.00 sentiment=1.03 → boost=0.127
+12:40:49 [INFO ] zisi.engine: [ENGINE] XRP/5m SIGNAL: DOWN | Score=0.98 | up=0.6650 dn=0.3350 | dual=False | XRP Up or Down - June 26, 6:40AM-6:45AM ET
+12:40:49 [INFO ] zisi.edge_orchestrator: [EDGE] SOL DOWN | regime=TRENDING(×1.20) confluence=3(+0.10) heat=1.00 anti=0.50 whale=0.75 sentiment=1.00 → boost=0.020
+12:40:49 [INFO ] zisi.engine: [ENGINE] SOL/5m SIGNAL: DOWN | Score=0.87 | up=0.6450 dn=0.3550 | dual=False | Solana Up or Down - June 26, 6:40AM-6:45AM ET
+12:40:49 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:40:49 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+12:40:50 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.99 kelly_fraction=0.2124 | regime*1.20 anti*0.50 heat*1.00 whale*1.00 | -> $24.49 | cycle=$24.49/1 trades
+12:40:50 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.82 kelly_fraction=0.2112 | regime*1.20 anti*0.50 heat*1.00 whale*0.75 | -> $23.38 | cycle=$23.38/1 trades
+12:40:50 [INFO ] zisi.main: [TRADE OPENED] XRP/5m DOWN | $19.10 @ 0.3350 | score=0.98 | FAIR_VAL
+
+=== TARGET: 12:45 PM SAST (Two BTC SIG losses) (Time Range: 12:45:00 - 12:46:00)
+================================================================================
+12:45:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+12:45:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0465% Kelly×1.00
+12:45:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+12:45:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0928% Kelly×1.00
+12:45:12 [INFO ] zisi.engine: [ENGINE] SOL/5m: slug sol-updown-5m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] DOGE/15m: slug doge-updown-15m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] ETH/5m: slug eth-updown-5m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] BTC/5m: slug btc-updown-5m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] XRP/15m: slug xrp-updown-15m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] DOGE/5m: slug doge-updown-5m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] BTC/15m: slug btc-updown-15m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] ETH/15m: slug eth-updown-15m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] SOL/15m: slug sol-updown-15m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:12 [INFO ] zisi.engine: [ENGINE] XRP/5m: slug xrp-updown-5m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:26 [WARNING] zisi.engine: [ENGINE] CLOB L2 market fetch error: 
+12:45:26 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 26.9s — retrying...
+12:45:27 [INFO ] zisi.trader: [TRADE CLOSED] BTC/5m UP | LOSS | entry=54¢ exit=1¢ | pnl=-18.38$ (-98.2%) | MARKET_EXPIRED | held=5m
+12:45:27 [INFO ] zisi.trader: [EXIT] ❌ LOSS | [UPDOWN][BTC][5m][SINGLE] Bitcoin Up or Down - Jun | MARKET_EXPIRED @ 0.0100 | pnl=$-18.38 | bal=$671.72
+12:45:27 [INFO ] zisi.trader: [TRADE CLOSED] ETH/5m UP | LOSS | entry=50¢ exit=1¢ | pnl=-16.83$ (-98.0%) | MARKET_EXPIRED | held=5m
+12:45:27 [INFO ] zisi.trader: [EXIT] ❌ LOSS | [UPDOWN][ETH][5m][SINGLE] Ethereum Up or Down - Ju | MARKET_EXPIRED @ 0.0100 | pnl=$-16.83 | bal=$653.34
+12:45:31 [INFO ] zisi.engine: [ENGINE] ETH/5m: slug eth-updown-5m-1782384600 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] XRP/15m: slug xrp-updown-15m-1782385200 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] DOGE/15m: slug doge-updown-15m-1782385200 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] BTC/5m: slug btc-updown-5m-1782384600 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] DOGE/5m: slug doge-updown-5m-1782384600 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] SOL/5m: slug sol-updown-5m-1782384600 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] ETH/15m: slug eth-updown-15m-1782385200 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] BTC/15m: slug btc-updown-15m-1782385200 — no valid L2 book (skip phantom 50¢)
+12:45:31 [INFO ] zisi.engine: [ENGINE] SOL/15m: slug sol-updown-15m-1782385200 — no valid L2 book (skip phantom 50¢)
+12:45:32 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] XRP/15m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] DOGE/15m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] BTC/15m: No L2 book/signal at 32.0s — retrying...
+12:45:32 [INFO ] zisi.main: [MAIN] SOL/15m: No L2 book/signal at 32.0s — retrying...
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] XRP/15m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] DOGE/15m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] BTC/5m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] ETH/15m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] BTC/15m SKIP (no_signal) 
+12:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:34 [INFO ] zisi.main: [MAIN] SOL/15m SKIP (no_signal) 
+12:45:40 [INFO ] zisi.engine: [ENGINE] XRP/5m: slug xrp-updown-5m-1782384300 — no valid L2 book (skip phantom 50¢)
+12:45:46 [INFO ] zisi.engine: [ENGINE] XRP/5m: slug xrp-updown-5m-1782384600 — no valid L2 book (skip phantom 50¢)
+12:45:46 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 46.8s — retrying...
+12:45:48 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:48 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+12:45:00 [INFO ] zisi.trader: [TRADE CLOSED] BTC/15m UP | LOSS | entry=55¢ exit=1¢ | pnl=-9.10$ (-98.2%) | MARKET_EXPIRED | held=15m
+12:45:00 [INFO ] zisi.trader: [EXIT] ❌ LOSS | [UPDOWN][BTC][15m][SINGLE] Bitcoin Up or Down - Ju | MARKET_EXPIRED @ 0.0100 | pnl=$-9.10 | bal=$649.96
+12:45:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+12:45:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1439% Kelly×1.00
+12:45:01 [INFO ] zisi.trader: [TRADE CLOSED] ETH/15m UP | LOSS | entry=50¢ exit=1¢ | pnl=-9.41$ (-98.1%) | MARKET_EXPIRED | held=15m
+12:45:02 [INFO ] zisi.trader: [EXIT] ❌ LOSS | [UPDOWN][ETH][15m][SINGLE] Ethereum Up or Down - J | MARKET_EXPIRED @ 0.0100 | pnl=$-9.41 | bal=$640.86
+12:45:02 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+12:45:02 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0997% Kelly×1.00
+12:45:02 [INFO ] zisi.trader: [TRADE CLOSED] XRP/5m DOWN | LOSS | entry=34¢ exit=1¢ | pnl=-18.52$ (-97.0%) | MARKET_EXPIRED | held=4m
+12:45:02 [INFO ] zisi.trader: [EXIT] ❌ LOSS | [UPDOWN][XRP][5m][FAIR_VAL] XRP Up or Down - June  | MARKET_EXPIRED @ 0.0100 | pnl=$-18.52 | bal=$631.45
+12:45:07 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782470700 up=0.4700 dn=0.5300 spread=0.2000
+12:45:07 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782470700 up=0.3950 dn=0.6050 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470700 up=0.4550 dn=0.5450 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782470700 up=0.5250 dn=0.4750 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782470700 up=0.5150 dn=0.4850 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782470700 up=0.5050 dn=0.4950 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782470700 up=0.4850 dn=0.5150 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470700 up=0.4550 dn=0.5450 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470700 up=0.4250 dn=0.5750 spread=0.0200
+12:45:07 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782470700 up=0.4550 dn=0.5450 spread=0.0200
+12:45:08 [INFO ] zisi.edge_orchestrator: [EDGE] DOGE UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=1.00 sentiment=1.00 → boost=-0.100
+12:45:08 [INFO ] zisi.engine: [ENGINE] DOGE/15m SIGNAL: UP | Score=0.80 | up=0.4700 dn=0.5300 | dual=False | Dogecoin Up or Down - June 26, 6:45AM-7:00AM ET
+12:45:08 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 8.4s — retrying...
+12:45:08 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 8.4s — retrying...
+12:45:08 [DEBUG] zisi.regime_detector: [Regime] BTC price=59558.01 → regime=TRENDING (conf=54%) ATR=0.1116% Kelly×1.20 hurdle×0.85 exit=trailing
+12:45:08 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 8.4s — retrying...
+12:45:08 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 8.4s — retrying...
+12:45:08 [INFO ] zisi.engine: [ENGINE] BTC/5m: Spot OFI divergence — blocking entry.
+12:45:08 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 8.5s — retrying...
+12:45:08 [INFO ] zisi.main: [LEADER-GUARD] DOGE/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+12:45:08 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=MEAN_REVERTING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=1.00 sentiment=1.00 → boost=-0.100
+12:45:08 [INFO ] zisi.engine: [ENGINE] BTC/15m SIGNAL: UP | Score=0.80 | up=0.5050 dn=0.4950 | dual=False | Bitcoin Up or Down - June 26, 6:45AM-7:00AM ET
+12:45:08 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.98 kelly_fraction=0.1995 | regime*1.20 anti*0.60 heat*1.00 whale*1.00 | -> $29.00 | cycle=$29.00/1 trades
+12:45:09 [INFO ] zisi.edge_orchestrator: [EDGE] XRP UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=1.10 sentiment=1.03 → boost=-0.023
+12:45:09 [INFO ] zisi.main: [TRADE OPENED] BTC/15m UP | $6.06 @ 0.5050 | score=0.80 | SINGLE
+12:45:09 [INFO ] zisi.engine: [ENGINE] XRP/15m SIGNAL: UP | Score=0.88 | up=0.5250 dn=0.4750 | dual=False | XRP Up or Down - June 26, 6:45AM-7:00AM ET
+12:45:09 [INFO ] zisi.main: [LEADER-GUARD] XRP/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+12:45:09 [INFO ] zisi.edge_orchestrator: [EDGE] SOL UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=1.10 sentiment=1.00 → boost=-0.050
+12:45:09 [INFO ] zisi.engine: [ENGINE] SOL/15m SIGNAL: UP | Score=0.88 | up=0.4850 dn=0.5150 | dual=False | Solana Up or Down - June 26, 6:45AM-7:00AM ET
+12:45:09 [INFO ] zisi.main: [LEADER-GUARD] SOL/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+12:45:09 [INFO ] zisi.edge_orchestrator: [EDGE] ETH UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=0.75 sentiment=1.00 → boost=-0.180
+12:45:09 [INFO ] zisi.engine: [ENGINE] ETH/15m SIGNAL: UP | Score=0.80 | up=0.5150 dn=0.4850 | dual=False | Ethereum Up or Down - June 26, 6:45AM-7:00AM ET
+12:45:09 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.94 kelly_fraction=0.1985 | regime*1.20 anti*0.60 heat*1.00 whale*0.75 | -> $29.00 | cycle=$29.00/1 trades
+12:45:10 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+12:45:10 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1004% Kelly×1.00
+12:45:16 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470700 up=0.5450 dn=0.4550 spread=0.0200
+12:45:16 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 16.2s — retrying...
+12:45:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782470700 up=0.5150 dn=0.4800 spread=0.1700
+12:45:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: Spot OFI divergence — blocking entry.
+12:45:16 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 16.3s — retrying...
+12:45:16 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470700 up=0.5450 dn=0.4400 spread=0.0300
+12:45:16 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 16.3s — retrying...
+12:45:16 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470700 up=0.5250 dn=0.4550 spread=0.0200
+12:45:16 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 16.3s — retrying...
+12:45:16 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782470700 up=0.5450 dn=0.4550 spread=0.0200
+12:45:16 [DEBUG] zisi.regime_detector: [Regime] BTC price=59542.08 → regime=MEAN_REVERTING (conf=75%) ATR=0.1045% Kelly×1.00 hurdle×1.15 exit=fixed_target
+12:45:16 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.60 whale=1.00 sentiment=1.00 → boost=-0.100
+12:45:16 [INFO ] zisi.engine: [ENGINE] BTC/5m SIGNAL: UP | Score=0.80 | up=0.5450 dn=0.4550 | dual=False | Bitcoin Up or Down - June 26, 6:45AM-6:50AM ET
+12:45:16 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.83 kelly_fraction=0.1951 | regime*1.00 anti*0.60 heat*1.00 whale*1.00 | -> $29.00 | cycle=$29.00/1 trades
+12:45:16 [INFO ] zisi.main: [TRADE OPENED] BTC/5m UP | $8.72 @ 0.5450 | score=0.80 | SINGLE
+12:45:24 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470700 up=0.5050 dn=0.4950 spread=0.0200
+12:45:24 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782470700 up=0.4350 dn=0.5750 spread=0.1600
+12:45:24 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470700 up=0.5050 dn=0.4950 spread=0.0200
+12:45:24 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470700 up=0.4950 dn=0.5050 spread=0.0200
+12:45:24 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 24.4s — retrying...
+12:45:24 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 24.4s — retrying...
+12:45:24 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 24.5s — retrying...
+12:45:24 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 24.5s — retrying...
+12:45:46 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782470700 up=0.5650 dn=0.4350 spread=0.0200
+12:45:46 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782470700 up=0.6650 dn=0.3350 spread=0.0200
+12:45:46 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782470700 up=0.5950 dn=0.4050 spread=0.1400
+12:45:46 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782470700 up=0.5750 dn=0.4250 spread=0.0200
+12:45:46 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 46.6s — retrying...
+12:45:46 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 46.6s — retrying...
+12:45:46 [INFO ] zisi.engine: [ENGINE] DOGE/5m: Spot OFI divergence — blocking entry.
+12:45:46 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 46.7s — retrying...
+12:45:46 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+12:45:46 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 47.0s — retrying...
+12:45:48 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:48 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+12:45:48 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:48 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 
+12:45:48 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:48 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+12:45:48 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+12:45:48 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+
+=== TARGET: 13:15 PM SAST (BTC 15m loss) (Time Range: 13:15:00 - 13:16:00)
+================================================================================
+13:15:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1050% Kelly×1.00
+13:15:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1080% Kelly×1.00
+13:15:07 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782386100 up=0.5450 dn=0.4550 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] ETH/15m Timeframe mismatch detected: market_start_ts=1782386100 last_kline_ts=1782385200 — skipping entry
+13:15:07 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 7.1s — retrying...
+13:15:07 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782386100 up=0.4150 dn=0.5850 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782386100 up=0.4950 dn=0.5050 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782386100 up=0.4700 dn=0.5300 spread=0.0400
+13:15:07 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782386100 up=0.4250 dn=0.5750 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782386100 up=0.5400 dn=0.4650 spread=0.0700
+13:15:07 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782386100 up=0.4450 dn=0.5500 spread=0.0500
+13:15:07 [INFO ] zisi.engine: [ENGINE] SOL/5m Timeframe mismatch detected: market_start_ts=1782386100 last_kline_ts=1782385800 — skipping entry
+13:15:07 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 7.1s — retrying...
+13:15:07 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782386100 up=0.3850 dn=0.6150 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782386100 up=0.4350 dn=0.5650 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] ETH/5m Timeframe mismatch detected: market_start_ts=1782386100 last_kline_ts=1782385800 — skipping entry
+13:15:07 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 7.1s — retrying...
+13:15:07 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782386100 up=0.5100 dn=0.4950 spread=0.0300
+13:15:07 [INFO ] zisi.engine: [ENGINE] SOL/15m Timeframe mismatch detected: market_start_ts=1782386100 last_kline_ts=1782385200 — skipping entry
+13:15:07 [INFO ] zisi.main: [MAIN] SOL/15m: No L2 book/signal at 7.1s — retrying...
+13:15:23 [INFO ] zisi.trader: [TRADE CLOSED] ETH/15m UP | WIN | entry=60¢ exit=99¢ | pnl=+6.16$ (63.6%) | TARGET_HIT | held=15m
+13:15:23 [INFO ] zisi.trader: [EXIT] ✅ WIN | [UPDOWN][ETH][15m][SINGLE] Ethereum Up or Down - J | TARGET_HIT @ 0.9900 | pnl=$+6.16 | bal=$598.43
+13:15:24 [INFO ] zisi.trader: [TRADE CLOSED] DOGE/5m UP | WIN | entry=57¢ exit=99¢ | pnl=+5.04$ (73.7%) | TARGET_HIT | held=5m
+13:15:24 [INFO ] zisi.trader: [EXIT] ✅ WIN | [UPDOWN][DOGE][5m][SINGLE] Dogecoin Up or Down - J | TARGET_HIT @ 0.9900 | pnl=$+5.04 | bal=$604.59
+13:15:24 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 24.7s — retrying...
+13:15:24 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 24.7s — retrying...
+13:15:24 [DEBUG] zisi.regime_detector: [Regime] BTC price=61351.99 → regime=MEAN_REVERTING (conf=75%) ATR=0.1887% Kelly×1.00 hurdle×1.15 exit=fixed_target
+13:15:24 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=32.53 Mom=0.1339 -> NEUTRAL (dual-only path).
+13:15:24 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 24.7s — retrying...
+13:15:24 [INFO ] zisi.edge_orchestrator: [EDGE] DOGE UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.00 → boost=-0.100
+13:15:24 [INFO ] zisi.engine: [ENGINE] DOGE/15m SIGNAL: UP | Score=0.80 | up=0.5400 dn=0.4650 | dual=False | Dogecoin Up or Down - June 25, 7:15AM-7:30AM ET
+13:15:25 [INFO ] zisi.edge_orchestrator: [EDGE] XRP UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.00 → boost=-0.100
+13:15:25 [INFO ] zisi.engine: [ENGINE] XRP/15m SIGNAL: UP | Score=0.80 | up=0.4950 dn=0.5050 | dual=False | XRP Up or Down - June 25, 7:15AM-7:30AM ET
+13:15:25 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=TRENDING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.10 sentiment=1.00 → boost=-0.050
+13:15:25 [INFO ] zisi.engine: [ENGINE] BTC/15m SIGNAL: UP | Score=0.85 | up=0.4250 dn=0.5750 | dual=False | Bitcoin Up or Down - June 25, 7:15AM-7:30AM ET
+13:15:25 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.35 kelly_fraction=0.2065 | regime*1.00 anti*0.30 heat*1.00 whale*1.10 | -> $33.00 | cycle=$33.00/1 trades
+13:15:25 [INFO ] zisi.main: [TRADE OPENED] BTC/15m UP | $14.03 @ 0.4250 | score=0.85 | SINGLE
+13:15:25 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.85 kelly_fraction=0.1957 | regime*1.00 anti*0.30 heat*1.00 whale*1.00 | -> $29.00 | cycle=$29.00/1 trades
+13:15:26 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.02 kelly_fraction=0.2005 | regime*1.00 anti*0.30 heat*1.00 whale*1.00 | -> $29.00 | cycle=$29.00/1 trades
+13:15:26 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:26 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=VOLATILE_CHAOS ATR=0.1139% Kelly×0.30
+13:15:29 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782386100 up=0.7150 dn=0.2850 spread=0.0200
+13:15:29 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782386100 up=0.6250 dn=0.3750 spread=0.0200
+13:15:29 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782386100 up=0.7450 dn=0.2550 spread=0.0200
+13:15:29 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782386100 up=0.6550 dn=0.3450 spread=0.0200
+13:15:30 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=34.62 Mom=0.1757 -> NEUTRAL (dual-only path).
+13:15:30 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 30.8s — retrying...
+13:15:30 [INFO ] zisi.main: [MAIN] SOL/15m: No L2 book/signal at 30.8s — retrying...
+13:15:30 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=34.89 Mom=0.1137 -> NEUTRAL (dual-only path).
+13:15:30 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 30.8s — retrying...
+13:15:31 [INFO ] zisi.edge_orchestrator: [EDGE] ETH UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=0.75 sentiment=1.00 → boost=-0.180
+13:15:31 [INFO ] zisi.engine: [ENGINE] ETH/15m SIGNAL: UP | Score=0.72 | up=0.6550 dn=0.3450 | dual=False | Ethereum Up or Down - June 25, 7:15AM-7:30AM ET
+13:15:31 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782386100 up=0.6550 dn=0.3450 spread=0.0200
+13:15:31 [INFO ] zisi.main: [TRADE OPENED] ETH/15m UP | $13.76 @ 0.6550 | score=0.85 | REVERSAL_SNIPE
+13:15:32 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782386100 up=0.5900 dn=0.4100 spread=0.2000
+13:15:32 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 32.5s — retrying...
+13:15:32 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782386100 up=0.6150 dn=0.3850 spread=0.0200
+13:15:32 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 32.6s — retrying...
+13:15:32 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782386100 up=0.6400 dn=0.3600 spread=0.0400
+13:15:32 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=36.64 Mom=0.2362 -> NEUTRAL (dual-only path).
+13:15:32 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 32.6s — retrying...
+13:15:32 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:32 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 
+13:15:32 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:32 [INFO ] zisi.main: [MAIN] SOL/15m SKIP (no_signal) 
+13:15:32 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:32 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] BTC/5m SKIP (no_signal) 
+13:15:37 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782386100 up=0.4550 dn=0.5450 spread=0.0200
+13:15:37 [INFO ] zisi.main: [TRADE OPENED] SOL/15m UP | $14.11 @ 0.4550 | score=0.85 | REVERSAL_SNIPE
+13:15:43 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782386100 up=0.5400 dn=0.4600 spread=0.0400
+13:15:43 [INFO ] zisi.main: [TRADE OPENED] XRP/15m UP | $14.04 @ 0.5400 | score=0.85 | REVERSAL_SNIPE
+13:15:48 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782386100 up=0.5350 dn=0.4650 spread=0.0600
+13:15:48 [INFO ] zisi.main: [TRADE OPENED] DOGE/15m UP | $13.91 @ 0.5350 | score=0.85 | REVERSAL_SNIPE
+13:15:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1863% Kelly×1.00
+13:15:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1229% Kelly×1.00
+13:15:07 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782472500 up=0.3950 dn=0.6050 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782472500 up=0.5050 dn=0.4950 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782472500 up=0.4350 dn=0.5650 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782472500 up=0.4600 dn=0.5450 spread=0.0300
+13:15:07 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782472500 up=0.4000 dn=0.6000 spread=0.1600
+13:15:07 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782472500 up=0.3950 dn=0.6050 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782472500 up=0.4800 dn=0.5200 spread=0.0400
+13:15:07 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782472500 up=0.4850 dn=0.5150 spread=0.0200
+13:15:07 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782472500 up=0.4550 dn=0.5450 spread=0.0200
+13:15:08 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782472500 up=0.4550 dn=0.5450 spread=0.1800
+13:15:08 [DEBUG] zisi.regime_detector: [Regime] BTC price=59486.00 → regime=TRENDING (conf=54%) ATR=0.0993% Kelly×1.20 hurdle×0.85 exit=trailing
+13:15:08 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=42.28 Mom=0.2171 -> NEUTRAL (dual-only path).
+13:15:08 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 8.4s — retrying...
+13:15:08 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=39.24 Mom=0.0145 -> NEUTRAL (dual-only path).
+13:15:08 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 8.4s — retrying...
+13:15:08 [INFO ] zisi.edge_orchestrator: [EDGE] DOGE UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.00 → boost=-0.100
+13:15:08 [INFO ] zisi.engine: [ENGINE] DOGE/15m SIGNAL: UP | Score=0.75 | up=0.4550 dn=0.5450 | dual=False | Dogecoin Up or Down - June 26, 7:15AM-7:30AM ET
+13:15:08 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=35.53 Mom=0.2912 -> NEUTRAL (dual-only path).
+13:15:08 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 8.6s — retrying...
+13:15:08 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=46.02 Mom=0.2054 -> NEUTRAL (dual-only path).
+13:15:08 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 8.9s — retrying...
+13:15:09 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 9.0s — retrying...
+13:15:09 [INFO ] zisi.main: [LEADER-GUARD] DOGE/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+13:15:09 [INFO ] zisi.edge_orchestrator: [EDGE] SOL UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=0.75 sentiment=1.00 → boost=-0.180
+13:15:09 [INFO ] zisi.engine: [ENGINE] SOL/15m SIGNAL: UP | Score=0.72 | up=0.4600 dn=0.5450 | dual=False | Solana Up or Down - June 26, 7:15AM-7:30AM ET
+13:15:09 [INFO ] zisi.main: [LEADER-GUARD] SOL/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+13:15:09 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.10 sentiment=1.00 → boost=-0.050
+13:15:09 [INFO ] zisi.engine: [ENGINE] BTC/15m SIGNAL: UP | Score=0.85 | up=0.5050 dn=0.4950 | dual=False | Bitcoin Up or Down - June 26, 7:15AM-7:30AM ET
+13:15:09 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.98 kelly_fraction=0.1995 | regime*1.20 anti*0.30 heat*1.00 whale*1.10 | -> $33.00 | cycle=$33.00/1 trades
+13:15:09 [INFO ] zisi.main: [TRADE OPENED] BTC/15m UP | $13.63 @ 0.5050 | score=0.85 | SINGLE
+13:15:09 [INFO ] zisi.edge_orchestrator: [EDGE] XRP UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.10 sentiment=1.03 → boost=-0.023
+13:15:09 [INFO ] zisi.engine: [ENGINE] XRP/15m SIGNAL: UP | Score=0.88 | up=0.4800 dn=0.5200 | dual=False | XRP Up or Down - June 26, 7:15AM-7:30AM ET
+13:15:09 [INFO ] zisi.main: [LEADER-GUARD] XRP/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+13:15:09 [INFO ] zisi.edge_orchestrator: [EDGE] ETH UP | regime=TRENDING(×1.20) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.03 → boost=-0.073
+13:15:09 [INFO ] zisi.engine: [ENGINE] ETH/15m SIGNAL: UP | Score=0.78 | up=0.4850 dn=0.5150 | dual=False | Ethereum Up or Down - June 26, 7:15AM-7:30AM ET
+13:15:09 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.06 kelly_fraction=0.2015 | regime*1.20 anti*0.30 heat*1.00 whale*1.00 | -> $27.14 | cycle=$27.14/1 trades
+13:15:10 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:10 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1235% Kelly×1.00
+13:15:16 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782472500 up=0.4500 dn=0.5650 spread=0.0500
+13:15:16 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 16.3s — retrying...
+13:15:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782472500 up=0.4350 dn=0.5650 spread=0.1400
+13:15:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=41.46 Mom=0.1899 -> NEUTRAL (dual-only path).
+13:15:16 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 16.3s — retrying...
+13:15:16 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782472500 up=0.5550 dn=0.4450 spread=0.0200
+13:15:16 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=35.37 Mom=0.2832 -> NEUTRAL (dual-only path).
+13:15:16 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 16.5s — retrying...
+13:15:16 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782472500 up=0.4450 dn=0.5550 spread=0.0200
+13:15:16 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=45.35 Mom=0.1821 -> NEUTRAL (dual-only path).
+13:15:16 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 16.8s — retrying...
+13:15:16 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782472500 up=0.4750 dn=0.5250 spread=0.0200
+13:15:16 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 16.9s — retrying...
+13:15:18 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:18 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1231% Kelly×1.00
+13:15:24 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782472500 up=0.2450 dn=0.7550 spread=0.0200
+13:15:24 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782472500 up=0.2550 dn=0.7450 spread=0.0600
+13:15:24 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782472500 up=0.3550 dn=0.6450 spread=0.0200
+13:15:24 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 24.4s — retrying...
+13:15:24 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=41.46 Mom=0.1899 -> NEUTRAL (dual-only path).
+13:15:24 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 24.4s — retrying...
+13:15:24 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=35.66 Mom=0.2946 -> NEUTRAL (dual-only path).
+13:15:24 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 24.7s — retrying...
+13:15:24 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782472500 up=0.2400 dn=0.7650 spread=0.0300
+13:15:24 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782472500 up=0.3250 dn=0.6750 spread=0.0200
+13:15:24 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=44.80 Mom=0.1628 -> NEUTRAL (dual-only path).
+13:15:24 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 24.9s — retrying...
+13:15:25 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 25.0s — retrying...
+13:15:26 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:15:26 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1274% Kelly×1.00
+13:15:32 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782472500 up=0.2850 dn=0.7150 spread=0.0200
+13:15:32 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 32.3s — retrying...
+13:15:32 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782472500 up=0.2400 dn=0.7600 spread=0.0400
+13:15:32 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=39.84 Mom=0.1221 -> NEUTRAL (dual-only path).
+13:15:32 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 32.3s — retrying...
+13:15:32 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782472500 up=0.3250 dn=0.6750 spread=0.0200
+13:15:32 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=34.28 Mom=0.2283 -> NEUTRAL (dual-only path).
+13:15:32 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 32.5s — retrying...
+13:15:32 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782472500 up=0.2950 dn=0.7050 spread=0.0200
+13:15:32 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=42.11 Mom=0.0594 -> NEUTRAL (dual-only path).
+13:15:32 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 32.8s — retrying...
+13:15:32 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782472500 up=0.3250 dn=0.6750 spread=0.0200
+13:15:32 [INFO ] zisi.engine: [ENGINE] XRP/5m: Spot OFI divergence — blocking entry.
+13:15:32 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 32.9s — retrying...
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] BTC/5m SKIP (no_signal) 
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+13:15:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:15:34 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+
+=== TARGET: 13:45 PM SAST (BTC 15m loss) (Time Range: 13:45:00 - 13:46:00)
+================================================================================
+13:45:14 [WARNING] zisi.engine: [ENGINE] SOL/5m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] BTC/5m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] DOGE/15m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] DOGE/15m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] ETH/5m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] ETH/15m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] ETH/15m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] BTC/15m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] BTC/15m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] XRP/15m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] XRP/15m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] DOGE/5m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] XRP/5m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 14.7s — retrying...
+13:45:14 [WARNING] zisi.engine: [ENGINE] SOL/15m: Insufficient candles (0 < 16) to calculate indicators.
+13:45:14 [INFO ] zisi.main: [MAIN] SOL/15m: No L2 book/signal at 14.7s — retrying...
+13:45:15 [INFO ] zisi.trader: [TRADE CLOSED] XRP/15m UP | WIN | entry=52¢ exit=99¢ | pnl=+4.75$ (92.2%) | TARGET_HIT | held=15m
+13:45:15 [INFO ] zisi.trader: [EXIT] ✅ WIN | [UPDOWN][XRP][15m][SINGLE] XRP Up or Down - June 2 | TARGET_HIT @ 0.9900 | pnl=$+4.75 | bal=$527.68
+13:45:15 [INFO ] zisi.trader: [TRADE CLOSED] ETH/15m UP | WIN | entry=60¢ exit=99¢ | pnl=+3.85$ (63.6%) | TARGET_HIT | held=15m
+13:45:15 [INFO ] zisi.trader: [EXIT] ✅ WIN | [UPDOWN][ETH][15m][SINGLE] Ethereum Up or Down - J | TARGET_HIT @ 0.9900 | pnl=$+3.85 | bal=$532.43
+13:45:16 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:16 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1115% Kelly×1.00
+13:45:16 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:16 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=VOLATILE_CHAOS ATR=0.1134% Kelly×0.30
+13:45:22 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782387900 up=0.5350 dn=0.4650 spread=0.0200
+13:45:22 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782387900 up=0.5050 dn=0.4950 spread=0.0600
+13:45:22 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782387900 up=0.5150 dn=0.4850 spread=0.0200
+13:45:22 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782387900 up=0.4950 dn=0.5050 spread=0.1000
+13:45:22 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782387900 up=0.5550 dn=0.4450 spread=0.0200
+13:45:22 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782387900 up=0.5250 dn=0.4750 spread=0.0200
+13:45:22 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782387900 up=0.5150 dn=0.4850 spread=0.0200
+13:45:22 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782387900 up=0.4850 dn=0.5150 spread=0.0200
+13:45:22 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782387900 up=0.4950 dn=0.5050 spread=0.0200
+13:45:22 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782387900 up=0.5250 dn=0.4750 spread=0.0200
+13:45:23 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=31.39 Mom=0.0923 -> NEUTRAL (dual-only path).
+13:45:23 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 23.6s — retrying...
+13:45:23 [INFO ] zisi.edge_orchestrator: [EDGE] DOGE UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.00 → boost=-0.100
+13:45:23 [INFO ] zisi.engine: [ENGINE] DOGE/15m SIGNAL: UP | Score=0.88 | up=0.4950 dn=0.5050 | dual=False | Dogecoin Up or Down - June 25, 7:45AM-8:00AM ET
+13:45:23 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=39.39 Mom=0.1175 -> NEUTRAL (dual-only path).
+13:45:23 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 23.7s — retrying...
+13:45:23 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=39.33 Mom=0.1241 -> NEUTRAL (dual-only path).
+13:45:23 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 23.7s — retrying...
+13:45:23 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=36.22 Mom=0.0865 -> NEUTRAL (dual-only path).
+13:45:23 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 23.7s — retrying...
+13:45:23 [INFO ] zisi.engine: [ENGINE] XRP/5m: RSI=33.11 Mom=0.0467 -> NEUTRAL (dual-only path).
+13:45:23 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 23.7s — retrying...
+13:45:23 [INFO ] zisi.engine: [ENGINE] BTC/15m: RSI=25.98 Mom=0.0784 -> NEUTRAL (dual-only path).
+13:45:23 [INFO ] zisi.main: [MAIN] BTC/15m: No L2 book/signal at 23.7s — retrying...
+13:45:23 [INFO ] zisi.main: [MAIN] SOL/15m: No L2 book/signal at 23.7s — retrying...
+13:45:24 [INFO ] zisi.edge_orchestrator: [EDGE] ETH UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.10 sentiment=1.00 → boost=-0.050
+13:45:24 [INFO ] zisi.engine: [ENGINE] ETH/15m SIGNAL: UP | Score=0.85 | up=0.5350 dn=0.4650 | dual=False | Ethereum Up or Down - June 25, 7:45AM-8:00AM ET
+13:45:24 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.87 kelly_fraction=0.1962 | regime*1.00 anti*0.30 heat*1.00 whale*1.10 | -> $33.00 | cycle=$33.00/1 trades
+13:45:24 [INFO ] zisi.edge_orchestrator: [EDGE] XRP UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=0.75 sentiment=1.00 → boost=-0.180
+13:45:24 [INFO ] zisi.main: [TRADE OPENED] ETH/15m UP | $13.91 @ 0.5350 | score=0.85 | SINGLE
+13:45:24 [INFO ] zisi.engine: [ENGINE] XRP/15m SIGNAL: UP | Score=0.72 | up=0.5150 dn=0.4850 | dual=False | XRP Up or Down - June 25, 7:45AM-8:00AM ET
+13:45:24 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.02 kelly_fraction=0.2005 | regime*1.00 anti*0.30 heat*1.00 whale*1.00 | -> $31.74 | cycle=$31.74/1 trades
+13:45:25 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=0.94 kelly_fraction=0.1985 | regime*1.00 anti*0.30 heat*1.00 whale*0.75 | -> $22.60 | cycle=$22.60/1 trades
+13:45:25 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:25 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=VOLATILE_CHAOS ATR=0.1134% Kelly×0.30
+13:45:25 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:25 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1115% Kelly×1.00
+13:45:31 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782387900 up=0.5050 dn=0.4950 spread=0.0600
+13:45:31 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=31.88 Mom=0.1055 -> NEUTRAL (dual-only path).
+13:45:31 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 31.5s — retrying...
+13:45:31 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782387900 up=0.4750 dn=0.5250 spread=0.0200
+13:45:31 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=39.32 Mom=0.1241 -> NEUTRAL (dual-only path).
+13:45:31 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 31.6s — retrying...
+13:45:31 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782387900 up=0.5050 dn=0.4950 spread=0.0200
+13:45:31 [INFO ] zisi.engine: [ENGINE] XRP/5m: RSI=33.55 Mom=0.0561 -> NEUTRAL (dual-only path).
+13:45:31 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 31.6s — retrying...
+13:45:31 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782387900 up=0.5050 dn=0.4950 spread=0.0200
+13:45:31 [INFO ] zisi.main: [MAIN] SOL/15m: No L2 book/signal at 31.6s — retrying...
+13:45:31 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782387900 up=0.4950 dn=0.5050 spread=0.0200
+13:45:31 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=39.69 Mom=0.1321 -> NEUTRAL (dual-only path).
+13:45:31 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 31.6s — retrying...
+13:45:31 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782387900 up=0.5350 dn=0.4650 spread=0.0200
+13:45:31 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=36.24 Mom=0.0871 -> NEUTRAL (dual-only path).
+13:45:31 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 31.6s — retrying...
+13:45:31 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782387900 up=0.4950 dn=0.5050 spread=0.0200
+13:45:31 [INFO ] zisi.engine: [ENGINE] BTC/15m: RSI=25.97 Mom=0.0784 -> NEUTRAL (dual-only path).
+13:45:31 [INFO ] zisi.main: [MAIN] BTC/15m: No L2 book/signal at 31.6s — retrying...
+13:45:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:33 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+13:45:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:33 [INFO ] zisi.main: [MAIN] BTC/5m SKIP (no_signal) 
+13:45:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:33 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+13:45:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:33 [INFO ] zisi.main: [MAIN] SOL/15m SKIP (no_signal) 
+13:45:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:33 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 
+13:45:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:33 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+13:45:33 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:33 [INFO ] zisi.main: [MAIN] BTC/15m SKIP (no_signal) 
+13:45:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=15m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1651% Kelly×1.00
+13:45:01 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:01 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0970% Kelly×1.00
+13:45:07 [INFO ] zisi.engine: [ENGINE] ETH/15m: [PRE-FETCH HIT] eth-updown-15m-1782474300 up=0.4150 dn=0.5850 spread=0.0200
+13:45:07 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782474300 up=0.3650 dn=0.6350 spread=0.0200
+13:45:07 [INFO ] zisi.engine: [ENGINE] BTC/15m: [PRE-FETCH HIT] btc-updown-15m-1782474300 up=0.4250 dn=0.5750 spread=0.0200
+13:45:07 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782474300 up=0.3000 dn=0.7000 spread=0.0800
+13:45:07 [INFO ] zisi.engine: [ENGINE] SOL/15m: [PRE-FETCH HIT] sol-updown-15m-1782474300 up=0.4050 dn=0.5950 spread=0.0200
+13:45:07 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782474300 up=0.3650 dn=0.6350 spread=0.0200
+13:45:07 [INFO ] zisi.engine: [ENGINE] DOGE/15m: [PRE-FETCH HIT] doge-updown-15m-1782474300 up=0.3800 dn=0.6200 spread=0.0800
+13:45:07 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782474300 up=0.3450 dn=0.6550 spread=0.0200
+13:45:07 [INFO ] zisi.engine: [ENGINE] XRP/15m: [PRE-FETCH HIT] xrp-updown-15m-1782474300 up=0.4100 dn=0.5900 spread=0.0400
+13:45:07 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782474300 up=0.3050 dn=0.6950 spread=0.0200
+13:45:08 [DEBUG] zisi.regime_detector: [Regime] BTC price=59440.00 → regime=MEAN_REVERTING (conf=75%) ATR=0.1038% Kelly×1.00 hurdle×1.15 exit=fixed_target
+13:45:08 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=46.41 Mom=0.0353 -> NEUTRAL (dual-only path).
+13:45:08 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 8.2s — retrying...
+13:45:08 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=46.15 Mom=0.0272 -> NEUTRAL (dual-only path).
+13:45:08 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 8.2s — retrying...
+13:45:08 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 8.3s — retrying...
+13:45:08 [INFO ] zisi.edge_orchestrator: [EDGE] DOGE UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.00 → boost=-0.100
+13:45:08 [INFO ] zisi.engine: [ENGINE] DOGE/15m SIGNAL: UP | Score=0.75 | up=0.3800 dn=0.6200 | dual=False | Dogecoin Up or Down - June 26, 7:45AM-8:00AM ET
+13:45:08 [INFO ] zisi.main: [SIG-FLOOR] DOGE/15m: SIG 0.3800 < 0.40 — crowd >60% against signal — skip
+13:45:08 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=45.45 Mom=0.0729 -> NEUTRAL (dual-only path).
+13:45:08 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 8.3s — retrying...
+13:45:08 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=50.85 Mom=0.0576 -> NEUTRAL (dual-only path).
+13:45:08 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 8.3s — retrying...
+13:45:09 [INFO ] zisi.edge_orchestrator: [EDGE] ETH UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=0.75 sentiment=1.03 → boost=-0.153
+13:45:09 [INFO ] zisi.engine: [ENGINE] ETH/15m SIGNAL: UP | Score=0.65 | up=0.4150 dn=0.5850 | dual=False | Ethereum Up or Down - June 26, 7:45AM-8:00AM ET
+13:45:09 [INFO ] zisi.edge_orchestrator: [EDGE] BTC UP | regime=TRENDING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=0.75 sentiment=1.00 → boost=-0.180
+13:45:09 [INFO ] zisi.engine: [ENGINE] BTC/15m SIGNAL: UP | Score=0.72 | up=0.4250 dn=0.5750 | dual=False | Bitcoin Up or Down - June 26, 7:45AM-8:00AM ET
+13:45:09 [INFO ] zisi.position_sizer: [KELLY] Trigger=Kelly | WR=90.0% payout=1.35 kelly_fraction=0.2065 | regime*1.00 anti*0.30 heat*1.00 whale*0.75 | -> $22.60 | cycle=$22.60/1 trades
+13:45:09 [INFO ] zisi.edge_orchestrator: [EDGE] SOL UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.00 → boost=-0.100
+13:45:09 [INFO ] zisi.main: [TRADE OPENED] BTC/15m UP | $9.35 @ 0.4250 | score=0.72 | SINGLE
+13:45:09 [INFO ] zisi.engine: [ENGINE] SOL/15m SIGNAL: UP | Score=0.80 | up=0.4050 dn=0.5950 | dual=False | Solana Up or Down - June 26, 7:45AM-8:00AM ET
+13:45:09 [INFO ] zisi.edge_orchestrator: [EDGE] XRP UP | regime=MEAN_REVERTING(×1.00) confluence=0(+-0.10) heat=1.00 anti=0.30 whale=1.00 sentiment=1.03 → boost=-0.073
+13:45:09 [INFO ] zisi.engine: [ENGINE] XRP/15m SIGNAL: UP | Score=0.83 | up=0.4100 dn=0.5900 | dual=False | XRP Up or Down - June 26, 7:45AM-8:00AM ET
+13:45:09 [INFO ] zisi.main: [LEADER-GUARD] SOL/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+13:45:09 [INFO ] zisi.main: [LEADER-GUARD] XRP/15m UP: blocked because BOTH leaders (BTC & ETH) are against the trade direction
+13:45:10 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:10 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1005% Kelly×1.00
+13:45:10 [INFO ] zisi.trader: [TRADE CLOSED] ETH/15m UP | WIN | entry=60¢ exit=99¢ | pnl=+8.08$ (63.6%) | TARGET_HIT | held=15m
+13:45:10 [INFO ] zisi.trader: [EXIT] ✅ WIN | [UPDOWN][ETH][15m][SINGLE] Ethereum Up or Down - J | TARGET_HIT @ 0.9900 | pnl=$+8.08 | bal=$591.22
+13:45:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782474300 up=0.3000 dn=0.7000 spread=0.1200
+13:45:16 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=45.00 Mom=-0.0136 -> NEUTRAL (dual-only path).
+13:45:16 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 16.1s — retrying...
+13:45:16 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782474300 up=0.3250 dn=0.6750 spread=0.0200
+13:45:16 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=44.79 Mom=-0.0137 -> NEUTRAL (dual-only path).
+13:45:16 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 16.1s — retrying...
+13:45:16 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782474300 up=0.3050 dn=0.6950 spread=0.0200
+13:45:16 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=48.09 Mom=-0.0317 -> NEUTRAL (dual-only path).
+13:45:16 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 16.2s — retrying...
+13:45:16 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782474300 up=0.3100 dn=0.6850 spread=0.0300
+13:45:16 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 16.7s — retrying...
+13:45:16 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782474300 up=0.3050 dn=0.6950 spread=0.0200
+13:45:16 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=43.48 Mom=-0.0146 -> NEUTRAL (dual-only path).
+13:45:16 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 16.7s — retrying...
+13:45:18 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:18 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.1006% Kelly×1.00
+13:45:24 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782474300 up=0.2950 dn=0.7050 spread=0.1000
+13:45:24 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782474300 up=0.3450 dn=0.6550 spread=0.0200
+13:45:24 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 24.3s — retrying...
+13:45:24 [INFO ] zisi.engine: [ENGINE] BTC/5m: Spot OFI divergence — blocking entry.
+13:45:24 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 24.3s — retrying...
+13:45:24 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782474300 up=0.3250 dn=0.6750 spread=0.0200
+13:45:24 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782474300 up=0.3750 dn=0.6250 spread=0.0200
+13:45:24 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782474300 up=0.3350 dn=0.6650 spread=0.0200
+13:45:24 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 24.8s — retrying...
+13:45:24 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=48.28 Mom=-0.0252 -> NEUTRAL (dual-only path).
+13:45:24 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 24.8s — retrying...
+13:45:24 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=43.48 Mom=-0.0146 -> NEUTRAL (dual-only path).
+13:45:24 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 24.9s — retrying...
+13:45:26 [INFO ] zisi.regime_detector: [RegimeDetector] initialised — timeframe=5m ATR window=14 lookback=50 BB(20, 2.0)
+13:45:26 [DEBUG] zisi.regime_detector: [Regime] BTC bulk update (30) → regime=MEAN_REVERTING ATR=0.0997% Kelly×1.00
+13:45:32 [INFO ] zisi.engine: [ENGINE] DOGE/5m: [PRE-FETCH HIT] doge-updown-5m-1782474300 up=0.3150 dn=0.6850 spread=0.0600
+13:45:32 [INFO ] zisi.engine: [ENGINE] DOGE/5m: RSI=45.00 Mom=-0.0136 -> NEUTRAL (dual-only path).
+13:45:32 [INFO ] zisi.main: [MAIN] DOGE/5m: No L2 book/signal at 32.2s — retrying...
+13:45:32 [INFO ] zisi.engine: [ENGINE] BTC/5m: [PRE-FETCH HIT] btc-updown-5m-1782474300 up=0.3950 dn=0.6050 spread=0.0200
+13:45:32 [INFO ] zisi.engine: [ENGINE] BTC/5m: RSI=45.18 Mom=-0.0017 -> NEUTRAL (dual-only path).
+13:45:32 [INFO ] zisi.main: [MAIN] BTC/5m: No L2 book/signal at 32.2s — retrying...
+13:45:32 [INFO ] zisi.engine: [ENGINE] XRP/5m: [PRE-FETCH HIT] xrp-updown-5m-1782474300 up=0.3650 dn=0.6350 spread=0.0200
+13:45:32 [INFO ] zisi.main: [MAIN] XRP/5m: No L2 book/signal at 32.7s — retrying...
+13:45:32 [INFO ] zisi.engine: [ENGINE] ETH/5m: [PRE-FETCH HIT] eth-updown-5m-1782474300 up=0.3450 dn=0.6550 spread=0.0200
+13:45:32 [INFO ] zisi.engine: [ENGINE] ETH/5m: RSI=48.86 Mom=-0.0058 -> NEUTRAL (dual-only path).
+13:45:32 [INFO ] zisi.main: [MAIN] ETH/5m: No L2 book/signal at 32.7s — retrying...
+13:45:32 [INFO ] zisi.engine: [ENGINE] SOL/5m: [PRE-FETCH HIT] sol-updown-5m-1782474300 up=0.4250 dn=0.5750 spread=0.0200
+13:45:32 [INFO ] zisi.engine: [ENGINE] SOL/5m: RSI=43.80 Mom=0.0000 -> NEUTRAL (dual-only path).
+13:45:32 [INFO ] zisi.main: [MAIN] SOL/5m: No L2 book/signal at 32.7s — retrying...
+13:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:34 [INFO ] zisi.main: [MAIN] DOGE/5m SKIP (no_signal) 
+13:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:34 [INFO ] zisi.main: [MAIN] BTC/5m SKIP (no_signal) 
+13:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:34 [INFO ] zisi.main: [MAIN] XRP/5m SKIP (no_signal) 
+13:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:34 [INFO ] zisi.main: [MAIN] ETH/5m SKIP (no_signal) 
+13:45:34 [DEBUG] zisi.metrics: Skip recorded — no_signal: 
+13:45:34 [INFO ] zisi.main: [MAIN] SOL/5m SKIP (no_signal) 

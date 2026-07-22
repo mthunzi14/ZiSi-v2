@@ -1,0 +1,10 @@
+1. Admin Accounts & Test Credentials
+I have whitelisted three administrative email addresses that automatically inherit global system control permissions across the platform:
+info@futuredesk.co.za (CEO Platform Master) — assigned call routing PIN: 0000
+demtunzi.sibiyawan@gmail.com (Personal Sandbox Admin) — assigned call routing PIN: 0001
+mthunzi.sibiya2005@gmail.com (Backup Sandbox Admin) — assigned call routing PIN: 0002
+What is the password? I have seeded all three accounts with a secure default test password: FutureDeskAdmin2026!.
+How do I access the Admin Dashboard?
+Go to the login page at http://localhost:3000/auth/login.
+Log in using any of the whitelisted email addresses above and the password: FutureDeskAdmin2026!.
+Once logged in, open the Admin Console in your browser at: http://localhost:3000/admin.

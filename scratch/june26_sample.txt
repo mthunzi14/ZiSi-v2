@@ -1,0 +1,1 @@
+{"timestamp": 1781367934.585681, "coin": "BTC", "sentiment": "DOWN", "sentiment_score": 0.8363333333333333, "signal_source": "EnsembleML", "matched_event": "Bitcoin Up or Down - June 13, 12:30PM-12:35PM ET", "confidence": 0.8363, "trade_type": "REAL", "reason_missed": null}

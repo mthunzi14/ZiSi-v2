@@ -1,0 +1,7 @@
+{
+  "regime": "MEAN_REVERTING",
+  "label": "Mean-Reverting",
+  "confidence": 0.4667,
+  "atr_percentile": 72.41,
+  "bbw_percentile": 90.91
+}
