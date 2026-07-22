@@ -1356,8 +1356,15 @@ async def main() -> None:
     # ── Startup Credentials Verification ──
     try:
         cfg = load_config()
-        mode = cfg.get("BOT_MODE", "paper_trading")
-        is_live = (mode == "live_trading")
+        from config import IS_LIVE
+        if not IS_LIVE:
+            is_live = False
+            log.info("\033[1;32m[SAFETY STATE] config.IS_LIVE is False. Bot is locked in PAPER STAGING mode.\033[0m")
+        else:
+            mode = cfg.get("BOT_MODE", "paper_trading")
+            is_live = (mode == "live_trading")
+            if is_live:
+                log.info("\033[1;31m[WARNING] config.IS_LIVE is True and BOT_MODE is live_trading. LIVE CAPITAL ACTIVE!\033[0m")
         warnings = []
         
         # Check Polymarket CLOB keys

@@ -59,6 +59,11 @@ MAX_TOTAL_OPEN: int = 8
 # clears EDGE_MARGIN fires an entry at the real L2 quote BEFORE the momentum cascade.
 FAIR_VALUE_MODE: bool = False
 
+# Live Capital Safety Switch:
+# - False: Pure Paper Trading / Staging Stabled (Safe simulation mode)
+# - True: Live Capital Trading (Executes real transactions on Polymarket CLOB)
+IS_LIVE: bool = False
+
 # Strategy scope configurations
 SKIP_WEEKEND_SIGNAL: bool = False
 ENABLE_NCS: bool = False

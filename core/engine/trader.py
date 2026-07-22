@@ -47,7 +47,11 @@ _reconcile_stop    = threading.Event()
 
 
 def _get_config() -> dict:
-    return load_config()
+    cfg = load_config()
+    import config
+    if not getattr(config, "IS_LIVE", False):
+        cfg["BOT_MODE"] = "paper_trading"
+    return cfg
 
 
 def _derive_entry_type(title: str) -> str:

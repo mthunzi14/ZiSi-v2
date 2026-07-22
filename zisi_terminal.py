@@ -645,11 +645,17 @@ def build_header_panel() -> Panel:
     date_str = now_utc.strftime("%Y-%m-%d")
     location_str = "Johannesburg"
 
+    from config import IS_LIVE
+    mode_status = f"[bold red]● LIVE ACTIVE[/bold red]" if IS_LIVE else f"[bold green]● PAPER STAGING[/bold green]"
+
     header_text = Text.assemble(
         ("ZiSi-v2 ", f"bold {COLOR_LABEL}"),  # Naming alignment: ZiSi-v2 in Titanium Gray
         ("│ ", "bright_black"),
         ("Status: ", f"bold {COLOR_LABEL}"),
         Text.from_markup(liveness_status),
+        (" │ ", "bright_black"),
+        ("Mode: ", f"bold {COLOR_LABEL}"),
+        Text.from_markup(mode_status),
         (" │ ", "bright_black"),
         ("UTC: ", f"bold {COLOR_LABEL}"),
         (utc_str, f"bold {COLOR_ASSET}"),
