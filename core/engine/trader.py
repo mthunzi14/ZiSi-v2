@@ -188,8 +188,8 @@ def _poll_transaction_confirmation(transaction_id: str) -> bool:
         
     relayer_url = os.getenv("POLYMARKET_RELAYER_URL", "https://relayer-v2.polymarket.com").rstrip("/")
     headers = {
-        "RELAYER_API_KEY": os.getenv("RELAYER_API_KEY", ""),
-        "RELAYER_API_KEY_ADDRESS": os.getenv("RELAYER_API_KEY_ADDRESS", ""),
+        "RELAYER_API_KEY": os.getenv("RELAYER_API_KEY") or os.getenv("POLYMARKET_CLOB_API_KEY") or "",
+        "RELAYER_API_KEY_ADDRESS": os.getenv("RELAYER_API_KEY_ADDRESS") or os.getenv("POLYMARKET_CLOB_API_ADDRESS") or "",
     }
     
     # Poll for up to 60 seconds (with 2s intervals)
