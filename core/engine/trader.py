@@ -431,6 +431,66 @@ def get_pending_reconcile_count() -> int:
         return len(_pending_reconcile)
 
 
+def _build_clob_auth_headers(method: str, path: str, body_str: str = "") -> dict:
+    """
+    Construct Polymarket CLOB API signature headers dynamically.
+    Message format: timestamp + method + path + body
+    """
+    import hmac
+    import hashlib
+    import base64
+    import time
+    
+    api_key = os.getenv("POLYMARKET_CLOB_API_KEY", "")
+    api_secret = os.getenv("POLYMARKET_CLOB_API_SECRET", "")
+    passphrase = os.getenv("POLYMARKET_CLOB_PASSPHRASE", "")
+    
+    if not api_key:
+        return {}
+        
+    timestamp = str(int(time.time()))
+    message = f"{timestamp}{method.upper()}{path}{body_str}"
+    
+    try:
+        secret_bytes = base64.b64decode(api_secret)
+    except Exception:
+        secret_bytes = api_secret.encode("utf-8")
+        
+    signature = hmac.new(secret_bytes, message.encode("utf-8"), hashlib.sha256).digest()
+    sig_b64 = base64.b64encode(signature).decode("utf-8")
+    
+    return {
+        "POLY_API_KEY": api_key,
+        "POLY_SIGNATURE": sig_b64,
+        "POLY_TIMESTAMP": timestamp,
+        "POLY_PASSPHRASE": passphrase,
+    }
+
+
+def get_polygon_gas_price() -> dict:
+    """
+    Query the Polygon Gas Station API to get real-time dynamic gas fee prices.
+    Returns a dict containing maxFeePerGas and maxPriorityFeePerGas in Gwei.
+    """
+    url = "https://gasstation.polygon.technology/v2"
+    try:
+        resp = requests.get(url, timeout=3.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            fast = data.get("fast", {})
+            return {
+                "maxFeePerGas": float(fast.get("maxFee", 50.0)),
+                "maxPriorityFeePerGas": float(fast.get("maxPriorityFee", 35.0)),
+            }
+    except Exception as e:
+        log.warning("[GAS-OPTIMIZER] Gas station lookup failed, using safe fallback limits: %s", e)
+        
+    return {
+        "maxFeePerGas": 60.0,
+        "maxPriorityFeePerGas": 40.0,
+    }
+
+
 def _retry_request(
     method: str,
     url: str,
@@ -442,6 +502,26 @@ def _retry_request(
     retries = cfg["API_RETRY_COUNT"]
     backoff = cfg["API_RETRY_BACKOFF_SECONDS"]
     timeout = cfg["API_TIMEOUT_SECONDS"]
+
+    # Auto-sign Polymarket CLOB requests
+    clob_url_base = cfg.get("POLYMARKET_CLOB_API_URL", "https://clob.polymarket.com").rstrip("/")
+    if url.startswith(clob_url_base):
+        path = url[len(clob_url_base):]
+        if not path.startswith("/"):
+            path = "/" + path
+        if "?" in path:
+            path = path.split("?")[0]
+            
+        body_str = ""
+        if json_body is not None:
+            import json as _json
+            body_str = _json.dumps(json_body)
+            
+        auth_headers = _build_clob_auth_headers(method, path, body_str)
+        if auth_headers:
+            if headers is None:
+                headers = {}
+            headers.update(auth_headers)
 
     for attempt in range(1, retries + 1):
         try:
