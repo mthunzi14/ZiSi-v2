@@ -1,24 +1,39 @@
-import subprocess
 import json
-import sys
+from pathlib import Path
+from datetime import datetime
 
-cmd = [
-    "ssh", "root@204.168.222.48",
-    "python3 -c 'import json, os; p=\"/root/ZiSi-v2/data/positions_state.json\"; print(open(p).read() if os.path.exists(p) else \"{}\")'"
-]
+pos_file = Path("data/positions_state.json")
+with open(pos_file, "r") as f:
+    data = json.load(f)
 
-try:
-    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    data = json.loads(res.stdout)
-    closed = data.get("closed", [])
-    print(f"Total closed: {len(closed)}")
-    for i, pos in enumerate(closed):
-        reason = str(pos.get("exit_reason", ""))
-        pnl = float(pos.get("realized_pnl", pos.get("pnl", pos.get("profit", 0))) or 0)
-        title = pos.get("event_title", "")
-        direction = pos.get("direction", "")
-        entry = pos.get("entry_price", 0)
-        exit_p = pos.get("exit_price", 0)
-        print(f"[{i+1:2d}] PnL: ${pnl:+.2f} | Dir: {direction:4s} | Entry: {entry:.3f} -> Exit: {exit_p:.3f} | Reason: {reason} | Title: {title}")
-except Exception as e:
-    print(f"Error: {e}")
+closed = data.get("closed", [])
+print(f"Total closed trades: {len(closed)}")
+
+# Group and print by entry_time prefix
+dates = {}
+for p in closed:
+    et = p.get("entry_time") or p.get("timestamp") or ""
+    day = et[:10] if et else "N/A"
+    dates[day] = dates.get(day, 0) + 1
+
+print("\n--- Trades count by day ---")
+for k in sorted(dates.keys()):
+    print(f"  {k}: {dates[k]} trades")
+
+# Print details of the 10 most recent trades based on parseable dates
+def parse_date(p):
+    et = p.get("entry_time") or p.get("timestamp") or ""
+    try:
+        if "T" in et:
+            return datetime.fromisoformat(et.replace("Z", "+00:00"))
+    except:
+        pass
+    return datetime.min
+
+recent_trades = sorted(closed, key=parse_date, reverse=True)[:15]
+print("\n--- 15 LATEST TRADES BY DATE ---")
+for p in recent_trades:
+    title = p.get("event_title") or p.get("event_id")
+    pnl = p.get("realized_pnl", 0.0)
+    et = p.get("entry_time") or p.get("timestamp") or "N/A"
+    print(f"Time: {et} | Title: {title} | PnL: ${pnl:.2f}")
