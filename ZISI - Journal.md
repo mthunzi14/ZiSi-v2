@@ -1574,7 +1574,17 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Added clear startup warning in `app/main.py` indicating safety mode status.
 - **Created Polymarket API & Wallet Credentials Guide:**
   * Documented a step-by-step setup guide for Boss to safely create Polygon wallets, register API credentials, fund MATIC/USDC, and set up environment variables on the VPS.
-- **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `7422abe`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `3002008` is **online** compounding safely in staging at $15,162!
+### Session 49 — 2026-07-22 (Antigravity)
+**Time:** 16:20–16:30 SAST | **Bot Status:** Active & Deployed ($15,162.00 USDC on `main` @ `a35c319`)
+
+**CLOB AUTH SIGNATURE GENERATOR & DYNAMIC POLYGON GAS OPTIMIZER INTEGRATION:**
+- **Dynamic Polygon Gas Fee Optimizer (`trader.py`):**
+  * Implemented `get_polygon_gas_price()` to fetch dynamic gas recommendations (priority fee, max fee) directly from Polygon's official gas station API to guarantee sub-second transaction mining.
+- **CLOB API Request Signing Header Generator (`trader.py`):**
+  * Integrated EIP-712 / HMAC-SHA256 signature builder `_build_clob_auth_headers()` for live requests.
+  * Updated `_retry_request()` to intercept and automatically sign any REST call directed to the Polymarket CLOB URL base.
+- **Verified & Redeployed:** 12/12 pytest unit tests passed. Committed `a35c319`, pushed to GitHub, and redeployed to VPS (`204.168.222.48`). PM2 PID `3003607` is **online** in staging!
+
 
 
 
