@@ -61,18 +61,8 @@ def _get_clob_client():
     if _clob_client_instance is None:
         cfg = _get_config()
         pk = cfg.get("POLYMARKET_PRIVATE_KEY", "0x3b8f9ca0752cbd4dccc82440b0a7b45a9716c27e0a4afd893eb4e23bde2aaac6")
-        funder = cfg.get("POLYMARKET_DEPOSIT_ADDRESS", "0x93B0658176Cb44e8B9FBc3256266f9D66053596F")
-        from py_clob_client.client import ClobClient
-        client = ClobClient(
-            host=cfg.get("POLYMARKET_CLOB_API_URL", "https://clob.polymarket.com"),
-            key=pk,
-            chain_id=137,
-            signature_type=1, # POLYMARKET PROXY WALLET (Magic.link)
-            funder=funder
-        )
-        creds = client.create_or_derive_api_creds()
-        client.set_api_creds(creds)
-        _clob_client_instance = client
+        from polymarket import SecureClient
+        _clob_client_instance = SecureClient.create(private_key=pk)
     return _clob_client_instance
 
 
@@ -866,26 +856,18 @@ def place_order(
     # Live order
     try:
         client = _get_clob_client()
-        from py_clob_client.clob_types import OrderArgs
-        from py_clob_client.order_builder.constants import BUY
-        
-        order_args = OrderArgs(
+        resp = client.place_limit_order(
+            token_id=str(market_id),
             price=float(entry_price),
             size=float(shares),
-            side=BUY,
-            token_id=str(market_id)
+            side="BUY"
         )
-        signed_order = client.create_order(order_args)
-        resp = client.post_order(signed_order)
-        log.info("[LIVE-TRADE] Post order response: %s", resp)
-        if isinstance(resp, dict) and resp.get("success"):
-            resolved_id = resp.get("orderID", order_id)
-            api_status = "FILLED"
-        else:
-            log.error("[LIVE-TRADE] Order placement failed: %s", resp)
-            return None
+        log.info("[LIVE-TRADE] Place limit order response: %s", resp)
+        # AcceptedOrder has order_id attribute
+        resolved_id = getattr(resp, "order_id", getattr(resp, "id", order_id))
+        api_status = "FILLED"
     except Exception as exc:
-        log.error("[LIVE-TRADE] Exception placing order via ClobClient: %s", exc)
+        log.error("[LIVE-TRADE] Exception placing order via SecureClient: %s", exc)
         return None
 
     slp_taken = round((entry_price - signal_price) * 100, 1) if (signal_price > 0.0) else 0.0
