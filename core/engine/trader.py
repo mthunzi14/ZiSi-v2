@@ -67,7 +67,7 @@ def _get_clob_client():
             host=cfg.get("POLYMARKET_CLOB_API_URL", "https://clob.polymarket.com"),
             key=pk,
             chain_id=137,
-            signature_type=2, # POLYGON PROXY WALLET
+            signature_type=1, # POLYMARKET PROXY WALLET (Magic.link)
             funder=funder
         )
         creds = client.create_or_derive_api_creds()
