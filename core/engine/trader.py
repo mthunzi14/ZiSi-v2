@@ -843,6 +843,7 @@ def place_order(
 
     # Live order
     clob_url = cfg["POLYMARKET_CLOB_API_URL"].rstrip("/")
+    funder = cfg.get("POLYMARKET_CLOB_API_ADDRESS", "") or cfg.get("POLYMARKET_DEPOSIT_ADDRESS", "")
     payload = {
         "market_id": market_id,
         "side": "BUY",
@@ -850,6 +851,9 @@ def place_order(
         "price_limit": entry_price,
         "order_type": "GTE",
     }
+    if funder:
+        payload["funderAddress"] = funder
+        payload["owner"] = funder
 
     resp = _retry_request("POST", f"{clob_url}/orders", json_body=payload)
     if resp is None:
