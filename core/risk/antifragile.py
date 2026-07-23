@@ -206,7 +206,7 @@ class AntifragileRecovery:
             return
 
         try:
-            from core.engine.state_manager import GLOBAL_POSITIONS_LOCK, get_account_balance
+            from core.engine.state_manager import GLOBAL_POSITIONS_LOCK, get_current_balance
 
             if not _POSITIONS_PATH.exists():
                 log.debug("[Antifragile] positions_state.json not found — skipping bootstrap")
@@ -218,7 +218,7 @@ class AntifragileRecovery:
             closed: list[dict] = data.get("closed", [])
             
             # Derive portfolio value from account_state or balance
-            acc_bal, _ = get_account_balance()
+            acc_bal = get_current_balance()
             if self._current_portfolio <= 0.0:
                 self._current_portfolio = float(acc_bal)
                 self._peak_portfolio = max(self._peak_portfolio, self._current_portfolio)
