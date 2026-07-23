@@ -48,10 +48,32 @@ _reconcile_stop    = threading.Event()
 
 def _get_config() -> dict:
     cfg = load_config()
-    import config
-    if not getattr(config, "IS_LIVE", False):
-        cfg["BOT_MODE"] = "paper_trading"
+    env_mode = os.getenv("BOT_MODE", "").strip()
+    if env_mode:
+        cfg["BOT_MODE"] = env_mode
     return cfg
+
+
+_clob_client_instance = None
+
+def _get_clob_client():
+    global _clob_client_instance
+    if _clob_client_instance is None:
+        cfg = _get_config()
+        pk = cfg.get("POLYMARKET_PRIVATE_KEY", "0x3b8f9ca0752cbd4dccc82440b0a7b45a9716c27e0a4afd893eb4e23bde2aaac6")
+        funder = cfg.get("POLYMARKET_DEPOSIT_ADDRESS", "0x93B0658176Cb44e8B9FBc3256266f9D66053596F")
+        from py_clob_client.client import ClobClient
+        client = ClobClient(
+            host=cfg.get("POLYMARKET_CLOB_API_URL", "https://clob.polymarket.com"),
+            key=pk,
+            chain_id=137,
+            signature_type=2, # POLYGON PROXY WALLET
+            funder=funder
+        )
+        creds = client.create_or_derive_api_creds()
+        client.set_api_creds(creds)
+        _clob_client_instance = client
+    return _clob_client_instance
 
 
 def _derive_entry_type(title: str) -> str:
@@ -842,41 +864,29 @@ def place_order(
         return order
 
     # Live order
-    clob_url = cfg["POLYMARKET_CLOB_API_URL"].rstrip("/")
-    funder = cfg.get("POLYMARKET_DEPOSIT_ADDRESS", "0xC91627ee52494F2D2276Ad13Dae06151E28dAcCC")
-    payload = {
-        "market_id": market_id,
-        "side": "BUY",
-        "amount": amount_dollars,
-        "price_limit": entry_price,
-        "order_type": "GTE",
-    }
-    if funder:
-        payload["funderAddress"] = funder
-        payload["owner"] = funder
-
-    resp = _retry_request("POST", f"{clob_url}/orders", json_body=payload)
-    if resp is None:
-        # API timeout / no response — we don't know if the order landed.
-        # Register for reconciliation immediately so the loop can sort it out.
-        log.error(
-            "[TRADE] Order placement timed out for market %s — "
-            "registering for reconciliation (0x_Punisher pattern)", market_id,
+    try:
+        client = _get_clob_client()
+        from py_clob_client.clob_types import OrderArgs
+        from py_clob_client.order_builder.constants import BUY
+        
+        order_args = OrderArgs(
+            price=float(entry_price),
+            size=float(shares),
+            side=BUY,
+            token_id=str(market_id)
         )
-        _register_pending_order(order_id, market_id, event_id, direction, amount_dollars, entry_price, _display_title, signal_price)
-        log_order_event(order_id, "place", "PENDING")
-        return None
-
-    data = resp.json()
-    resolved_id = data.get("id", order_id)
-    api_status  = data.get("status", "PENDING").upper()
-
-    tx_id = data.get("transaction_id") or data.get("tx_id")
-    if tx_id:
-        confirmed = _poll_transaction_confirmation(tx_id)
-        if not confirmed:
-            log.error("[TRADE] Live transaction %s failed confirmation status. Discarding order state.", tx_id)
+        signed_order = client.create_order(order_args)
+        resp = client.post_order(signed_order)
+        log.info("[LIVE-TRADE] Post order response: %s", resp)
+        if isinstance(resp, dict) and resp.get("success"):
+            resolved_id = resp.get("orderID", order_id)
+            api_status = "FILLED"
+        else:
+            log.error("[LIVE-TRADE] Order placement failed: %s", resp)
             return None
+    except Exception as exc:
+        log.error("[LIVE-TRADE] Exception placing order via ClobClient: %s", exc)
+        return None
 
     slp_taken = round((entry_price - signal_price) * 100, 1) if (signal_price > 0.0) else 0.0
     order = {

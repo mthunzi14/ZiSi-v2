@@ -140,6 +140,11 @@ def load_config() -> dict:
         "POLYMARKET_CLOB_API_URL": os.getenv(
             "POLYMARKET_CLOB_API_URL", "https://clob.polymarket.com"
         ),
+        "POLYMARKET_PRIVATE_KEY": os.getenv("POLYMARKET_PRIVATE_KEY", ""),
+        "POLYMARKET_DEPOSIT_ADDRESS": os.getenv("POLYMARKET_DEPOSIT_ADDRESS", "0x93B0658176Cb44e8B9FBc3256266f9D66053596F"),
+        "POLYMARKET_CLOB_API_KEY": os.getenv("POLYMARKET_CLOB_API_KEY", ""),
+        "POLYMARKET_CLOB_API_SECRET": os.getenv("POLYMARKET_CLOB_API_SECRET", ""),
+        "POLYMARKET_CLOB_API_PASSPHRASE": os.getenv("POLYMARKET_CLOB_API_PASSPHRASE", ""),
 
         # Google integration
         "GOOGLE_DRIVE_FOLDER_ID": os.getenv("GOOGLE_DRIVE_FOLDER_ID", ""),
