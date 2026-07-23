@@ -843,7 +843,7 @@ def place_order(
 
     # Live order
     clob_url = cfg["POLYMARKET_CLOB_API_URL"].rstrip("/")
-    funder = cfg.get("POLYMARKET_CLOB_API_ADDRESS", "") or cfg.get("POLYMARKET_DEPOSIT_ADDRESS", "")
+    funder = cfg.get("POLYMARKET_DEPOSIT_ADDRESS", "0xC91627ee52494F2D2276Ad13Dae06151E28dAcCC")
     payload = {
         "market_id": market_id,
         "side": "BUY",
