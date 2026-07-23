@@ -21,7 +21,7 @@ try:
     
     # Run fetch, reset, and execute script
     stdin, stdout, stderr = ssh.exec_command(
-        "cd /root/ZiSi-v2 && git fetch origin && git reset --hard origin/main && python3 scratch/run_tranches_vps.py"
+        "cd /root/ZiSi-v2 && git fetch origin && git reset --hard origin/main && python3 scratch/analyze_overnight_rally.py"
     )
     res = stdout.read().decode('utf-8', errors='replace').strip()
     safe_print(res)
