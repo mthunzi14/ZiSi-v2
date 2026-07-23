@@ -200,13 +200,13 @@ class AntifragileRecovery:
 
     def _bootstrap_from_positions(self) -> None:
         """Read closed trades from positions_state.json to initialise
-        trade history and streak counters if we have no persisted state."""
-        if self._trade_history or _STATE_PATH.exists():
-            # Already populated from persisted state or state file exists — skip
+        trade history and streak counters if trade history is empty."""
+        if self._trade_history:
+            # Already populated — skip
             return
 
         try:
-            from core.engine.state_manager import GLOBAL_POSITIONS_LOCK
+            from core.engine.state_manager import GLOBAL_POSITIONS_LOCK, get_account_balance
 
             if not _POSITIONS_PATH.exists():
                 log.debug("[Antifragile] positions_state.json not found — skipping bootstrap")
@@ -216,6 +216,13 @@ class AntifragileRecovery:
                 data = json.loads(_POSITIONS_PATH.read_text(encoding="utf-8"))
 
             closed: list[dict] = data.get("closed", [])
+            
+            # Derive portfolio value from account_state or balance
+            acc_bal, _ = get_account_balance()
+            if self._current_portfolio <= 0.0:
+                self._current_portfolio = float(acc_bal)
+                self._peak_portfolio = max(self._peak_portfolio, self._current_portfolio)
+
             if not closed:
                 return
 
@@ -223,13 +230,6 @@ class AntifragileRecovery:
             for trade in closed[-_MAX_HISTORY:]:
                 pnl = float(trade.get("realized_pnl", 0) or 0)
                 self._trade_history.append(pnl)
-
-            # Derive portfolio value from summary
-            summary = data.get("summary", {})
-            realized = float(summary.get("realized_pnl", 0) or 0)
-            starting_balance = 100.0  # default per state_manager
-            self._current_portfolio = round(starting_balance + realized, 2)
-            self._peak_portfolio = max(self._peak_portfolio, self._current_portfolio)
 
             # Rebuild streaks from history
             self._rebuild_streaks()
