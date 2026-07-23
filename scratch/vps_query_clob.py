@@ -14,13 +14,20 @@ clob_url = cfg.get("POLYMARKET_CLOB_API_URL", "https://clob.polymarket.com").rst
 print("=== QUERYING OFFICIAL POLYMARKET CLOB API ===")
 print("CLOB URL:", clob_url)
 
-headers = _build_clob_auth_headers("GET", "/orders", "")
-print("Generated Auth Headers:", list(headers.keys()))
+endpoints = [
+    ("/data/orders", ""),
+    ("/data/trades", ""),
+    (f"/trades?maker_address=0xC91627ee52494F2D2276Ad13Dae06151E28dAcCC", "")
+]
 
-try:
-    res = requests.get(f"{clob_url}/orders", headers=headers, timeout=10)
-    print("Response Status Code:", res.status_code)
-    print("Raw Response Text:")
-    print(res.text[:2000])
-except Exception as e:
-    print("API Query Error:", e)
+for ep, body in endpoints:
+    print(f"\n--- Testing Endpoint: {ep} ---")
+    headers = _build_clob_auth_headers("GET", ep, body)
+    try:
+        res = requests.get(f"{clob_url}{ep}", headers=headers, timeout=10)
+        print("Response Status Code:", res.status_code)
+        print("Raw Response Text:")
+        print(res.text[:1000])
+    except Exception as e:
+        print("API Query Error:", e)
+
