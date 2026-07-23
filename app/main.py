@@ -1367,13 +1367,17 @@ async def main() -> None:
                 log.info("\033[1;31m[WARNING] config.IS_LIVE is True and BOT_MODE is live_trading. LIVE CAPITAL ACTIVE!\033[0m")
         warnings = []
         
-        # Check Polymarket CLOB keys
+        # Check Polymarket CLOB keys & Private Key
         clob_key = os.getenv("POLYMARKET_CLOB_API_KEY")
         clob_secret = os.getenv("POLYMARKET_CLOB_API_SECRET")
         clob_passphrase = os.getenv("POLYMARKET_CLOB_PASSPHRASE")
+        pk = os.getenv("POLYMARKET_PRIVATE_KEY")
         
-        if not clob_key or not clob_secret or not clob_passphrase:
-            msg = "Missing Polymarket CLOB API credentials (POLYMARKET_CLOB_API_KEY/SECRET/PASSPHRASE)"
+        has_api_creds = bool(clob_key and clob_secret and clob_passphrase)
+        has_private_key = bool(pk and len(pk) > 10)
+        
+        if not has_api_creds and not has_private_key:
+            msg = "Missing Polymarket CLOB API credentials or Private Key"
             if is_live:
                 log.critical("[CRITICAL-STARTUP] %s. Halting live bot.", msg)
                 sys.exit(1)
