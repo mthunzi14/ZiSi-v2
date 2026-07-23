@@ -59,8 +59,9 @@ for asset, stats in sorted(asset_stats.items(), key=lambda x: x[1]["pnl"], rever
     asset_wr = (stats["wins"] / tot * 100) if tot > 0 else 0.0
     print(f"Asset: {asset:<6} | Wins: {stats['wins']:<3} | Losses: {stats['losses']:<3} | Win Rate: {asset_wr:6.2f}% | PnL: ${stats['pnl']:+8.2f}")
 
-print("\n--- LATEST 10 CLOSED TRADES ---")
-for p in closed[-10:]:
+print("\n--- LATEST 10 CLOSED TRADES (MOST RECENT FIRST) ---")
+sorted_closed = sorted(closed, key=lambda x: x.get("entry_time") or x.get("timestamp") or "", reverse=True)
+for p in sorted_closed[:10]:
     title = p.get("event_title")
     tranche = p.get("tranche")
     size = p.get("size")
