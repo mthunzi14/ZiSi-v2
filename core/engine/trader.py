@@ -856,9 +856,11 @@ def place_order(
     # Live order
     try:
         client = _get_clob_client()
+        # Round entry price to 2 decimal places to strictly conform to Polymarket tick size 0.01
+        valid_price = round(float(entry_price), 2)
         resp = client.place_limit_order(
             token_id=str(market_id),
-            price=float(entry_price),
+            price=valid_price,
             size=float(shares),
             side="BUY"
         )
