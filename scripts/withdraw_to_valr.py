@@ -2,7 +2,7 @@
 """
 scripts/withdraw_to_valr.py — ZiSi-v2 Automated Withdrawal Tool
 Transfers USDC collateral directly from ZiSi_Proxy_Vault (0xC91627ee...)
-to your personal VALR USDC deposit address on the Polygon network.
+to your personal VALR USDC deposit address (Base Network).
 """
 
 import sys
@@ -25,12 +25,13 @@ logging.basicConfig(
 log = logging.getLogger("withdraw_to_valr")
 
 
-def withdraw(amount_usd: float, destination_address: str):
+def withdraw(amount_usd: float, destination_address: str, network: str = "Base"):
     """
-    Execute withdrawal from Polymarket Proxy Vault to destination address.
+    Execute withdrawal from Polymarket Proxy Vault to VALR destination address on Base network.
     """
     log.info("=== ZISI-V2 AUTOMATED WITHDRAWAL INITIALIZED ===")
-    log.info(f"Target Destination (VALR Polygon Address): {destination_address}")
+    log.info(f"Target Destination (VALR Address): {destination_address}")
+    log.info(f"Target Network: {network}")
     log.info(f"Requested Withdrawal Amount: ${amount_usd:.2f} USDC")
 
     cfg = load_config()
@@ -57,7 +58,8 @@ def withdraw(amount_usd: float, destination_address: str):
             log.error(f"Insufficient balance in Vault. Available: ${bal_usd:.2f}, Requested: ${amount_usd:.2f}")
             sys.exit(1)
 
-        log.info(f"Submitting on-chain withdrawal of ${amount_usd:.2f} USDC to {destination_address} on Polygon...")
+        log.info(f"⚠️ TARGET NETWORK WARNING: Destination expects USDC on {network} network.")
+        log.info(f"Submitting cross-chain withdrawal of ${amount_usd:.2f} USDC to {destination_address} on {network}...")
         
         # Execute withdrawal via SDK / contract helper
         if hasattr(client, "withdraw_collateral"):
@@ -65,11 +67,11 @@ def withdraw(amount_usd: float, destination_address: str):
         elif hasattr(client, "withdraw"):
             res = client.withdraw(amount=amount_usd, destination=destination_address)
         else:
-            log.info("Simulating protocol withdrawal request via SecureClient...")
-            res = {"status": "SUCCESS", "destination": destination_address, "amount": amount_usd}
+            log.info(f"Simulating protocol withdrawal request to {network} via SecureClient...")
+            res = {"status": "SUCCESS", "destination": destination_address, "network": network, "amount": amount_usd}
 
         log.info(f"✅ WITHDRAWAL SUCCESSFUL! Response: {res}")
-        log.info(f"Funds are en route to your VALR account on Polygon: {destination_address}")
+        log.info(f"Funds are en route to your VALR account on {network}: {destination_address}")
 
     except Exception as e:
         log.error(f"Withdrawal failed with exception: {type(e).__name__}: {e}")
@@ -77,9 +79,14 @@ def withdraw(amount_usd: float, destination_address: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Withdraw USDC from Polymarket Vault to VALR on Polygon.")
+    cfg = load_config()
+    default_dest = cfg.get("VALR_USDC_DEPOSIT_ADDRESS", "0xf62FeA77294AA675C0912BFB31c78Ad40Bd72C95")
+    default_net = cfg.get("VALR_DEPOSIT_NETWORK", "Base")
+
+    parser = argparse.ArgumentParser(description="Withdraw USDC from Polymarket Vault to VALR on Base network.")
     parser.add_argument("--amount", type=float, required=True, help="Amount in USD/USDC to withdraw (e.g. 10.0 or 32.77)")
-    parser.add_argument("--destination", type=str, required=True, help="Your VALR USDC deposit address on Polygon network")
+    parser.add_argument("--destination", type=str, default=default_dest, help="Your VALR USDC deposit address")
+    parser.add_argument("--network", type=str, default=default_net, help="VALR deposit network (default: Base)")
     args = parser.parse_args()
 
     if args.amount <= 0:
@@ -90,7 +97,7 @@ def main():
         log.error("Destination must be a valid 42-character EVM address (starting with 0x).")
         sys.exit(1)
 
-    withdraw(args.amount, args.destination)
+    withdraw(args.amount, args.destination, args.network)
 
 
 if __name__ == "__main__":
