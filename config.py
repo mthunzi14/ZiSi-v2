@@ -62,7 +62,7 @@ FAIR_VALUE_MODE: bool = False
 # Live Capital Safety Switch:
 # - False: Pure Paper Trading / Staging Stabled (Safe simulation mode)
 # - True: Live Capital Trading (Executes real transactions on Polymarket CLOB)
-IS_LIVE: bool = True
+IS_LIVE: bool = os.getenv("BOT_MODE", "paper_trading").lower() == "live_trading" or os.getenv("IS_LIVE", "false").lower() == "true"
 
 # Strategy scope configurations
 SKIP_WEEKEND_SIGNAL: bool = False
