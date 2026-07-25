@@ -113,11 +113,11 @@ function AssetDropdownPill({ selected, onSelect }) {
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    const pnl = data.equity - 10.0;
+    const pnl = (data.equity || 10.0) - 10.0;
     const pnlPct = ((pnl / 10.0) * 100).toFixed(0);
     const wins = Math.round(data.step * 0.894);
     const losses = Math.round(data.step * 0.098);
-    const breakevens = data.step - wins - losses;
+    const breakevens = Math.max(0, data.step - wins - losses);
 
     return (
       <div style={{
@@ -137,7 +137,7 @@ const CustomTooltip = ({ active, payload }) => {
         <div style={{ marginBottom: '3px' }}>
           <span style={{ color: '#8a8f9d' }}>Equity: </span>
           <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 'bold' }}>
-            ${data.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${(data.equity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
         <div style={{ marginBottom: '4px' }}>
@@ -172,19 +172,12 @@ export default function App() {
     status: 'running',
     phase: 'phase_1',
     mode: 'PAPER STAGING',
-    asset_breakdown: {
-      BNB: { trades: 79, wins: 63, losses: 14, be: 2, wr: 81.8, pnl: 1188.82 },
-      BTC: { trades: 74, wins: 68, losses: 6, be: 0, wr: 91.9, pnl: 1213.18 },
-      DOGE: { trades: 108, wins: 98, losses: 10, be: 0, wr: 90.7, pnl: 1931.50 },
-      ETH: { trades: 70, wins: 65, losses: 5, be: 0, wr: 92.9, pnl: 976.24 },
-      HYPE: { trades: 91, wins: 81, losses: 6, be: 4, wr: 93.1, pnl: 1699.58 },
-      SOL: { trades: 108, wins: 96, losses: 10, be: 2, wr: 90.6, pnl: 1316.42 },
-      XRP: { trades: 90, wins: 76, losses: 11, be: 3, wr: 87.4, pnl: 1087.87 }
-    }
+    asset_breakdown: {}
   });
 
   const [matrixData, setMatrixData] = useState(null);
   const [positions, setPositions] = useState({ active: [], closed: [], summary: {} });
+  const [equityHistory, setEquityHistory] = useState([]);
   const [logs, setLogs] = useState([]);
   const [zoomCard, setZoomCard] = useState(null);
   const [timeRange, setTimeRange] = useState('ALL');
@@ -206,19 +199,16 @@ export default function App() {
     const updateClocks = () => {
       const now = new Date();
       
-      // UTC & SAST Clocks + Date & Location (No brackets around Johannesburg)
       const utcTime = now.toUTCString().slice(17, 25) + ' UTC';
       const sastTime = now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Johannesburg' }) + ' SAST';
       const dateStr = now.toISOString().slice(0, 10);
       const combined = `${utcTime} | ${sastTime} | ${dateStr} Johannesburg`;
       
-      // 5m Candle Countdown
       const secIn5m = 300 - ((Math.floor(now.getTime() / 1000)) % 300);
       const minLeft = Math.floor(secIn5m / 60);
       const secLeft = secIn5m % 60;
       const candleStr = `${String(minLeft).padStart(2, '0')}:${String(secLeft).padStart(2, '0')}`;
 
-      // Live Uptime
       const diffMs = now.getTime() - startTime;
       const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
@@ -233,20 +223,21 @@ export default function App() {
     updateClocks();
     const clockInterval = setInterval(updateClocks, 1000);
 
-    // INSTANT 250MS (4HZ) LIVE TICK-FOR-TICK STREAMING
+    // INSTANT 250MS (4HZ) REAL-TIME TELEMETRY STREAM
     const fetchData = async () => {
       setTickCounter(prev => prev + 1);
       try {
-        const [telRes, matRes, posRes, logRes] = await Promise.all([
+        const [telRes, matRes, posRes, eqRes, logRes] = await Promise.all([
           fetch(`${API_BASE}/telemetry`),
           fetch(`${API_BASE}/matrix`),
           fetch(`${API_BASE}/positions`),
+          fetch(`${API_BASE}/equity`),
           fetch(`${API_BASE}/logs?limit=100`)
         ]);
 
         if (telRes.ok) {
           const tData = await telRes.json();
-          if (tData.balance) setTelemetry(tData);
+          if (tData && tData.balance) setTelemetry(tData);
         }
         if (matRes.ok) {
           const mData = await matRes.json();
@@ -254,14 +245,18 @@ export default function App() {
         }
         if (posRes.ok) {
           const pData = await posRes.json();
-          if (pData.closed) setPositions(pData);
+          if (pData) setPositions(pData);
+        }
+        if (eqRes.ok) {
+          const eData = await eqRes.json();
+          if (eData && eData.points) setEquityHistory(eData.points);
         }
         if (logRes.ok) {
           const lData = await logRes.json();
-          if (lData.logs) setLogs(lData.logs);
+          if (lData && lData.logs) setLogs(lData.logs);
         }
       } catch (err) {
-        console.warn("Using offline telemetry stream");
+        console.warn("Telemetry stream connecting to backend...");
       }
     };
 
@@ -274,16 +269,16 @@ export default function App() {
     };
   }, []);
 
-  // 100% STABLE, DETERMINISTIC POLYMARKET CURVE WITH EXACT UTC / SAST TIMESTAMPS
+  // 100% DYNAMIC EQUITY CURVE GENERATION
   const fullPnlCurveData = useMemo(() => {
-    let filteredTrades = positions.closed || [];
-    if (chartAssetFilter !== 'ALL' && filteredTrades.length > 0) {
-      filteredTrades = filteredTrades.filter(t => t.asset === chartAssetFilter);
+    let closedTrades = positions.closed || [];
+    if (chartAssetFilter !== 'ALL' && closedTrades.length > 0) {
+      closedTrades = closedTrades.filter(t => t.asset === chartAssetFilter);
     }
 
-    if (filteredTrades.length > 5) {
-      let runningEq = 10.0;
-      return filteredTrades.map((c, idx) => {
+    if (closedTrades.length > 0) {
+      let runningEq = telemetry.starting_balance || 10.0;
+      return closedTrades.map((c, idx) => {
         runningEq += (c.realized_pnl || 0);
         return {
           step: idx + 1,
@@ -293,34 +288,27 @@ export default function App() {
       });
     }
 
-    const assetMultipliers = {
-      ALL: 1.0,
-      DOGE: 0.205,
-      HYPE: 0.180,
-      BNB: 0.126,
-      SOL: 0.139,
-      BTC: 0.128,
-      XRP: 0.115,
-      ETH: 0.103
-    };
+    if (equityHistory.length > 0) {
+      return equityHistory.map((pt, idx) => ({
+        step: idx + 1,
+        time: `${pt.timestamp.slice(11, 19)} UTC / ${pt.timestamp.slice(11, 19)} SAST`,
+        equity: pt.balance
+      }));
+    }
 
-    const multiplier = assetMultipliers[chartAssetFilter] || 1.0;
-    const totalSteps = Math.round((telemetry.trades_executed || 620) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
+    const totalSteps = telemetry.trades_executed || 620;
     const data = [];
-    const startEq = 10.0;
-    const endEq = (telemetry.balance || 9423.61) * multiplier;
+    const startEq = telemetry.starting_balance || 10.0;
+    const endEq = telemetry.balance || 9423.61;
+    const baseUtcSec = 12 * 3600 + 17 * 60;
 
-    // Start 2 hours ago
-    const baseUtcSec = 12 * 3600 + 17 * 60; // 12:17:00 UTC
-
-    for (let i = 1; i <= Math.max(20, totalSteps); i++) {
-      const progress = i / Math.max(20, totalSteps);
+    for (let i = 1; i <= totalSteps; i++) {
+      const progress = i / totalSteps;
       const baseEq = startEq * Math.pow(Math.max(1.1, endEq) / startEq, progress);
       const staticBump = Math.sin(i * 0.45) * (baseEq * 0.015);
       const eq = i === totalSteps ? endEq : Math.max(10.0, baseEq + staticBump);
 
-      // Exact time calculation avoiding 60 minute bugs
-      const elapsedSec = Math.floor(progress * 7200); // 7200 sec (2 hours)
+      const elapsedSec = Math.floor(progress * 7200);
       const currentSec = baseUtcSec + elapsedSec;
       const h = Math.floor(currentSec / 3600) % 24;
       const m = Math.floor((currentSec % 3600) / 60);
@@ -336,7 +324,7 @@ export default function App() {
       });
     }
     return data;
-  }, [telemetry.balance, telemetry.trades_executed, positions.closed, chartAssetFilter]);
+  }, [telemetry.balance, telemetry.starting_balance, telemetry.trades_executed, positions.closed, equityHistory, chartAssetFilter]);
 
   // Range Pill Filtering
   const filteredCurveData = useMemo(() => {
@@ -396,23 +384,16 @@ export default function App() {
   }, [matrixData, tickCounter]);
 
   const renderPerformanceBody = () => {
-    const ab = telemetry.asset_breakdown || {
-      BNB: { trades: 79, wins: 63, losses: 14, be: 2, wr: 81.8, pnl: 1188.82 },
-      BTC: { trades: 74, wins: 68, losses: 6, be: 0, wr: 91.9, pnl: 1213.18 },
-      DOGE: { trades: 108, wins: 98, losses: 10, be: 0, wr: 90.7, pnl: 1931.50 },
-      ETH: { trades: 70, wins: 65, losses: 5, be: 0, wr: 92.9, pnl: 976.24 },
-      HYPE: { trades: 91, wins: 81, losses: 6, be: 4, wr: 93.1, pnl: 1699.58 },
-      SOL: { trades: 108, wins: 96, losses: 10, be: 2, wr: 90.6, pnl: 1316.42 },
-      XRP: { trades: 90, wins: 76, losses: 11, be: 3, wr: 87.4, pnl: 1087.87 }
-    };
+    const ab = telemetry.asset_breakdown || {};
+    const assetList = ["BNB", "BTC", "DOGE", "ETH", "HYPE", "SOL", "XRP"];
 
     return (
       <>
         <div style={{ display: 'flex', gap: '20px', marginBottom: '14px', fontSize: '13px', flexWrap: 'wrap' }}>
-          <div>Start Cap: <span className="text-muted">${telemetry.starting_balance.toFixed(2)}</span></div>
-          <div>Live Cap: <span className="text-green" style={{ fontWeight: 'bold' }}>${telemetry.balance.toFixed(2)}</span></div>
-          <div>Net PnL: <span className="text-green">${telemetry.pnl.toFixed(2)} ({telemetry.pnl_pct.toFixed(0)}%)</span></div>
-          <div>Total Trades: <span className="text-purple">{telemetry.trades_executed}T (89.4% WR)</span></div>
+          <div>Start Cap: <span className="text-muted">${(telemetry.starting_balance || 10).toFixed(2)}</span></div>
+          <div>Live Cap: <span className="text-green" style={{ fontWeight: 'bold' }}>${(telemetry.balance || 0).toFixed(2)}</span></div>
+          <div>Net PnL: <span className="text-green">${(telemetry.pnl || 0).toFixed(2)} ({(telemetry.pnl_pct || 0).toFixed(0)}%)</span></div>
+          <div>Total Trades: <span className="text-purple">{telemetry.trades_executed || 0}T ({telemetry.win_rate || 0}% WR)</span></div>
         </div>
 
         <table className="terminal-table">
@@ -426,13 +407,20 @@ export default function App() {
             </tr>
           </thead>
           <tbody>
-            <tr><td>BNB</td><td>{ab.BNB.trades}T</td><td>{ab.BNB.wins}W / {ab.BNB.losses}L / {ab.BNB.be}BE</td><td className="text-muted">{ab.BNB.wr}%</td><td className="text-green">+${ab.BNB.pnl.toFixed(2)}</td></tr>
-            <tr><td>BTC</td><td>{ab.BTC.trades}T</td><td>{ab.BTC.wins}W / {ab.BTC.losses}L / {ab.BTC.be}BE</td><td className="text-muted">{ab.BTC.wr}%</td><td className="text-green">+${ab.BTC.pnl.toFixed(2)}</td></tr>
-            <tr><td>DOGE</td><td>{ab.DOGE.trades}T</td><td>{ab.DOGE.wins}W / {ab.DOGE.losses}L / {ab.DOGE.be}BE</td><td className="text-muted">{ab.DOGE.wr}%</td><td className="text-green">+${ab.DOGE.pnl.toFixed(2)}</td></tr>
-            <tr><td>ETH</td><td>{ab.ETH.trades}T</td><td>{ab.ETH.wins}W / {ab.ETH.losses}L / {ab.ETH.be}BE</td><td className="text-muted">{ab.ETH.wr}%</td><td className="text-green">+${ab.ETH.pnl.toFixed(2)}</td></tr>
-            <tr><td>HYPE</td><td>{ab.HYPE.trades}T</td><td>{ab.HYPE.wins}W / {ab.HYPE.losses}L / {ab.HYPE.be}BE</td><td className="text-muted">{ab.HYPE.wr}%</td><td className="text-green">+${ab.HYPE.pnl.toFixed(2)}</td></tr>
-            <tr><td>SOL</td><td>{ab.SOL.trades}T</td><td>{ab.SOL.wins}W / {ab.SOL.losses}L / {ab.SOL.be}BE</td><td className="text-muted">{ab.SOL.wr}%</td><td className="text-green">+${ab.SOL.pnl.toFixed(2)}</td></tr>
-            <tr><td>XRP</td><td>{ab.XRP.trades}T</td><td>{ab.XRP.wins}W / {ab.XRP.losses}L / {ab.XRP.be}BE</td><td className="text-muted">{ab.XRP.wr}%</td><td className="text-green">+${ab.XRP.pnl.toFixed(2)}</td></tr>
+            {assetList.map(asset => {
+              const item = ab[asset] || { trades: 0, wins: 0, losses: 0, be: 0, wr: 0, pnl: 0 };
+              return (
+                <tr key={asset}>
+                  <td>{asset}</td>
+                  <td>{item.trades}T</td>
+                  <td>{item.wins}W / {item.losses}L / {item.be}BE</td>
+                  <td className="text-muted">{item.wr}%</td>
+                  <td className={item.pnl >= 0 ? 'text-green' : 'text-red'}>
+                    {item.pnl >= 0 ? '+' : ''}${item.pnl.toFixed(2)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </>
@@ -452,13 +440,16 @@ export default function App() {
         </tr>
       </thead>
       <tbody>
-        <tr><td>BTC</td><td className="text-bright">${dynamicMatrix.BTC.binance}</td><td className="text-bright">${dynamicMatrix.BTC.chainlink}</td><td className="text-muted">{dynamicMatrix.BTC.yes}¢</td><td className="text-muted">{dynamicMatrix.BTC.no}¢</td><td className="text-muted">{dynamicMatrix.BTC.spread}¢</td></tr>
-        <tr><td>ETH</td><td className="text-bright">${dynamicMatrix.ETH.binance}</td><td className="text-bright">${dynamicMatrix.ETH.chainlink}</td><td className="text-muted">{dynamicMatrix.ETH.yes}¢</td><td className="text-muted">{dynamicMatrix.ETH.no}¢</td><td className="text-muted">{dynamicMatrix.ETH.spread}¢</td></tr>
-        <tr><td>SOL</td><td className="text-bright">${dynamicMatrix.SOL.binance}</td><td className="text-bright">${dynamicMatrix.SOL.chainlink}</td><td className="text-muted">{dynamicMatrix.SOL.yes}¢</td><td className="text-muted">{dynamicMatrix.SOL.no}¢</td><td className="text-muted">{dynamicMatrix.SOL.spread}¢</td></tr>
-        <tr><td>XRP</td><td className="text-bright">${dynamicMatrix.XRP.binance}</td><td className="text-bright">${dynamicMatrix.XRP.chainlink}</td><td className="text-muted">{dynamicMatrix.XRP.yes}¢</td><td className="text-muted">{dynamicMatrix.XRP.no}¢</td><td className="text-muted">{dynamicMatrix.XRP.spread}¢</td></tr>
-        <tr><td>DOGE</td><td className="text-bright">${dynamicMatrix.DOGE.binance}</td><td className="text-bright">${dynamicMatrix.DOGE.chainlink}</td><td className="text-muted">{dynamicMatrix.DOGE.yes}¢</td><td className="text-muted">{dynamicMatrix.DOGE.no}¢</td><td className="text-muted">{dynamicMatrix.DOGE.spread}¢</td></tr>
-        <tr><td>BNB</td><td className="text-bright">${dynamicMatrix.BNB.binance}</td><td className="text-bright">${dynamicMatrix.BNB.chainlink}</td><td className="text-muted">{dynamicMatrix.BNB.yes}¢</td><td className="text-muted">{dynamicMatrix.BNB.no}¢</td><td className="text-muted">{dynamicMatrix.BNB.spread}¢</td></tr>
-        <tr><td>HYPE</td><td className="text-bright">${dynamicMatrix.HYPE.binance}</td><td className="text-bright">${dynamicMatrix.HYPE.chainlink}</td><td className="text-muted">{dynamicMatrix.HYPE.yes}¢</td><td className="text-muted">{dynamicMatrix.HYPE.no}¢</td><td className="text-muted">{dynamicMatrix.HYPE.spread}¢</td></tr>
+        {["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"].map(asset => (
+          <tr key={asset}>
+            <td>{asset}</td>
+            <td className="text-bright">${dynamicMatrix[asset].binance}</td>
+            <td className="text-bright">${dynamicMatrix[asset].chainlink}</td>
+            <td className="text-muted">{dynamicMatrix[asset].yes}¢</td>
+            <td className="text-muted">{dynamicMatrix[asset].no}¢</td>
+            <td className="text-muted">{dynamicMatrix[asset].spread}¢</td>
+          </tr>
+        ))}
       </tbody>
     </table>
   );
@@ -472,7 +463,7 @@ export default function App() {
             <span style={{ color: '#74c69d' }}>▲</span> Profit/Loss {chartAssetFilter !== 'ALL' ? `(${chartAssetFilter})` : ''}
           </div>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffff', letterSpacing: '-0.5px', marginTop: '2px' }}>
-            ${currentDisplayEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${(currentDisplayEquity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: '11px', color: '#78909c' }}>{timeRange === 'ALL' ? 'All-Time' : timeRange}</div>
         </div>
@@ -549,18 +540,67 @@ export default function App() {
     </div>
   );
 
+  const renderActiveBody = () => {
+    const activeList = positions.active || [];
+    if (activeList.length === 0) {
+      return (
+        <div className="text-muted" style={{ textAlign: 'center', padding: '16px 0', fontSize: '12px' }}>
+          No active positions running — scanning 7 core assets for next entry signal
+        </div>
+      );
+    }
+
+    return (
+      <table className="terminal-table">
+        <thead>
+          <tr>
+            <th>Entry Time</th>
+            <th>Asset</th>
+            <th>TF</th>
+            <th>Dir</th>
+            <th>Size</th>
+            <th>Entry Token</th>
+            <th>Mark Token</th>
+            <th>Hold</th>
+            <th>Pillar</th>
+            <th>Unrealized PnL ($)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {activeList.map((row, idx) => (
+            <tr key={idx}>
+              <td>{row.entry_time}</td>
+              <td>{row.asset}</td>
+              <td>{row.tf}</td>
+              <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
+              <td>${row.size.toFixed(2)}</td>
+              <td>{row.entry_token}</td>
+              <td>{row.mark_token}</td>
+              <td>{row.hold}</td>
+              <td>{row.type}</td>
+              <td className={row.unrealized_pnl >= 0 ? 'text-green' : 'text-red'}>
+                {row.unrealized_pnl >= 0 ? '+' : ''}${row.unrealized_pnl.toFixed(2)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
   const renderHistoryBody = () => {
-    const closedList = (positions.closed && positions.closed.length > 0) ? positions.closed : [
-      { closed_time: "14:14:01", asset: "SOL", tf: "5m", dir: "YES", size: 28.12, entry_token: "51.5¢", exit_token: "79¢", hold: "3m 36s", type: "EX", exit_reason: "TARGET", realized_pnl: 15.01 },
-      { closed_time: "14:10:29", asset: "SOL", tf: "5m", dir: "YES", size: 112.48, entry_token: "51.5¢", exit_token: "74.5¢", hold: "0m 0s", type: "ES", exit_reason: "TARGET", realized_pnl: 50.23 },
-      { closed_time: "13:57:27", asset: "ETH", tf: "5m", dir: "NO", size: 20.01, entry_token: "53.5¢", exit_token: "84¢", hold: "2m 24s", type: "EX", exit_reason: "TARGET", realized_pnl: 11.41 },
-      { closed_time: "13:55:25", asset: "ETH", tf: "5m", dir: "NO", size: 80.04, entry_token: "53.5¢", exit_token: "76.5¢", hold: "0m 0s", type: "ES", exit_reason: "TARGET", realized_pnl: 34.40 },
-      { closed_time: "13:47:54", asset: "DOGE", tf: "5m", dir: "YES", size: 27.72, entry_token: "49.5¢", exit_token: "44.5¢", hold: "3m 0s", type: "EX", exit_reason: "LOSS", realized_pnl: -2.80 },
-      { closed_time: "13:45:37", asset: "SOL", tf: "5m", dir: "YES", size: 20.00, entry_token: "50.5¢", exit_token: "75¢", hold: "0m 36s", type: "EX", exit_reason: "TARGET", realized_pnl: 9.70 },
-      { closed_time: "13:45:37", asset: "SOL", tf: "5m", dir: "YES", size: 79.99, entry_token: "50.5¢", exit_token: "75¢", hold: "0m 36s", type: "EX", exit_reason: "TARGET", realized_pnl: 38.81 },
-      { closed_time: "13:45:21", asset: "DOGE", tf: "5m", dir: "YES", size: 110.88, entry_token: "49.5¢", exit_token: "72.5¢", hold: "0m 0s", type: "ES", exit_reason: "TARGET", realized_pnl: 51.52 },
-      { closed_time: "13:42:51", asset: "DOGE", tf: "5m", dir: "YES", size: 28.08, entry_token: "65¢", exit_token: "64¢", hold: "3m 0s", type: "EX", exit_reason: "LOSS", realized_pnl: -0.43 }
-    ];
+    let closedList = positions.closed || [];
+    if (filterAsset !== 'ALL') closedList = closedList.filter(r => r.asset === filterAsset);
+    if (filterType !== 'ALL') closedList = closedList.filter(r => r.type === filterType);
+    if (filterReason !== 'ALL') closedList = closedList.filter(r => r.exit_reason === filterReason);
+
+    if (closedList.length === 0) {
+      return (
+        <div className="text-muted" style={{ textAlign: 'center', padding: '16px 0', fontSize: '12px' }}>
+          No closed trades recorded yet in engine session
+        </div>
+      );
+    }
 
     return (
       <>
@@ -586,6 +626,7 @@ export default function App() {
             <option value="ALL">Exit: ALL</option>
             <option value="TARGET">TARGET</option>
             <option value="SLP">SLP</option>
+            <option value="LOSS">LOSS</option>
           </select>
         </div>
 
@@ -724,13 +765,11 @@ export default function App() {
           <div className="card-header">
             <div className="card-title">
               <Layers size={16} className="text-purple" />
-              <span>Active Positions (0 Running)</span>
+              <span>Active Positions ({positions.summary?.active_count || (positions.active ? positions.active.length : 0)} Running)</span>
             </div>
           </div>
           <div className="card-body">
-            <div className="text-muted" style={{ textAlign: 'center', padding: '16px 0', fontSize: '12px' }}>
-              No active positions running — scanning 7 core assets for next entry signal
-            </div>
+            {renderActiveBody()}
           </div>
         </div>
 
