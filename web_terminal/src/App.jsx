@@ -5,7 +5,7 @@ import './index.css';
 
 const API_BASE = "http://204.168.222.48:9000/api";
 
-// Custom Rich Titanium Tooltip Component matching CLI terminal styling
+// Custom Rich Titanium Tooltip Component matching Boss directives
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
@@ -28,7 +28,7 @@ const CustomTooltip = ({ active, payload }) => {
         <div style={{ marginBottom: '4px' }}>
           <span style={{ color: '#8a8f9d', fontWeight: 'bold' }}>Trade #{data.step}</span>
           <span style={{ color: '#383e4a', margin: '0 6px' }}>•</span>
-          <span style={{ color: '#4fc3f7', fontWeight: 'bold' }}>{data.time}</span>
+          <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{data.time}</span>
         </div>
         <div style={{ marginBottom: '3px' }}>
           <span style={{ color: '#8a8f9d' }}>Equity: </span>
@@ -37,15 +37,15 @@ const CustomTooltip = ({ active, payload }) => {
           </span>
         </div>
         <div style={{ marginBottom: '4px' }}>
-          <span style={{ color: '#8ae28a', fontWeight: 'bold' }}>Net PnL: </span>
-          <span style={{ color: pnl >= 0 ? '#8ae28a' : '#ff6b6b', fontWeight: 'bold' }}>
+          <span style={{ color: '#8a8f9d' }}>Net PnL: </span>
+          <span style={{ color: pnl >= 0 ? '#74c69d' : '#e57373', fontWeight: 'bold' }}>
             {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} ({pnlPct}%)
           </span>
         </div>
         <div style={{ color: '#8a8f9d', fontSize: '11px' }}>
-          <span style={{ color: '#4fc3f7' }}>{data.step}T</span>
+          <span style={{ color: '#8a8f9d' }}>{data.step}T</span>
           <span style={{ color: '#383e4a', margin: '0 4px' }}>|</span>
-          <span style={{ color: '#8ae28a' }}>{wins}W</span> / <span style={{ color: '#ff6b6b' }}>{losses}L</span> / <span style={{ color: '#8a8f9d' }}>{breakevens}BE</span>
+          <span style={{ color: '#74c69d' }}>{wins}W</span> / <span style={{ color: '#e57373' }}>{losses}L</span> / <span style={{ color: '#8a8f9d' }}>{breakevens}BE</span>
           <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(89.3% WR)</span>
         </div>
       </div>
@@ -223,7 +223,7 @@ export default function App() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div>
           <div style={{ fontSize: '11px', color: '#8a8f9d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#8ae28a' }}>▲</span> Profit/Loss
+            <span style={{ color: '#74c69d' }}>▲</span> Profit/Loss
           </div>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffff', letterSpacing: '-0.5px', marginTop: '2px' }}>
             ${telemetry.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -255,10 +255,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* Titanium Silver Curve Chart (No Scrollbar Glitch) */}
+      {/* Titanium Silver Curve Chart (Hidden Y-Axis Labels & Edge-to-Edge) */}
       <div style={{ width: '100%', height: zoomCard === 'chart' ? 'calc(100vh - 180px)' : '180px', overflow: 'hidden' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={filteredCurveData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+          <AreaChart data={filteredCurveData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorTitanium" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#d1d5db" stopOpacity={0.25}/>
@@ -267,7 +267,7 @@ export default function App() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#181c26" vertical={false} />
             <XAxis dataKey="step" hide={true} />
-            <YAxis stroke="#404b5c" tick={{ fontSize: 10 }} domain={['auto', 'auto']} orientation="right" axisLine={false} tickLine={false} />
+            <YAxis hide={true} domain={['auto', 'auto']} />
             <Tooltip content={<CustomTooltip />} />
             <Area type="monotone" dataKey="equity" stroke="#d1d5db" strokeWidth={2} fillOpacity={1} fill="url(#colorTitanium)" isAnimationActive={false} />
           </AreaChart>
@@ -341,7 +341,7 @@ export default function App() {
     <div style={{ fontFamily: 'Consolas', fontSize: '11px', lineHeight: '1.6' }}>
       {logs.length > 0 ? (
         logs.map((line, idx) => (
-          <div key={idx} style={{ color: line.includes('WARNING') ? '#ffd54f' : line.includes('ERROR') ? '#ff6b6b' : '#8a8f9d' }}>
+          <div key={idx} style={{ color: line.includes('WARNING') ? '#ffd54f' : line.includes('ERROR') ? '#e57373' : '#8a8f9d' }}>
             {line}
           </div>
         ))
@@ -389,7 +389,7 @@ export default function App() {
         <div className="card col-5">
           <div className="card-header">
             <div className="card-title">
-              <Cpu size={14} className="text-cyan" />
+              <Cpu size={14} className="text-purple" />
               <span>Spot & Oracle Price Matrix</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('matrix')}>
@@ -401,11 +401,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* CARD 3: Standalone Polymarket Equity Curve */}
+        {/* CARD 3: Standalone Polymarket Equity Curve (Bigger Title & Clean Edge-to-Edge) */}
         <div className="card col-12" style={{ minHeight: '260px' }}>
           <div className="card-header">
-            <div className="card-title">
-              <TrendingUp size={14} className="text-green" />
+            <div className="card-title" style={{ fontSize: '15px', fontWeight: 'bold' }}>
+              <TrendingUp size={16} className="text-green" />
               <span>Equity Curve</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('chart')}>
@@ -436,7 +436,7 @@ export default function App() {
         <div className="card col-12">
           <div className="card-header">
             <div className="card-title">
-              <ListFilter size={14} className="text-cyan" />
+              <ListFilter size={14} className="text-purple" />
               <span>Closed Trade History</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('history')}>
@@ -471,7 +471,7 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="card-header">
               <div className="card-title">
-                <span className="text-green" style={{ fontSize: '15px' }}>
+                <span className="text-green" style={{ fontSize: '16px', fontWeight: 'bold' }}>
                   Full Zoom View — {zoomCard.toUpperCase()}
                 </span>
               </div>

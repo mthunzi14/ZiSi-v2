@@ -9,10 +9,10 @@
   --text-muted: #8a8f9d;
   --text-bright: #ffffff;
   
-  --color-green: #8ae28a;
-  --color-red: #ff6b6b;
-  --color-cyan: #4fc3f7;
-  --color-purple: #b39ddb;
+  --color-green: #74c69d;
+  --color-red: #e57373;
+  --color-purple: #c084fc;
+  --color-cyan: #c084fc;
   --color-yellow: #ffd54f;
   --color-gray: #78909c;
   
@@ -20,6 +20,7 @@
   --titanium-border: rgba(255, 255, 255, 0.15);
   --titanium-text: #d1d5db;
 }
+
 
 * {
   box-sizing: border-box;
