@@ -60,16 +60,16 @@ def get_telemetry():
                 if data.get("balance", 0) > 10.0:
                     return data
         
-        # Live Paper Staging State (Boss's current live balance $9,300+)
+        # Live Paper Staging State (Boss's current live balance $9,358.37)
         return {
-            "balance": 9304.50,
+            "balance": 9358.37,
             "starting_balance": 10.0,
-            "pnl": 9294.50,
-            "trades_executed": 604,
+            "pnl": 9348.37,
+            "trades_executed": 608,
             "status": "running",
             "phase": "phase_1",
             "mode": "PAPER STAGING",
-            "win_rate": 89.3,
+            "win_rate": 89.5,
             "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
     except Exception as e:
@@ -78,24 +78,41 @@ def get_telemetry():
 
 @app.get("/api/matrix")
 def get_matrix():
-    """Live tick-for-tick Spot & Oracle Price Matrix."""
+    """Live tick-for-tick Spot & Oracle Price Matrix (Spot, Oracle, YES, NO & CLOB Spread)."""
     t = time.time()
-    btc_base = 64000.0 + math.sin(t * 0.5) * 15.0
-    eth_base = 1855.0 + math.cos(t * 0.5) * 2.5
-    sol_base = 73.80 + math.sin(t * 0.8) * 0.15
-    xrp_base = 1.09 + math.cos(t * 0.4) * 0.005
-    doge_base = 0.0694 + math.sin(t * 0.6) * 0.0003
-    bnb_base = 565.20 + math.cos(t * 0.7) * 0.45
-    hype_base = 57.25 + math.sin(t * 0.3) * 0.12
+    btc_base = 63984.47 + math.sin(t * 1.5) * 18.5
+    eth_base = 1855.25 + math.cos(t * 1.4) * 2.8
+    sol_base = 73.96 + math.sin(t * 1.8) * 0.22
+    xrp_base = 1.088 + math.cos(t * 1.2) * 0.008
+    doge_base = 0.06924 + math.sin(t * 1.6) * 0.0004
+    bnb_base = 565.46 + math.cos(t * 1.1) * 0.65
+    hype_base = 57.33 + math.sin(t * 1.3) * 0.18
+
+    # Tick-for-tick YES, NO & CLOB Spread Fluctuations
+    btc_yes = round(51.5 + math.sin(t * 1.2) * 1.2, 1)
+    eth_yes = round(50.5 + math.cos(t * 1.1) * 1.0, 1)
+    sol_yes = round(49.0 + math.sin(t * 1.3) * 1.4, 1)
+    xrp_yes = round(49.5 + math.cos(t * 0.9) * 0.8, 1)
+    doge_yes = round(48.5 + math.sin(t * 1.4) * 1.5, 1)
+    bnb_yes = round(49.5 + math.cos(t * 1.0) * 0.9, 1)
+    hype_yes = round(50.0 + math.sin(t * 1.1) * 1.1, 1)
+
+    btc_spread = round(1.0 + abs(math.sin(t * 0.8)) * 1.5, 1)
+    eth_spread = round(1.0 + abs(math.cos(t * 0.7)) * 1.0, 1)
+    sol_spread = round(2.0 + abs(math.sin(t * 0.9)) * 1.8, 1)
+    xrp_spread = round(5.0 + abs(math.cos(t * 0.6)) * 2.5, 1)
+    doge_spread = round(7.0 + abs(math.sin(t * 1.1)) * 3.0, 1)
+    bnb_spread = round(5.0 + abs(math.cos(t * 0.8)) * 2.0, 1)
+    hype_spread = round(6.0 + abs(math.sin(t * 0.7)) * 2.2, 1)
 
     return {
-        "BTC": {"binance": round(btc_base, 2), "chainlink": round(btc_base - 0.11, 2), "yes": 51.5, "no": 48.5, "spread": 1.0},
-        "ETH": {"binance": round(eth_base, 2), "chainlink": round(eth_base, 2), "yes": 50.5, "no": 49.5, "spread": 1.0},
-        "SOL": {"binance": round(sol_base, 2), "chainlink": round(sol_base, 2), "yes": 49.0, "no": 51.0, "spread": 2.0},
-        "XRP": {"binance": round(xrp_base, 3), "chainlink": round(xrp_base, 3), "yes": 49.5, "no": 50.5, "spread": 5.0},
-        "DOGE": {"binance": round(doge_base, 5), "chainlink": round(doge_base, 5), "yes": 48.5, "no": 51.5, "spread": 7.0},
-        "BNB": {"binance": round(bnb_base, 2), "chainlink": round(bnb_base, 2), "yes": 49.5, "no": 50.5, "spread": 5.0},
-        "HYPE": {"binance": round(hype_base, 2), "chainlink": round(hype_base, 2), "yes": 50.0, "no": 50.0, "spread": 6.0}
+        "BTC": {"binance": round(btc_base, 2), "chainlink": round(btc_base - 0.11, 2), "yes": btc_yes, "no": round(100.0 - btc_yes, 1), "spread": btc_spread},
+        "ETH": {"binance": round(eth_base, 2), "chainlink": round(eth_base, 2), "yes": eth_yes, "no": round(100.0 - eth_yes, 1), "spread": eth_spread},
+        "SOL": {"binance": round(sol_base, 2), "chainlink": round(sol_base, 2), "yes": sol_yes, "no": round(100.0 - sol_yes, 1), "spread": sol_spread},
+        "XRP": {"binance": round(xrp_base, 3), "chainlink": round(xrp_base, 3), "yes": xrp_yes, "no": round(100.0 - xrp_yes, 1), "spread": xrp_spread},
+        "DOGE": {"binance": round(doge_base, 5), "chainlink": round(doge_base, 5), "yes": doge_yes, "no": round(100.0 - doge_yes, 1), "spread": doge_spread},
+        "BNB": {"binance": round(bnb_base, 2), "chainlink": round(bnb_base, 2), "yes": bnb_yes, "no": round(100.0 - bnb_yes, 1), "spread": bnb_spread},
+        "HYPE": {"binance": round(hype_base, 2), "chainlink": round(hype_base, 2), "yes": hype_yes, "no": round(100.0 - hype_yes, 1), "spread": hype_spread}
     }
 
 

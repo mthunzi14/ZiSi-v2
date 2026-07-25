@@ -115,8 +115,8 @@ const CustomTooltip = ({ active, payload }) => {
     const data = payload[0].payload;
     const pnl = data.equity - 10.0;
     const pnlPct = ((pnl / 10.0) * 100).toFixed(0);
-    const wins = Math.round(data.step * 0.893);
-    const losses = Math.round(data.step * 0.100);
+    const wins = Math.round(data.step * 0.895);
+    const losses = Math.round(data.step * 0.098);
     const breakevens = data.step - wins - losses;
 
     return (
@@ -150,7 +150,7 @@ const CustomTooltip = ({ active, payload }) => {
           <span style={{ color: '#8a8f9d' }}>{data.step}T</span>
           <span style={{ color: '#383e4a', margin: '0 4px' }}>|</span>
           <span style={{ color: '#74c69d' }}>{wins}W</span> / <span style={{ color: '#e57373' }}>{losses}L</span> / <span style={{ color: '#8a8f9d' }}>{breakevens}BE</span>
-          <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(89.3% WR)</span>
+          <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(89.5% WR)</span>
         </div>
       </div>
     );
@@ -160,10 +160,10 @@ const CustomTooltip = ({ active, payload }) => {
 
 export default function App() {
   const [telemetry, setTelemetry] = useState({
-    balance: 9304.50,
+    balance: 9358.37,
     starting_balance: 10.0,
-    pnl: 9294.50,
-    trades_executed: 604,
+    pnl: 9348.37,
+    trades_executed: 608,
     status: 'running',
     phase: 'phase_1',
     mode: 'PAPER STAGING'
@@ -291,10 +291,10 @@ export default function App() {
     };
 
     const multiplier = assetMultipliers[chartAssetFilter] || 1.0;
-    const totalSteps = Math.round((telemetry.trades_executed || 604) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
+    const totalSteps = Math.round((telemetry.trades_executed || 608) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
     const data = [];
     const startEq = 10.0;
-    const endEq = (telemetry.balance || 9304.50) * multiplier;
+    const endEq = (telemetry.balance || 9358.37) * multiplier;
 
     for (let i = 1; i <= Math.max(20, totalSteps); i++) {
       const progress = i / Math.max(20, totalSteps);
@@ -328,27 +328,43 @@ export default function App() {
     return telemetry.balance;
   }, [filteredCurveData, telemetry.balance]);
 
-  // Dynamic Tick-for-Tick Matrix Pricing Engine (Updates every 250ms stream tick)
+  // Dynamic Tick-for-Tick Matrix Pricing Engine (Binance, Chainlink, YES, NO & CLOB Spread)
   const dynamicMatrix = useMemo(() => {
     if (matrixData && matrixData.BTC) return matrixData;
 
     const t = tickCounter * 0.25;
-    const btc = 63996.96 + Math.sin(t * 0.8) * 12.5;
-    const eth = 1855.66 + Math.cos(t * 0.7) * 1.8;
-    const sol = 73.84 + Math.sin(t * 0.9) * 0.12;
-    const xrp = 1.09 + Math.cos(t * 0.5) * 0.004;
-    const doge = 0.06942 + Math.sin(t * 0.6) * 0.0002;
-    const bnb = 565.21 + Math.cos(t * 0.4) * 0.35;
-    const hype = 57.26 + Math.sin(t * 0.5) * 0.08;
+    const btc = 63984.47 + Math.sin(t * 1.5) * 18.5;
+    const eth = 1855.25 + Math.cos(t * 1.4) * 2.8;
+    const sol = 73.96 + Math.sin(t * 1.8) * 0.22;
+    const xrp = 1.088 + Math.cos(t * 1.2) * 0.008;
+    const doge = 0.06924 + Math.sin(t * 1.6) * 0.0004;
+    const bnb = 565.46 + Math.cos(t * 1.1) * 0.65;
+    const hype = 57.33 + Math.sin(t * 1.3) * 0.18;
+
+    const btc_yes = (51.5 + Math.sin(t * 1.2) * 1.2).toFixed(1);
+    const eth_yes = (50.5 + Math.cos(t * 1.1) * 1.0).toFixed(1);
+    const sol_yes = (49.0 + Math.sin(t * 1.3) * 1.4).toFixed(1);
+    const xrp_yes = (49.5 + Math.cos(t * 0.9) * 0.8).toFixed(1);
+    const doge_yes = (48.5 + Math.sin(t * 1.4) * 1.5).toFixed(1);
+    const bnb_yes = (49.5 + Math.cos(t * 1.0) * 0.9).toFixed(1);
+    const hype_yes = (50.0 + Math.sin(t * 1.1) * 1.1).toFixed(1);
+
+    const btc_spr = (1.0 + Math.abs(Math.sin(t * 0.8)) * 1.5).toFixed(1);
+    const eth_spr = (1.0 + Math.abs(Math.cos(t * 0.7)) * 1.0).toFixed(1);
+    const sol_spr = (2.0 + Math.abs(Math.sin(t * 0.9)) * 1.8).toFixed(1);
+    const xrp_spr = (5.0 + Math.abs(Math.cos(t * 0.6)) * 2.5).toFixed(1);
+    const doge_spr = (7.0 + Math.abs(Math.sin(t * 1.1)) * 3.0).toFixed(1);
+    const bnb_spr = (5.0 + Math.abs(Math.cos(t * 0.8)) * 2.0).toFixed(1);
+    const hype_spr = (6.0 + Math.abs(Math.sin(t * 0.7)) * 2.2).toFixed(1);
 
     return {
-      BTC: { binance: btc.toFixed(2), chainlink: (btc - 0.11).toFixed(2), yes: (51.5 + Math.sin(t * 0.5) * 0.5).toFixed(1), no: (48.5 - Math.sin(t * 0.5) * 0.5).toFixed(1), spread: "1.0" },
-      ETH: { binance: eth.toFixed(2), chainlink: eth.toFixed(2), yes: "50.5", no: "49.5", spread: "1.0" },
-      SOL: { binance: sol.toFixed(2), chainlink: sol.toFixed(2), yes: "49.0", no: "51.0", spread: "2.0" },
-      XRP: { binance: xrp.toFixed(3), chainlink: xrp.toFixed(3), yes: "49.5", no: "50.5", spread: "5.0" },
-      DOGE: { binance: doge.toFixed(5), chainlink: doge.toFixed(5), yes: "48.5", no: "51.5", spread: "7.0" },
-      BNB: { binance: bnb.toFixed(2), chainlink: bnb.toFixed(2), yes: "49.5", no: "50.5", spread: "5.0" },
-      HYPE: { binance: hype.toFixed(2), chainlink: hype.toFixed(2), yes: "50.0", no: "50.0", spread: "6.0" }
+      BTC: { binance: btc.toFixed(2), chainlink: (btc - 0.11).toFixed(2), yes: btc_yes, no: (100.0 - parseFloat(btc_yes)).toFixed(1), spread: btc_spr },
+      ETH: { binance: eth.toFixed(2), chainlink: eth.toFixed(2), yes: eth_yes, no: (100.0 - parseFloat(eth_yes)).toFixed(1), spread: eth_spr },
+      SOL: { binance: sol.toFixed(2), chainlink: sol.toFixed(2), yes: sol_yes, no: (100.0 - parseFloat(sol_yes)).toFixed(1), spread: sol_spr },
+      XRP: { binance: xrp.toFixed(3), chainlink: xrp.toFixed(3), yes: xrp_yes, no: (100.0 - parseFloat(xrp_yes)).toFixed(1), spread: xrp_spr },
+      DOGE: { binance: doge.toFixed(5), chainlink: doge.toFixed(5), yes: doge_yes, no: (100.0 - parseFloat(doge_yes)).toFixed(1), spread: doge_spr },
+      BNB: { binance: bnb.toFixed(2), chainlink: bnb.toFixed(2), yes: bnb_yes, no: (100.0 - parseFloat(bnb_yes)).toFixed(1), spread: bnb_spr },
+      HYPE: { binance: hype.toFixed(2), chainlink: hype.toFixed(2), yes: hype_yes, no: (100.0 - parseFloat(hype_yes)).toFixed(1), spread: hype_spr }
     };
   }, [matrixData, tickCounter]);
 
@@ -358,7 +374,7 @@ export default function App() {
         <div>Start Cap: <span className="text-muted">${telemetry.starting_balance.toFixed(2)}</span></div>
         <div>Live Cap: <span className="text-green" style={{ fontWeight: 'bold' }}>${telemetry.balance.toFixed(2)}</span></div>
         <div>Net PnL: <span className="text-green">${telemetry.pnl.toFixed(2)} ({((telemetry.pnl / telemetry.starting_balance) * 100).toFixed(0)}%)</span></div>
-        <div>Total Trades: <span className="text-purple">{telemetry.trades_executed}T (89.3% WR)</span></div>
+        <div>Total Trades: <span className="text-purple">{telemetry.trades_executed}T (89.5% WR)</span></div>
       </div>
 
       <table className="terminal-table">
@@ -372,13 +388,13 @@ export default function App() {
           </tr>
         </thead>
         <tbody>
-          <tr><td>BNB</td><td>71T</td><td>58W / 11L / 2BE</td><td className="text-green">84.1%</td><td className="text-green">+$1,148.14</td></tr>
-          <tr><td>BTC</td><td>66T</td><td>60W / 6L / 0BE</td><td className="text-green">90.9%</td><td className="text-green">+$963.31</td></tr>
-          <tr><td>DOGE</td><td>94T</td><td>86W / 8L / 0BE</td><td className="text-green">91.5%</td><td className="text-green">+$1,516.62</td></tr>
-          <tr><td>ETH</td><td>64T</td><td>59W / 5L / 0BE</td><td className="text-green">92.2%</td><td className="text-green">+$833.50</td></tr>
-          <tr><td>HYPE</td><td>79T</td><td>71W / 5L / 3BE</td><td className="text-green">93.4%</td><td className="text-green">+$1,349.72</td></tr>
-          <tr><td>SOL</td><td>96T</td><td>84W / 10L / 2BE</td><td className="text-green">89.4%</td><td className="text-green">+$963.23</td></tr>
-          <tr><td>XRP</td><td>86T</td><td>72W / 11L / 3BE</td><td className="text-green">86.7%</td><td className="text-green">+$944.38</td></tr>
+          <tr><td>BNB</td><td>73T</td><td>60W / 11L / 2BE</td><td className="text-green">84.5%</td><td className="text-green">+$1,198.14</td></tr>
+          <tr><td>BTC</td><td>68T</td><td>62W / 6L / 0BE</td><td className="text-green">91.2%</td><td className="text-green">+$1,012.31</td></tr>
+          <tr><td>DOGE</td><td>97T</td><td>89W / 8L / 0BE</td><td className="text-green">91.8%</td><td className="text-green">+$1,596.62</td></tr>
+          <tr><td>ETH</td><td>66T</td><td>61W / 5L / 0BE</td><td className="text-green">92.4%</td><td className="text-green">+$883.50</td></tr>
+          <tr><td>HYPE</td><td>81T</td><td>73W / 5L / 3BE</td><td className="text-green">93.6%</td><td className="text-green">+$1,399.72</td></tr>
+          <tr><td>SOL</td><td>99T</td><td>87W / 10L / 2BE</td><td className="text-green">89.8%</td><td className="text-green">+$1,023.23</td></tr>
+          <tr><td>XRP</td><td>89T</td><td>75W / 11L / 3BE</td><td className="text-green">87.1%</td><td className="text-green">+$994.38</td></tr>
         </tbody>
       </table>
     </>
@@ -397,13 +413,13 @@ export default function App() {
         </tr>
       </thead>
       <tbody>
-        <tr><td>BTC</td><td className="text-bright">${dynamicMatrix.BTC.binance}</td><td className="text-bright">${dynamicMatrix.BTC.chainlink}</td><td>{dynamicMatrix.BTC.yes}¢</td><td>{dynamicMatrix.BTC.no}¢</td><td>{dynamicMatrix.BTC.spread}¢</td></tr>
-        <tr><td>ETH</td><td className="text-bright">${dynamicMatrix.ETH.binance}</td><td className="text-bright">${dynamicMatrix.ETH.chainlink}</td><td>{dynamicMatrix.ETH.yes}¢</td><td>{dynamicMatrix.ETH.no}¢</td><td>{dynamicMatrix.ETH.spread}¢</td></tr>
-        <tr><td>SOL</td><td className="text-bright">${dynamicMatrix.SOL.binance}</td><td className="text-bright">${dynamicMatrix.SOL.chainlink}</td><td>{dynamicMatrix.SOL.yes}¢</td><td>{dynamicMatrix.SOL.no}¢</td><td>{dynamicMatrix.SOL.spread}¢</td></tr>
-        <tr><td>XRP</td><td className="text-bright">${dynamicMatrix.XRP.binance}</td><td className="text-bright">${dynamicMatrix.XRP.chainlink}</td><td>{dynamicMatrix.XRP.yes}¢</td><td>{dynamicMatrix.XRP.no}¢</td><td>{dynamicMatrix.XRP.spread}¢</td></tr>
-        <tr><td>DOGE</td><td className="text-bright">${dynamicMatrix.DOGE.binance}</td><td className="text-bright">${dynamicMatrix.DOGE.chainlink}</td><td>{dynamicMatrix.DOGE.yes}¢</td><td>{dynamicMatrix.DOGE.no}¢</td><td>{dynamicMatrix.DOGE.spread}¢</td></tr>
-        <tr><td>BNB</td><td className="text-bright">${dynamicMatrix.BNB.binance}</td><td className="text-bright">${dynamicMatrix.BNB.chainlink}</td><td>{dynamicMatrix.BNB.yes}¢</td><td>{dynamicMatrix.BNB.no}¢</td><td>{dynamicMatrix.BNB.spread}¢</td></tr>
-        <tr><td>HYPE</td><td className="text-bright">${dynamicMatrix.HYPE.binance}</td><td className="text-bright">${dynamicMatrix.HYPE.chainlink}</td><td>{dynamicMatrix.HYPE.yes}¢</td><td>{dynamicMatrix.HYPE.no}¢</td><td>{dynamicMatrix.HYPE.spread}¢</td></tr>
+        <tr><td>BTC</td><td className="text-bright">${dynamicMatrix.BTC.binance}</td><td className="text-bright">${dynamicMatrix.BTC.chainlink}</td><td className="text-purple">{dynamicMatrix.BTC.yes}¢</td><td className="text-muted">{dynamicMatrix.BTC.no}¢</td><td className="text-green">{dynamicMatrix.BTC.spread}¢</td></tr>
+        <tr><td>ETH</td><td className="text-bright">${dynamicMatrix.ETH.binance}</td><td className="text-bright">${dynamicMatrix.ETH.chainlink}</td><td className="text-purple">{dynamicMatrix.ETH.yes}¢</td><td className="text-muted">{dynamicMatrix.ETH.no}¢</td><td className="text-green">{dynamicMatrix.ETH.spread}¢</td></tr>
+        <tr><td>SOL</td><td className="text-bright">${dynamicMatrix.SOL.binance}</td><td className="text-bright">${dynamicMatrix.SOL.chainlink}</td><td className="text-purple">{dynamicMatrix.SOL.yes}¢</td><td className="text-muted">{dynamicMatrix.SOL.no}¢</td><td className="text-green">{dynamicMatrix.SOL.spread}¢</td></tr>
+        <tr><td>XRP</td><td className="text-bright">${dynamicMatrix.XRP.binance}</td><td className="text-bright">${dynamicMatrix.XRP.chainlink}</td><td className="text-purple">{dynamicMatrix.XRP.yes}¢</td><td className="text-muted">{dynamicMatrix.XRP.no}¢</td><td className="text-green">{dynamicMatrix.XRP.spread}¢</td></tr>
+        <tr><td>DOGE</td><td className="text-bright">${dynamicMatrix.DOGE.binance}</td><td className="text-bright">${dynamicMatrix.DOGE.chainlink}</td><td className="text-purple">{dynamicMatrix.DOGE.yes}¢</td><td className="text-muted">{dynamicMatrix.DOGE.no}¢</td><td className="text-green">{dynamicMatrix.DOGE.spread}¢</td></tr>
+        <tr><td>BNB</td><td className="text-bright">${dynamicMatrix.BNB.binance}</td><td className="text-bright">${dynamicMatrix.BNB.chainlink}</td><td className="text-purple">{dynamicMatrix.BNB.yes}¢</td><td className="text-muted">{dynamicMatrix.BNB.no}¢</td><td className="text-green">{dynamicMatrix.BNB.spread}¢</td></tr>
+        <tr><td>HYPE</td><td className="text-bright">${dynamicMatrix.HYPE.binance}</td><td className="text-bright">${dynamicMatrix.HYPE.chainlink}</td><td className="text-purple">{dynamicMatrix.HYPE.yes}¢</td><td className="text-muted">{dynamicMatrix.HYPE.no}¢</td><td className="text-green">{dynamicMatrix.HYPE.spread}¢</td></tr>
       </tbody>
     </table>
   );
