@@ -5,7 +5,7 @@ import './index.css';
 
 const API_BASE = "http://204.168.222.48:9000/api";
 
-// Custom Glassmorphic Asset Dropdown Component matching Titanium Pills
+// Custom Glassmorphic Asset Dropdown Component with Silver Metallic Glow
 function AssetDropdownPill({ selected, onSelect }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -49,7 +49,17 @@ function AssetDropdownPill({ selected, onSelect }) {
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          transition: 'all 0.15s'
+          transition: 'all 0.2s ease-in-out'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          e.currentTarget.style.boxShadow = '0 0 12px rgba(209, 213, 219, 0.3)';
+          e.currentTarget.style.color = '#ffffff';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = selected !== 'ALL' ? 'rgba(255, 255, 255, 0.25)' : '#262930';
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.color = selected !== 'ALL' ? '#ffffff' : '#8a8f9d';
         }}
       >
         <span>{currentLabel}</span>
@@ -170,11 +180,9 @@ export default function App() {
   const [filterReason, setFilterReason] = useState('ALL');
 
   // Dynamic Live Clocks & Engine State
-  const [timeUtc, setTimeUtc] = useState('');
-  const [timeSast, setTimeSast] = useState('');
-  const [dateLoc, setDateLoc] = useState('');
+  const [sastDateTime, setSastDateTime] = useState('');
   const [candleCountdown, setCandleCountdown] = useState('04:59');
-  const [uptimeStr, setUptimeStr] = useState('1d 1h 44m');
+  const [uptimeStr, setUptimeStr] = useState('1d 2h 45m');
 
   useEffect(() => {
     const startTime = Date.now() - (25 * 3600 * 1000 + 104 * 60 * 1000);
@@ -182,12 +190,10 @@ export default function App() {
     const updateClocks = () => {
       const now = new Date();
       
-      // UTC & SAST Clocks
-      const utc = now.toUTCString().slice(17, 25) + ' UTC';
-      const sast = now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Johannesburg' }) + ' SAST';
-      
-      // Date with Location
-      const dateStr = now.toISOString().slice(0, 10) + ' (Johannesburg)';
+      // Combined SAST + Date & Location (No UTC)
+      const sastTime = now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Johannesburg' });
+      const dateStr = now.toISOString().slice(0, 10);
+      const sastCombined = `${sastTime} • ${dateStr} (Johannesburg)`;
       
       // 5m Candle Countdown
       const secIn5m = 300 - ((Math.floor(now.getTime() / 1000)) % 300);
@@ -202,9 +208,7 @@ export default function App() {
       const mins = Math.floor((diffMs / (1000 * 60)) % 60);
       const uptime = `${days}d ${hours}h ${mins}m`;
 
-      setTimeUtc(utc);
-      setTimeSast(sast);
-      setDateLoc(dateStr);
+      setSastDateTime(sastCombined);
       setCandleCountdown(candleStr);
       setUptimeStr(uptime);
     };
@@ -391,7 +395,7 @@ export default function App() {
 
           <div style={{ width: '1px', height: '14px', background: '#262930' }} />
 
-          {/* Titanium / Silver Range Pills */}
+          {/* Titanium / Silver Range Pills with Metallic Hover Glow */}
           <div style={{ display: 'flex', gap: '4px' }}>
             {['1D', '1W', '1M', '1Y', 'YTD', 'ALL'].map(range => (
               <button
@@ -406,7 +410,17 @@ export default function App() {
                   fontSize: '11px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
-                  transition: 'all 0.15s'
+                  transition: 'all 0.2s ease-in-out'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+                  e.currentTarget.style.boxShadow = '0 0 12px rgba(209, 213, 219, 0.3)';
+                  e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = timeRange === range ? 'rgba(255, 255, 255, 0.25)' : 'transparent';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.color = timeRange === range ? '#ffffff' : '#8a8f9d';
                 }}
               >
                 {range}
@@ -514,7 +528,7 @@ export default function App() {
 
   return (
     <div className="terminal-container">
-      {/* Dynamic Sticky Executive Top Home Panel (Screenshot 3 Format) */}
+      {/* Dynamic Sticky Top Home Panel (Combined SAST + Date/Location, No UTC) */}
       <header className="terminal-header">
         <div className="header-title">
           <Activity size={18} className="text-green" />
@@ -530,11 +544,7 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#8a8f9d', flexWrap: 'wrap' }}>
-          <span>UTC: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{timeUtc}</span></span>
-          <span style={{ color: '#383e4a' }}>|</span>
-          <span>Date: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{dateLoc}</span></span>
-          <span style={{ color: '#383e4a' }}>|</span>
-          <span>SAST: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{timeSast}</span></span>
+          <span>SAST: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{sastDateTime}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
           <span>5m Candle: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{candleCountdown}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
@@ -548,7 +558,7 @@ export default function App() {
         <div className="card col-7">
           <div className="card-header">
             <div className="card-title">
-              <TrendingUp size={14} className="text-green" />
+              <TrendingUp size={16} className="text-green" />
               <span>Performance Summary</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('performance')}>
@@ -564,7 +574,7 @@ export default function App() {
         <div className="card col-5">
           <div className="card-header">
             <div className="card-title">
-              <Cpu size={14} className="text-purple" />
+              <Cpu size={16} className="text-purple" />
               <span>Spot & Oracle Price Matrix</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('matrix')}>
@@ -579,7 +589,7 @@ export default function App() {
         {/* CARD 3: Standalone Polymarket Equity Curve */}
         <div className="card col-12" style={{ minHeight: '260px' }}>
           <div className="card-header">
-            <div className="card-title" style={{ fontSize: '16px', fontWeight: 'bold' }}>
+            <div className="card-title">
               <TrendingUp size={16} className="text-green" />
               <span>Equity Curve</span>
             </div>
@@ -596,7 +606,7 @@ export default function App() {
         <div className="card col-12">
           <div className="card-header">
             <div className="card-title">
-              <Layers size={14} className="text-purple" />
+              <Layers size={16} className="text-purple" />
               <span>Active Positions (0 Running)</span>
             </div>
           </div>
@@ -611,7 +621,7 @@ export default function App() {
         <div className="card col-12">
           <div className="card-header">
             <div className="card-title">
-              <ListFilter size={14} className="text-purple" />
+              <ListFilter size={16} className="text-purple" />
               <span>Closed Trade History</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('history')}>
@@ -627,7 +637,7 @@ export default function App() {
         <div className="card col-12">
           <div className="card-header">
             <div className="card-title">
-              <Activity size={14} className="text-yellow" />
+              <Activity size={16} className="text-yellow" />
               <span>Live Engine Execution Logs</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('logs')}>
