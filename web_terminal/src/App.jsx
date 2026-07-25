@@ -1,9 +1,103 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Maximize2, Minimize2, TrendingUp, Cpu, Activity, ListFilter, Layers } from 'lucide-react';
 import './index.css';
 
 const API_BASE = "http://204.168.222.48:9000/api";
+
+// Custom Glassmorphic Asset Dropdown Component matching Titanium Pills
+function AssetDropdownPill({ selected, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const assets = [
+    { id: 'ALL', label: 'ALL ASSETS' },
+    { id: 'BTC', label: 'BTC' },
+    { id: 'ETH', label: 'ETH' },
+    { id: 'SOL', label: 'SOL' },
+    { id: 'XRP', label: 'XRP' },
+    { id: 'DOGE', label: 'DOGE' },
+    { id: 'BNB', label: 'BNB' },
+    { id: 'HYPE', label: 'HYPE' }
+  ];
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const currentLabel = assets.find(a => a.id === selected)?.label || 'ALL ASSETS';
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          background: selected !== 'ALL' ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
+          color: selected !== 'ALL' ? '#ffffff' : '#8a8f9d',
+          border: selected !== 'ALL' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid #262930',
+          borderRadius: '14px',
+          padding: '3px 12px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          transition: 'all 0.15s'
+        }}
+      >
+        <span>{currentLabel}</span>
+        <span style={{ fontSize: '8px', color: '#8a8f9d' }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          right: 0,
+          zIndex: 100,
+          background: '#12151c',
+          border: '1px solid #383e4a',
+          borderRadius: '10px',
+          padding: '4px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.8)',
+          minWidth: '120px',
+          backdropFilter: 'blur(16px)'
+        }}>
+          {assets.map(asset => (
+            <div
+              key={asset.id}
+              onClick={() => {
+                onSelect(asset.id);
+                setOpen(false);
+              }}
+              style={{
+                padding: '6px 10px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                color: selected === asset.id ? '#ffffff' : '#8a8f9d',
+                background: selected === asset.id ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                transition: 'background 0.15s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+              onMouseLeave={e => e.currentTarget.style.background = selected === asset.id ? 'rgba(255, 255, 255, 0.12)' : 'transparent'}
+            >
+              {asset.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Custom Rich Titanium Tooltip Component matching Boss directives
 const CustomTooltip = ({ active, payload }) => {
@@ -28,7 +122,7 @@ const CustomTooltip = ({ active, payload }) => {
         <div style={{ marginBottom: '4px' }}>
           <span style={{ color: '#8a8f9d', fontWeight: 'bold' }}>Trade #{data.step}</span>
           <span style={{ color: '#383e4a', margin: '0 6px' }}>•</span>
-          <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{data.time}</span>
+          <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{data.time}</span>
         </div>
         <div style={{ marginBottom: '3px' }}>
           <span style={{ color: '#8a8f9d' }}>Equity: </span>
@@ -83,7 +177,7 @@ export default function App() {
   const [uptimeStr, setUptimeStr] = useState('1d 1h 44m');
 
   useEffect(() => {
-    const startTime = Date.now() - (25 * 3600 * 1000 + 104 * 60 * 1000); // Simulated start 1d 1h 44m ago
+    const startTime = Date.now() - (25 * 3600 * 1000 + 104 * 60 * 1000);
 
     const updateClocks = () => {
       const now = new Date();
@@ -290,36 +384,15 @@ export default function App() {
           <div style={{ fontSize: '11px', color: '#78909c' }}>{timeRange === 'ALL' ? 'All-Time' : timeRange}</div>
         </div>
 
-        {/* Asset Dropdown & Time Range Controls */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Asset Selector Dropdown Pill */}
-          <select
-            value={chartAssetFilter}
-            onChange={e => setChartAssetFilter(e.target.value)}
-            style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              color: '#c084fc',
-              border: '1px solid rgba(192, 132, 252, 0.3)',
-              borderRadius: '16px',
-              padding: '4px 12px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="ALL">ALL ASSETS</option>
-            <option value="BTC">BTC</option>
-            <option value="ETH">ETH</option>
-            <option value="SOL">SOL</option>
-            <option value="XRP">XRP</option>
-            <option value="DOGE">DOGE</option>
-            <option value="BNB">BNB</option>
-            <option value="HYPE">HYPE</option>
-          </select>
+        {/* Asset Dropdown & Time Range Controls Container */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#0f1218', padding: '3px', borderRadius: '20px', border: '1px solid #262930' }}>
+          {/* Custom Glassmorphic Asset Dropdown Pill */}
+          <AssetDropdownPill selected={chartAssetFilter} onSelect={setChartAssetFilter} />
+
+          <div style={{ width: '1px', height: '14px', background: '#262930' }} />
 
           {/* Titanium / Silver Range Pills */}
-          <div style={{ display: 'flex', gap: '4px', background: '#0f1218', padding: '3px', borderRadius: '20px', border: '1px solid #262930' }}>
+          <div style={{ display: 'flex', gap: '4px' }}>
             {['1D', '1W', '1M', '1Y', 'YTD', 'ALL'].map(range => (
               <button
                 key={range}
@@ -457,15 +530,15 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#8a8f9d', flexWrap: 'wrap' }}>
-          <span>UTC: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{timeUtc}</span></span>
+          <span>UTC: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{timeUtc}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
-          <span>Date: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{dateLoc}</span></span>
+          <span>Date: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{dateLoc}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
-          <span>SAST: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{timeSast}</span></span>
+          <span>SAST: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{timeSast}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
-          <span>5m Candle: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{candleCountdown}</span></span>
+          <span>5m Candle: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{candleCountdown}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
-          <span>Uptime: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{uptimeStr}</span></span>
+          <span>Uptime: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{uptimeStr}</span></span>
         </div>
       </header>
 
