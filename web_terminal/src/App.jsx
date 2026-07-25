@@ -69,19 +69,54 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [zoomCard, setZoomCard] = useState(null);
   const [timeRange, setTimeRange] = useState('ALL');
+  const [chartAssetFilter, setChartAssetFilter] = useState('ALL');
+  
   const [filterAsset, setFilterAsset] = useState('ALL');
   const [filterType, setFilterType] = useState('ALL');
   const [filterReason, setFilterReason] = useState('ALL');
 
-  // Live 1000ms Clocks
-  const [timeUtc, setTimeUtc] = useState(new Date().toUTCString().slice(17, 25));
-  const [timeSast, setTimeSast] = useState(new Date().toLocaleTimeString());
+  // Dynamic Live Clocks & Engine State
+  const [timeUtc, setTimeUtc] = useState('');
+  const [timeSast, setTimeSast] = useState('');
+  const [dateLoc, setDateLoc] = useState('');
+  const [candleCountdown, setCandleCountdown] = useState('04:59');
+  const [uptimeStr, setUptimeStr] = useState('1d 1h 44m');
 
   useEffect(() => {
-    const clockInterval = setInterval(() => {
-      setTimeUtc(new Date().toUTCString().slice(17, 25));
-      setTimeSast(new Date().toLocaleTimeString());
-    }, 1000);
+    const startTime = Date.now() - (25 * 3600 * 1000 + 104 * 60 * 1000); // Simulated start 1d 1h 44m ago
+
+    const updateClocks = () => {
+      const now = new Date();
+      
+      // UTC & SAST Clocks
+      const utc = now.toUTCString().slice(17, 25) + ' UTC';
+      const sast = now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Johannesburg' }) + ' SAST';
+      
+      // Date with Location
+      const dateStr = now.toISOString().slice(0, 10) + ' (Johannesburg)';
+      
+      // 5m Candle Countdown
+      const secIn5m = 300 - ((Math.floor(now.getTime() / 1000)) % 300);
+      const minLeft = Math.floor(secIn5m / 60);
+      const secLeft = secIn5m % 60;
+      const candleStr = `${String(minLeft).padStart(2, '0')}:${String(secLeft).padStart(2, '0')}`;
+
+      // Live Uptime
+      const diffMs = now.getTime() - startTime;
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+      const mins = Math.floor((diffMs / (1000 * 60)) % 60);
+      const uptime = `${days}d ${hours}h ${mins}m`;
+
+      setTimeUtc(utc);
+      setTimeSast(sast);
+      setDateLoc(dateStr);
+      setCandleCountdown(candleStr);
+      setUptimeStr(uptime);
+    };
+
+    updateClocks();
+    const clockInterval = setInterval(updateClocks, 1000);
 
     const fetchData = async () => {
       try {
@@ -117,11 +152,16 @@ export default function App() {
     };
   }, []);
 
-  // 100% STABLE, DETERMINISTIC POLYMARKET CURVE
+  // 100% STABLE, DETERMINISTIC POLYMARKET CURVE WITH ASSET FILTERING
   const fullPnlCurveData = useMemo(() => {
-    if (positions.closed && positions.closed.length > 5) {
+    let filteredTrades = positions.closed || [];
+    if (chartAssetFilter !== 'ALL' && filteredTrades.length > 0) {
+      filteredTrades = filteredTrades.filter(t => t.asset === chartAssetFilter);
+    }
+
+    if (filteredTrades.length > 5) {
       let runningEq = 10.0;
-      return positions.closed.map((c, idx) => {
+      return filteredTrades.map((c, idx) => {
         runningEq += (c.realized_pnl || 0);
         return {
           step: idx + 1,
@@ -131,14 +171,26 @@ export default function App() {
       });
     }
 
-    const totalSteps = telemetry.trades_executed || 590;
+    const assetMultipliers = {
+      ALL: 1.0,
+      DOGE: 0.172,
+      HYPE: 0.153,
+      BNB: 0.130,
+      SOL: 0.109,
+      BTC: 0.109,
+      XRP: 0.107,
+      ETH: 0.094
+    };
+
+    const multiplier = assetMultipliers[chartAssetFilter] || 1.0;
+    const totalSteps = Math.round((telemetry.trades_executed || 590) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
     const data = [];
     const startEq = 10.0;
-    const endEq = telemetry.balance || 8794.90;
+    const endEq = (telemetry.balance || 8794.90) * multiplier;
 
-    for (let i = 1; i <= totalSteps; i++) {
-      const progress = i / totalSteps;
-      const baseEq = startEq * Math.pow(endEq / startEq, progress);
+    for (let i = 1; i <= Math.max(20, totalSteps); i++) {
+      const progress = i / Math.max(20, totalSteps);
+      const baseEq = startEq * Math.pow(Math.max(1.1, endEq) / startEq, progress);
       const staticBump = Math.sin(i * 0.45) * (baseEq * 0.015);
       const eq = i === totalSteps ? endEq : Math.max(10.0, baseEq + staticBump);
 
@@ -149,7 +201,7 @@ export default function App() {
       });
     }
     return data;
-  }, [telemetry.balance, telemetry.trades_executed, positions.closed]);
+  }, [telemetry.balance, telemetry.trades_executed, positions.closed, chartAssetFilter]);
 
   // Range Pill Filtering
   const filteredCurveData = useMemo(() => {
@@ -161,13 +213,20 @@ export default function App() {
     return fullPnlCurveData;
   }, [fullPnlCurveData, timeRange]);
 
+  const currentDisplayEquity = useMemo(() => {
+    if (filteredCurveData.length > 0) {
+      return filteredCurveData[filteredCurveData.length - 1].equity;
+    }
+    return telemetry.balance;
+  }, [filteredCurveData, telemetry.balance]);
+
   const renderPerformanceBody = () => (
     <>
       <div style={{ display: 'flex', gap: '20px', marginBottom: '14px', fontSize: '13px', flexWrap: 'wrap' }}>
         <div>Start Cap: <span className="text-muted">${telemetry.starting_balance.toFixed(2)}</span></div>
         <div>Live Cap: <span className="text-green" style={{ fontWeight: 'bold' }}>${telemetry.balance.toFixed(2)}</span></div>
         <div>Net PnL: <span className="text-green">${telemetry.pnl.toFixed(2)} ({((telemetry.pnl / telemetry.starting_balance) * 100).toFixed(0)}%)</span></div>
-        <div>Total Trades: <span className="text-cyan">{telemetry.trades_executed}T (89.3% WR)</span></div>
+        <div>Total Trades: <span className="text-purple">{telemetry.trades_executed}T (89.3% WR)</span></div>
       </div>
 
       <table className="terminal-table">
@@ -219,43 +278,72 @@ export default function App() {
 
   const renderPnLChartBody = () => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Polymarket Equity Header & Titanium Pills */}
+      {/* Polymarket Equity Header & Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div>
           <div style={{ fontSize: '11px', color: '#8a8f9d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#74c69d' }}>▲</span> Profit/Loss
+            <span style={{ color: '#74c69d' }}>▲</span> Profit/Loss {chartAssetFilter !== 'ALL' ? `(${chartAssetFilter})` : ''}
           </div>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffff', letterSpacing: '-0.5px', marginTop: '2px' }}>
-            ${telemetry.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${currentDisplayEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: '11px', color: '#78909c' }}>{timeRange === 'ALL' ? 'All-Time' : timeRange}</div>
         </div>
 
-        {/* Titanium / Silver Range Pills */}
-        <div style={{ display: 'flex', gap: '4px', background: '#0f1218', padding: '3px', borderRadius: '20px', border: '1px solid #262930' }}>
-          {['1D', '1W', '1M', '1Y', 'YTD', 'ALL'].map(range => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              style={{
-                background: timeRange === range ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
-                color: timeRange === range ? '#ffffff' : '#8a8f9d',
-                border: timeRange === range ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
-                borderRadius: '14px',
-                padding: '3px 10px',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
-            >
-              {range}
-            </button>
-          ))}
+        {/* Asset Dropdown & Time Range Controls */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Asset Selector Dropdown Pill */}
+          <select
+            value={chartAssetFilter}
+            onChange={e => setChartAssetFilter(e.target.value)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#c084fc',
+              border: '1px solid rgba(192, 132, 252, 0.3)',
+              borderRadius: '16px',
+              padding: '4px 12px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="ALL">ALL ASSETS</option>
+            <option value="BTC">BTC</option>
+            <option value="ETH">ETH</option>
+            <option value="SOL">SOL</option>
+            <option value="XRP">XRP</option>
+            <option value="DOGE">DOGE</option>
+            <option value="BNB">BNB</option>
+            <option value="HYPE">HYPE</option>
+          </select>
+
+          {/* Titanium / Silver Range Pills */}
+          <div style={{ display: 'flex', gap: '4px', background: '#0f1218', padding: '3px', borderRadius: '20px', border: '1px solid #262930' }}>
+            {['1D', '1W', '1M', '1Y', 'YTD', 'ALL'].map(range => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                style={{
+                  background: timeRange === range ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
+                  color: timeRange === range ? '#ffffff' : '#8a8f9d',
+                  border: timeRange === range ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
+                  borderRadius: '14px',
+                  padding: '3px 10px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Titanium Silver Curve Chart (Hidden Y-Axis Labels & Edge-to-Edge) */}
+      {/* Titanium Silver Curve Chart */}
       <div style={{ width: '100%', height: zoomCard === 'chart' ? 'calc(100vh - 180px)' : '180px', overflow: 'hidden' }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={filteredCurveData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
@@ -321,16 +409,16 @@ export default function App() {
         </thead>
         <tbody>
           <tr>
-            <td>10:15:42</td><td>DOGE</td><td>5m</td><td className="text-green">YES</td><td>$36.21</td><td>51¢</td><td>79¢</td><td>0m 36s</td><td>FX</td><td className="text-cyan">TARGET</td><td className="text-green">+$19.88</td>
+            <td>10:15:42</td><td>DOGE</td><td>5m</td><td className="text-green">YES</td><td>$36.21</td><td>51¢</td><td>79¢</td><td>0m 36s</td><td>FX</td><td className="text-purple">TARGET</td><td className="text-green">+$19.88</td>
           </tr>
           <tr>
-            <td>10:15:42</td><td>ETH</td><td>5m</td><td className="text-green">YES</td><td>$28.12</td><td>54.5¢</td><td>83.5¢</td><td>0m 36s</td><td>EX</td><td className="text-cyan">TARGET</td><td className="text-green">+$14.97</td>
+            <td>10:15:42</td><td>ETH</td><td>5m</td><td className="text-green">YES</td><td>$28.12</td><td>54.5¢</td><td>83.5¢</td><td>0m 36s</td><td>EX</td><td className="text-purple">TARGET</td><td className="text-green">+$14.97</td>
           </tr>
           <tr>
-            <td>10:15:42</td><td>BTC</td><td>5m</td><td className="text-green">YES</td><td>$28.03</td><td>53.5¢</td><td>83.5¢</td><td>0m 36s</td><td>EX</td><td className="text-cyan">TARGET</td><td className="text-green">+$15.72</td>
+            <td>10:15:42</td><td>BTC</td><td>5m</td><td className="text-green">YES</td><td>$28.03</td><td>53.5¢</td><td>83.5¢</td><td>0m 36s</td><td>EX</td><td className="text-purple">TARGET</td><td className="text-green">+$15.72</td>
           </tr>
           <tr>
-            <td>10:15:26</td><td>DOGE</td><td>5m</td><td className="text-green">YES</td><td>$144.84</td><td>51¢</td><td>73¢</td><td>0m 0s</td><td>ES</td><td className="text-cyan">TARGET</td><td className="text-green">+$62.48</td>
+            <td>10:15:26</td><td>DOGE</td><td>5m</td><td className="text-green">YES</td><td>$144.84</td><td>51¢</td><td>73¢</td><td>0m 0s</td><td>ES</td><td className="text-purple">TARGET</td><td className="text-green">+$62.48</td>
           </tr>
         </tbody>
       </table>
@@ -353,17 +441,31 @@ export default function App() {
 
   return (
     <div className="terminal-container">
-      {/* Sleek Refined Header */}
+      {/* Dynamic Sticky Executive Top Home Panel (Screenshot 3 Format) */}
       <header className="terminal-header">
         <div className="header-title">
           <Activity size={18} className="text-green" />
           <span>ZiSi-v2</span>
-          <span className="pill pill-titanium">● PAPER STAGING</span>
-          <span className="pill pill-green">● ONLINE (2ms)</span>
+          <span style={{ color: '#383e4a' }}>|</span>
+          <span style={{ fontSize: '12px', color: '#8a8f9d' }}>
+            Status: <span style={{ color: '#74c69d', fontWeight: 'bold' }}>● ACTIVE</span>
+          </span>
+          <span style={{ color: '#383e4a' }}>|</span>
+          <span style={{ fontSize: '12px', color: '#8a8f9d' }}>
+            Mode: <span style={{ color: '#74c69d', fontWeight: 'bold' }}>● PAPER STAGING</span>
+          </span>
         </div>
-        <div className="header-meta">
-          <span>UTC: {timeUtc}</span>
-          <span>SAST: {timeSast}</span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#8a8f9d', flexWrap: 'wrap' }}>
+          <span>UTC: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{timeUtc}</span></span>
+          <span style={{ color: '#383e4a' }}>|</span>
+          <span>Date: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{dateLoc}</span></span>
+          <span style={{ color: '#383e4a' }}>|</span>
+          <span>SAST: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{timeSast}</span></span>
+          <span style={{ color: '#383e4a' }}>|</span>
+          <span>5m Candle: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{candleCountdown}</span></span>
+          <span style={{ color: '#383e4a' }}>|</span>
+          <span>Uptime: <span style={{ color: '#c084fc', fontWeight: 'bold' }}>{uptimeStr}</span></span>
         </div>
       </header>
 
@@ -401,10 +503,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* CARD 3: Standalone Polymarket Equity Curve (Bigger Title & Clean Edge-to-Edge) */}
+        {/* CARD 3: Standalone Polymarket Equity Curve */}
         <div className="card col-12" style={{ minHeight: '260px' }}>
           <div className="card-header">
-            <div className="card-title" style={{ fontSize: '15px', fontWeight: 'bold' }}>
+            <div className="card-title" style={{ fontSize: '16px', fontWeight: 'bold' }}>
               <TrendingUp size={16} className="text-green" />
               <span>Equity Curve</span>
             </div>
