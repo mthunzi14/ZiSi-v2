@@ -5,14 +5,15 @@ import './index.css';
 
 const API_BASE = "http://204.168.222.48:9000/api";
 
-// Custom Rich Titanium Tooltip Component
+// Custom Rich Titanium Tooltip Component matching CLI terminal styling
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const pnl = data.equity - 10.0;
     const pnlPct = ((pnl / 10.0) * 100).toFixed(0);
     const wins = Math.round(data.step * 0.893);
-    const losses = data.step - wins;
+    const losses = Math.round(data.step * 0.100);
+    const breakevens = data.step - wins - losses;
 
     return (
       <div style={{
@@ -24,17 +25,28 @@ const CustomTooltip = ({ active, payload }) => {
         fontSize: '11px',
         lineHeight: '1.6'
       }}>
-        <div style={{ color: '#4fc3f7', fontWeight: 'bold', marginBottom: '4px' }}>
-          Trade #{data.step} • {data.time}
+        <div style={{ marginBottom: '4px' }}>
+          <span style={{ color: '#8a8f9d', fontWeight: 'bold' }}>Trade #{data.step}</span>
+          <span style={{ color: '#383e4a', margin: '0 6px' }}>•</span>
+          <span style={{ color: '#4fc3f7', fontWeight: 'bold' }}>{data.time}</span>
         </div>
-        <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: 'bold' }}>
-          Equity: ${data.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <div style={{ marginBottom: '3px' }}>
+          <span style={{ color: '#8a8f9d' }}>Equity: </span>
+          <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 'bold' }}>
+            ${data.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
         </div>
-        <div style={{ color: pnl >= 0 ? '#8ae28a' : '#ff6b6b' }}>
-          Net PnL: {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} ({pnlPct}%)
+        <div style={{ marginBottom: '4px' }}>
+          <span style={{ color: '#8ae28a', fontWeight: 'bold' }}>Net PnL: </span>
+          <span style={{ color: pnl >= 0 ? '#8ae28a' : '#ff6b6b', fontWeight: 'bold' }}>
+            {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} ({pnlPct}%)
+          </span>
         </div>
-        <div style={{ color: '#8a8f9d' }}>
-          Record: <span style={{ color: '#8ae28a' }}>{wins}W</span> / <span style={{ color: '#ff6b6b' }}>{losses}L</span> (89.3% WR)
+        <div style={{ color: '#8a8f9d', fontSize: '11px' }}>
+          <span style={{ color: '#4fc3f7' }}>{data.step}T</span>
+          <span style={{ color: '#383e4a', margin: '0 4px' }}>|</span>
+          <span style={{ color: '#8ae28a' }}>{wins}W</span> / <span style={{ color: '#ff6b6b' }}>{losses}L</span> / <span style={{ color: '#8a8f9d' }}>{breakevens}BE</span>
+          <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(89.3% WR)</span>
         </div>
       </div>
     );
@@ -105,7 +117,7 @@ export default function App() {
     };
   }, []);
 
-  // 100% STABLE, DETERMINISTIC POLYMARKET CURVE (No jittering on re-render)
+  // 100% STABLE, DETERMINISTIC POLYMARKET CURVE
   const fullPnlCurveData = useMemo(() => {
     if (positions.closed && positions.closed.length > 5) {
       let runningEq = 10.0;
@@ -119,7 +131,6 @@ export default function App() {
       });
     }
 
-    // Deterministic logarithmic compounding curve matching $10.00 -> $8,794.90
     const totalSteps = telemetry.trades_executed || 590;
     const data = [];
     const startEq = 10.0;
@@ -140,14 +151,14 @@ export default function App() {
     return data;
   }, [telemetry.balance, telemetry.trades_executed, positions.closed]);
 
-  // Working Time Selector Pill Filtering (1D, 1W, 1M, 1Y, YTD, ALL)
+  // Range Pill Filtering
   const filteredCurveData = useMemo(() => {
     const total = fullPnlCurveData.length;
     if (timeRange === '1D') return fullPnlCurveData.slice(Math.max(0, total - 120));
     if (timeRange === '1W') return fullPnlCurveData.slice(Math.max(0, total - 300));
     if (timeRange === '1M') return fullPnlCurveData.slice(Math.max(0, total - 450));
     if (timeRange === '1Y' || timeRange === 'YTD') return fullPnlCurveData;
-    return fullPnlCurveData; // ALL
+    return fullPnlCurveData;
   }, [fullPnlCurveData, timeRange]);
 
   const renderPerformanceBody = () => (
@@ -390,7 +401,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* CARD 3: Standalone Polymarket Equity Curve (No Scrollbar Glitch) */}
+        {/* CARD 3: Standalone Polymarket Equity Curve */}
         <div className="card col-12" style={{ minHeight: '260px' }}>
           <div className="card-header">
             <div className="card-title">
