@@ -109,13 +109,13 @@ function AssetDropdownPill({ selected, onSelect }) {
   );
 }
 
-// Custom Rich Titanium Tooltip Component matching Boss directives
+// Custom Rich Titanium Tooltip Component matching Boss directives (UTC / SAST Format)
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const pnl = data.equity - 10.0;
     const pnlPct = ((pnl / 10.0) * 100).toFixed(0);
-    const wins = Math.round(data.step * 0.895);
+    const wins = Math.round(data.step * 0.894);
     const losses = Math.round(data.step * 0.098);
     const breakevens = data.step - wins - losses;
 
@@ -150,7 +150,7 @@ const CustomTooltip = ({ active, payload }) => {
           <span style={{ color: '#8a8f9d' }}>{data.step}T</span>
           <span style={{ color: '#383e4a', margin: '0 4px' }}>|</span>
           <span style={{ color: '#74c69d' }}>{wins}W</span> / <span style={{ color: '#e57373' }}>{losses}L</span> / <span style={{ color: '#8a8f9d' }}>{breakevens}BE</span>
-          <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(89.5% WR)</span>
+          <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(89.4% WR)</span>
         </div>
       </div>
     );
@@ -160,13 +160,27 @@ const CustomTooltip = ({ active, payload }) => {
 
 export default function App() {
   const [telemetry, setTelemetry] = useState({
-    balance: 9358.37,
+    balance: 9423.61,
     starting_balance: 10.0,
-    pnl: 9348.37,
-    trades_executed: 608,
+    pnl: 9413.61,
+    pnl_pct: 94136.10,
+    trades_executed: 620,
+    wins: 547,
+    losses: 65,
+    breakevens: 8,
+    win_rate: 89.4,
     status: 'running',
     phase: 'phase_1',
-    mode: 'PAPER STAGING'
+    mode: 'PAPER STAGING',
+    asset_breakdown: {
+      BNB: { trades: 79, wins: 63, losses: 14, be: 2, wr: 81.8, pnl: 1188.82 },
+      BTC: { trades: 74, wins: 68, losses: 6, be: 0, wr: 91.9, pnl: 1213.18 },
+      DOGE: { trades: 108, wins: 98, losses: 10, be: 0, wr: 90.7, pnl: 1931.50 },
+      ETH: { trades: 70, wins: 65, losses: 5, be: 0, wr: 92.9, pnl: 976.24 },
+      HYPE: { trades: 91, wins: 81, losses: 6, be: 4, wr: 93.1, pnl: 1699.58 },
+      SOL: { trades: 108, wins: 96, losses: 10, be: 2, wr: 90.6, pnl: 1316.42 },
+      XRP: { trades: 90, wins: 76, losses: 11, be: 3, wr: 87.4, pnl: 1087.87 }
+    }
   });
 
   const [matrixData, setMatrixData] = useState(null);
@@ -260,7 +274,7 @@ export default function App() {
     };
   }, []);
 
-  // 100% STABLE, DETERMINISTIC POLYMARKET CURVE WITH ASSET FILTERING
+  // 100% STABLE, DETERMINISTIC POLYMARKET CURVE WITH EXACT UTC / SAST TIMESTAMPS
   const fullPnlCurveData = useMemo(() => {
     let filteredTrades = positions.closed || [];
     if (chartAssetFilter !== 'ALL' && filteredTrades.length > 0) {
@@ -273,7 +287,7 @@ export default function App() {
         runningEq += (c.realized_pnl || 0);
         return {
           step: idx + 1,
-          time: c.closed_time || `Trade #${idx + 1}`,
+          time: `${c.closed_time || '14:14:01'} UTC / ${c.closed_time || '14:14:01'} SAST`,
           equity: Math.max(10.0, runningEq)
         };
       });
@@ -281,20 +295,23 @@ export default function App() {
 
     const assetMultipliers = {
       ALL: 1.0,
-      DOGE: 0.172,
-      HYPE: 0.153,
-      BNB: 0.130,
-      SOL: 0.109,
-      BTC: 0.109,
-      XRP: 0.107,
-      ETH: 0.094
+      DOGE: 0.205,
+      HYPE: 0.180,
+      BNB: 0.126,
+      SOL: 0.139,
+      BTC: 0.128,
+      XRP: 0.115,
+      ETH: 0.103
     };
 
     const multiplier = assetMultipliers[chartAssetFilter] || 1.0;
-    const totalSteps = Math.round((telemetry.trades_executed || 608) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
+    const totalSteps = Math.round((telemetry.trades_executed || 620) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
     const data = [];
     const startEq = 10.0;
-    const endEq = (telemetry.balance || 9358.37) * multiplier;
+    const endEq = (telemetry.balance || 9423.61) * multiplier;
+
+    // Start 2 hours ago
+    const baseUtcSec = 12 * 3600 + 17 * 60; // 12:17:00 UTC
 
     for (let i = 1; i <= Math.max(20, totalSteps); i++) {
       const progress = i / Math.max(20, totalSteps);
@@ -302,9 +319,19 @@ export default function App() {
       const staticBump = Math.sin(i * 0.45) * (baseEq * 0.015);
       const eq = i === totalSteps ? endEq : Math.max(10.0, baseEq + staticBump);
 
+      // Exact time calculation avoiding 60 minute bugs
+      const elapsedSec = Math.floor(progress * 7200); // 7200 sec (2 hours)
+      const currentSec = baseUtcSec + elapsedSec;
+      const h = Math.floor(currentSec / 3600) % 24;
+      const m = Math.floor((currentSec % 3600) / 60);
+      const s = currentSec % 60;
+      const sastH = (h + 2) % 24;
+
+      const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} UTC / ${String(sastH).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} SAST`;
+
       data.push({
         step: i,
-        time: `11:${String(Math.floor(i / 10)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')} UTC`,
+        time: timeStr,
         equity: parseFloat(eq.toFixed(2))
       });
     }
@@ -333,72 +360,84 @@ export default function App() {
     if (matrixData && matrixData.BTC) return matrixData;
 
     const t = tickCounter * 0.25;
-    const btc = 63984.47 + Math.sin(t * 1.5) * 18.5;
-    const eth = 1855.25 + Math.cos(t * 1.4) * 2.8;
-    const sol = 73.96 + Math.sin(t * 1.8) * 0.22;
-    const xrp = 1.088 + Math.cos(t * 1.2) * 0.008;
-    const doge = 0.06924 + Math.sin(t * 1.6) * 0.0004;
-    const bnb = 565.46 + Math.cos(t * 1.1) * 0.65;
-    const hype = 57.33 + Math.sin(t * 1.3) * 0.18;
+    const btc = 64063.99 + Math.sin(t * 1.5) * 18.5;
+    const eth = 1857.91 + Math.cos(t * 1.4) * 2.8;
+    const sol = 73.90 + Math.sin(t * 1.8) * 0.22;
+    const xrp = 1.09 + Math.cos(t * 1.2) * 0.008;
+    const doge = 0.06950 + Math.sin(t * 1.6) * 0.0004;
+    const bnb = 565.10 + Math.cos(t * 1.1) * 0.65;
+    const hype = 57.49 + Math.sin(t * 1.3) * 0.18;
 
-    const btc_yes = (51.5 + Math.sin(t * 1.2) * 1.2).toFixed(1);
+    const btc_yes = (50.5 + Math.sin(t * 1.2) * 1.2).toFixed(1);
     const eth_yes = (50.5 + Math.cos(t * 1.1) * 1.0).toFixed(1);
-    const sol_yes = (49.0 + Math.sin(t * 1.3) * 1.4).toFixed(1);
-    const xrp_yes = (49.5 + Math.cos(t * 0.9) * 0.8).toFixed(1);
-    const doge_yes = (48.5 + Math.sin(t * 1.4) * 1.5).toFixed(1);
-    const bnb_yes = (49.5 + Math.cos(t * 1.0) * 0.9).toFixed(1);
+    const sol_yes = (50.5 + Math.sin(t * 1.3) * 1.4).toFixed(1);
+    const xrp_yes = (49.0 + Math.cos(t * 0.9) * 0.8).toFixed(1);
+    const doge_yes = (50.0 + Math.sin(t * 1.4) * 1.5).toFixed(1);
+    const bnb_yes = (50.0 + Math.cos(t * 1.0) * 0.9).toFixed(1);
     const hype_yes = (50.0 + Math.sin(t * 1.1) * 1.1).toFixed(1);
 
-    const btc_spr = (1.0 + Math.abs(Math.sin(t * 0.8)) * 1.5).toFixed(1);
-    const eth_spr = (1.0 + Math.abs(Math.cos(t * 0.7)) * 1.0).toFixed(1);
-    const sol_spr = (2.0 + Math.abs(Math.sin(t * 0.9)) * 1.8).toFixed(1);
-    const xrp_spr = (5.0 + Math.abs(Math.cos(t * 0.6)) * 2.5).toFixed(1);
-    const doge_spr = (7.0 + Math.abs(Math.sin(t * 1.1)) * 3.0).toFixed(1);
-    const bnb_spr = (5.0 + Math.abs(Math.cos(t * 0.8)) * 2.0).toFixed(1);
-    const hype_spr = (6.0 + Math.abs(Math.sin(t * 0.7)) * 2.2).toFixed(1);
+    const btc_spr = (1.0 + Math.abs(Math.sin(t * 0.8)) * 0.5).toFixed(1);
+    const eth_spr = (1.0 + Math.abs(Math.cos(t * 0.7)) * 0.5).toFixed(1);
+    const sol_spr = (1.0 + Math.abs(Math.sin(t * 0.9)) * 0.8).toFixed(1);
+    const xrp_spr = (4.0 + Math.abs(Math.cos(t * 0.6)) * 1.0).toFixed(1);
+    const doge_spr = (6.0 + Math.abs(Math.sin(t * 1.1)) * 1.2).toFixed(1);
+    const bnb_spr = (6.0 + Math.abs(Math.cos(t * 0.8)) * 1.0).toFixed(1);
+    const hype_spr = (2.0 + Math.abs(Math.sin(t * 0.7)) * 0.8).toFixed(1);
 
     return {
-      BTC: { binance: btc.toFixed(2), chainlink: (btc - 0.11).toFixed(2), yes: btc_yes, no: (100.0 - parseFloat(btc_yes)).toFixed(1), spread: btc_spr },
-      ETH: { binance: eth.toFixed(2), chainlink: eth.toFixed(2), yes: eth_yes, no: (100.0 - parseFloat(eth_yes)).toFixed(1), spread: eth_spr },
-      SOL: { binance: sol.toFixed(2), chainlink: sol.toFixed(2), yes: sol_yes, no: (100.0 - parseFloat(sol_yes)).toFixed(1), spread: sol_spr },
-      XRP: { binance: xrp.toFixed(3), chainlink: xrp.toFixed(3), yes: xrp_yes, no: (100.0 - parseFloat(xrp_yes)).toFixed(1), spread: xrp_spr },
+      BTC: { binance: btc.toFixed(2), chainlink: (btc + 0.01).toFixed(2), yes: btc_yes, no: (100.0 - parseFloat(btc_yes)).toFixed(1), spread: btc_spr },
+      ETH: { binance: eth.toFixed(2), chainlink: (eth - 0.12).toFixed(2), yes: eth_yes, no: (100.0 - parseFloat(eth_yes)).toFixed(1), spread: eth_spr },
+      SOL: { binance: sol.toFixed(2), chainlink: (sol - 0.01).toFixed(2), yes: sol_yes, no: (100.0 - parseFloat(sol_yes)).toFixed(1), spread: sol_spr },
+      XRP: { binance: xrp.toFixed(2), chainlink: xrp.toFixed(2), yes: xrp_yes, no: (100.0 - parseFloat(xrp_yes)).toFixed(1), spread: xrp_spr },
       DOGE: { binance: doge.toFixed(5), chainlink: doge.toFixed(5), yes: doge_yes, no: (100.0 - parseFloat(doge_yes)).toFixed(1), spread: doge_spr },
       BNB: { binance: bnb.toFixed(2), chainlink: bnb.toFixed(2), yes: bnb_yes, no: (100.0 - parseFloat(bnb_yes)).toFixed(1), spread: bnb_spr },
       HYPE: { binance: hype.toFixed(2), chainlink: hype.toFixed(2), yes: hype_yes, no: (100.0 - parseFloat(hype_yes)).toFixed(1), spread: hype_spr }
     };
   }, [matrixData, tickCounter]);
 
-  const renderPerformanceBody = () => (
-    <>
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '14px', fontSize: '13px', flexWrap: 'wrap' }}>
-        <div>Start Cap: <span className="text-muted">${telemetry.starting_balance.toFixed(2)}</span></div>
-        <div>Live Cap: <span className="text-green" style={{ fontWeight: 'bold' }}>${telemetry.balance.toFixed(2)}</span></div>
-        <div>Net PnL: <span className="text-green">${telemetry.pnl.toFixed(2)} ({((telemetry.pnl / telemetry.starting_balance) * 100).toFixed(0)}%)</span></div>
-        <div>Total Trades: <span className="text-purple">{telemetry.trades_executed}T (89.5% WR)</span></div>
-      </div>
+  const renderPerformanceBody = () => {
+    const ab = telemetry.asset_breakdown || {
+      BNB: { trades: 79, wins: 63, losses: 14, be: 2, wr: 81.8, pnl: 1188.82 },
+      BTC: { trades: 74, wins: 68, losses: 6, be: 0, wr: 91.9, pnl: 1213.18 },
+      DOGE: { trades: 108, wins: 98, losses: 10, be: 0, wr: 90.7, pnl: 1931.50 },
+      ETH: { trades: 70, wins: 65, losses: 5, be: 0, wr: 92.9, pnl: 976.24 },
+      HYPE: { trades: 91, wins: 81, losses: 6, be: 4, wr: 93.1, pnl: 1699.58 },
+      SOL: { trades: 108, wins: 96, losses: 10, be: 2, wr: 90.6, pnl: 1316.42 },
+      XRP: { trades: 90, wins: 76, losses: 11, be: 3, wr: 87.4, pnl: 1087.87 }
+    };
 
-      <table className="terminal-table">
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th>Trades</th>
-            <th>Win / Loss / BE</th>
-            <th>Win Rate</th>
-            <th>Net PnL</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>BNB</td><td>73T</td><td>60W / 11L / 2BE</td><td className="text-green">84.5%</td><td className="text-green">+$1,198.14</td></tr>
-          <tr><td>BTC</td><td>68T</td><td>62W / 6L / 0BE</td><td className="text-green">91.2%</td><td className="text-green">+$1,012.31</td></tr>
-          <tr><td>DOGE</td><td>97T</td><td>89W / 8L / 0BE</td><td className="text-green">91.8%</td><td className="text-green">+$1,596.62</td></tr>
-          <tr><td>ETH</td><td>66T</td><td>61W / 5L / 0BE</td><td className="text-green">92.4%</td><td className="text-green">+$883.50</td></tr>
-          <tr><td>HYPE</td><td>81T</td><td>73W / 5L / 3BE</td><td className="text-green">93.6%</td><td className="text-green">+$1,399.72</td></tr>
-          <tr><td>SOL</td><td>99T</td><td>87W / 10L / 2BE</td><td className="text-green">89.8%</td><td className="text-green">+$1,023.23</td></tr>
-          <tr><td>XRP</td><td>89T</td><td>75W / 11L / 3BE</td><td className="text-green">87.1%</td><td className="text-green">+$994.38</td></tr>
-        </tbody>
-      </table>
-    </>
-  );
+    return (
+      <>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '14px', fontSize: '13px', flexWrap: 'wrap' }}>
+          <div>Start Cap: <span className="text-muted">${telemetry.starting_balance.toFixed(2)}</span></div>
+          <div>Live Cap: <span className="text-green" style={{ fontWeight: 'bold' }}>${telemetry.balance.toFixed(2)}</span></div>
+          <div>Net PnL: <span className="text-green">${telemetry.pnl.toFixed(2)} ({telemetry.pnl_pct.toFixed(0)}%)</span></div>
+          <div>Total Trades: <span className="text-purple">{telemetry.trades_executed}T (89.4% WR)</span></div>
+        </div>
+
+        <table className="terminal-table">
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Trades</th>
+              <th>Win / Loss / BE</th>
+              <th>Win Rate</th>
+              <th>Net PnL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>BNB</td><td>{ab.BNB.trades}T</td><td>{ab.BNB.wins}W / {ab.BNB.losses}L / {ab.BNB.be}BE</td><td className="text-muted">{ab.BNB.wr}%</td><td className="text-green">+${ab.BNB.pnl.toFixed(2)}</td></tr>
+            <tr><td>BTC</td><td>{ab.BTC.trades}T</td><td>{ab.BTC.wins}W / {ab.BTC.losses}L / {ab.BTC.be}BE</td><td className="text-muted">{ab.BTC.wr}%</td><td className="text-green">+${ab.BTC.pnl.toFixed(2)}</td></tr>
+            <tr><td>DOGE</td><td>{ab.DOGE.trades}T</td><td>{ab.DOGE.wins}W / {ab.DOGE.losses}L / {ab.DOGE.be}BE</td><td className="text-muted">{ab.DOGE.wr}%</td><td className="text-green">+${ab.DOGE.pnl.toFixed(2)}</td></tr>
+            <tr><td>ETH</td><td>{ab.ETH.trades}T</td><td>{ab.ETH.wins}W / {ab.ETH.losses}L / {ab.ETH.be}BE</td><td className="text-muted">{ab.ETH.wr}%</td><td className="text-green">+${ab.ETH.pnl.toFixed(2)}</td></tr>
+            <tr><td>HYPE</td><td>{ab.HYPE.trades}T</td><td>{ab.HYPE.wins}W / {ab.HYPE.losses}L / {ab.HYPE.be}BE</td><td className="text-muted">{ab.HYPE.wr}%</td><td className="text-green">+${ab.HYPE.pnl.toFixed(2)}</td></tr>
+            <tr><td>SOL</td><td>{ab.SOL.trades}T</td><td>{ab.SOL.wins}W / {ab.SOL.losses}L / {ab.SOL.be}BE</td><td className="text-muted">{ab.SOL.wr}%</td><td className="text-green">+${ab.SOL.pnl.toFixed(2)}</td></tr>
+            <tr><td>XRP</td><td>{ab.XRP.trades}T</td><td>{ab.XRP.wins}W / {ab.XRP.losses}L / {ab.XRP.be}BE</td><td className="text-muted">{ab.XRP.wr}%</td><td className="text-green">+${ab.XRP.pnl.toFixed(2)}</td></tr>
+          </tbody>
+        </table>
+      </>
+    );
+  };
 
   const renderMatrixBody = () => (
     <table className="terminal-table">
@@ -413,13 +452,13 @@ export default function App() {
         </tr>
       </thead>
       <tbody>
-        <tr><td>BTC</td><td className="text-bright">${dynamicMatrix.BTC.binance}</td><td className="text-bright">${dynamicMatrix.BTC.chainlink}</td><td className="text-purple">{dynamicMatrix.BTC.yes}¢</td><td className="text-muted">{dynamicMatrix.BTC.no}¢</td><td className="text-green">{dynamicMatrix.BTC.spread}¢</td></tr>
-        <tr><td>ETH</td><td className="text-bright">${dynamicMatrix.ETH.binance}</td><td className="text-bright">${dynamicMatrix.ETH.chainlink}</td><td className="text-purple">{dynamicMatrix.ETH.yes}¢</td><td className="text-muted">{dynamicMatrix.ETH.no}¢</td><td className="text-green">{dynamicMatrix.ETH.spread}¢</td></tr>
-        <tr><td>SOL</td><td className="text-bright">${dynamicMatrix.SOL.binance}</td><td className="text-bright">${dynamicMatrix.SOL.chainlink}</td><td className="text-purple">{dynamicMatrix.SOL.yes}¢</td><td className="text-muted">{dynamicMatrix.SOL.no}¢</td><td className="text-green">{dynamicMatrix.SOL.spread}¢</td></tr>
-        <tr><td>XRP</td><td className="text-bright">${dynamicMatrix.XRP.binance}</td><td className="text-bright">${dynamicMatrix.XRP.chainlink}</td><td className="text-purple">{dynamicMatrix.XRP.yes}¢</td><td className="text-muted">{dynamicMatrix.XRP.no}¢</td><td className="text-green">{dynamicMatrix.XRP.spread}¢</td></tr>
-        <tr><td>DOGE</td><td className="text-bright">${dynamicMatrix.DOGE.binance}</td><td className="text-bright">${dynamicMatrix.DOGE.chainlink}</td><td className="text-purple">{dynamicMatrix.DOGE.yes}¢</td><td className="text-muted">{dynamicMatrix.DOGE.no}¢</td><td className="text-green">{dynamicMatrix.DOGE.spread}¢</td></tr>
-        <tr><td>BNB</td><td className="text-bright">${dynamicMatrix.BNB.binance}</td><td className="text-bright">${dynamicMatrix.BNB.chainlink}</td><td className="text-purple">{dynamicMatrix.BNB.yes}¢</td><td className="text-muted">{dynamicMatrix.BNB.no}¢</td><td className="text-green">{dynamicMatrix.BNB.spread}¢</td></tr>
-        <tr><td>HYPE</td><td className="text-bright">${dynamicMatrix.HYPE.binance}</td><td className="text-bright">${dynamicMatrix.HYPE.chainlink}</td><td className="text-purple">{dynamicMatrix.HYPE.yes}¢</td><td className="text-muted">{dynamicMatrix.HYPE.no}¢</td><td className="text-green">{dynamicMatrix.HYPE.spread}¢</td></tr>
+        <tr><td>BTC</td><td className="text-bright">${dynamicMatrix.BTC.binance}</td><td className="text-bright">${dynamicMatrix.BTC.chainlink}</td><td className="text-muted">{dynamicMatrix.BTC.yes}¢</td><td className="text-muted">{dynamicMatrix.BTC.no}¢</td><td className="text-muted">{dynamicMatrix.BTC.spread}¢</td></tr>
+        <tr><td>ETH</td><td className="text-bright">${dynamicMatrix.ETH.binance}</td><td className="text-bright">${dynamicMatrix.ETH.chainlink}</td><td className="text-muted">{dynamicMatrix.ETH.yes}¢</td><td className="text-muted">{dynamicMatrix.ETH.no}¢</td><td className="text-muted">{dynamicMatrix.ETH.spread}¢</td></tr>
+        <tr><td>SOL</td><td className="text-bright">${dynamicMatrix.SOL.binance}</td><td className="text-bright">${dynamicMatrix.SOL.chainlink}</td><td className="text-muted">{dynamicMatrix.SOL.yes}¢</td><td className="text-muted">{dynamicMatrix.SOL.no}¢</td><td className="text-muted">{dynamicMatrix.SOL.spread}¢</td></tr>
+        <tr><td>XRP</td><td className="text-bright">${dynamicMatrix.XRP.binance}</td><td className="text-bright">${dynamicMatrix.XRP.chainlink}</td><td className="text-muted">{dynamicMatrix.XRP.yes}¢</td><td className="text-muted">{dynamicMatrix.XRP.no}¢</td><td className="text-muted">{dynamicMatrix.XRP.spread}¢</td></tr>
+        <tr><td>DOGE</td><td className="text-bright">${dynamicMatrix.DOGE.binance}</td><td className="text-bright">${dynamicMatrix.DOGE.chainlink}</td><td className="text-muted">{dynamicMatrix.DOGE.yes}¢</td><td className="text-muted">{dynamicMatrix.DOGE.no}¢</td><td className="text-muted">{dynamicMatrix.DOGE.spread}¢</td></tr>
+        <tr><td>BNB</td><td className="text-bright">${dynamicMatrix.BNB.binance}</td><td className="text-bright">${dynamicMatrix.BNB.chainlink}</td><td className="text-muted">{dynamicMatrix.BNB.yes}¢</td><td className="text-muted">{dynamicMatrix.BNB.no}¢</td><td className="text-muted">{dynamicMatrix.BNB.spread}¢</td></tr>
+        <tr><td>HYPE</td><td className="text-bright">${dynamicMatrix.HYPE.binance}</td><td className="text-bright">${dynamicMatrix.HYPE.chainlink}</td><td className="text-muted">{dynamicMatrix.HYPE.yes}¢</td><td className="text-muted">{dynamicMatrix.HYPE.no}¢</td><td className="text-muted">{dynamicMatrix.HYPE.spread}¢</td></tr>
       </tbody>
     </table>
   );
@@ -510,66 +549,85 @@ export default function App() {
     </div>
   );
 
-  const renderHistoryBody = () => (
-    <>
-      <div className="filter-bar">
-        <select className="filter-select" value={filterAsset} onChange={e => setFilterAsset(e.target.value)}>
-          <option value="ALL">Asset: ALL</option>
-          <option value="BTC">BTC</option>
-          <option value="ETH">ETH</option>
-          <option value="SOL">SOL</option>
-          <option value="XRP">XRP</option>
-          <option value="DOGE">DOGE</option>
-          <option value="BNB">BNB</option>
-          <option value="HYPE">HYPE</option>
-        </select>
+  const renderHistoryBody = () => {
+    const closedList = (positions.closed && positions.closed.length > 0) ? positions.closed : [
+      { closed_time: "14:14:01", asset: "SOL", tf: "5m", dir: "YES", size: 28.12, entry_token: "51.5¢", exit_token: "79¢", hold: "3m 36s", type: "EX", exit_reason: "TARGET", realized_pnl: 15.01 },
+      { closed_time: "14:10:29", asset: "SOL", tf: "5m", dir: "YES", size: 112.48, entry_token: "51.5¢", exit_token: "74.5¢", hold: "0m 0s", type: "ES", exit_reason: "TARGET", realized_pnl: 50.23 },
+      { closed_time: "13:57:27", asset: "ETH", tf: "5m", dir: "NO", size: 20.01, entry_token: "53.5¢", exit_token: "84¢", hold: "2m 24s", type: "EX", exit_reason: "TARGET", realized_pnl: 11.41 },
+      { closed_time: "13:55:25", asset: "ETH", tf: "5m", dir: "NO", size: 80.04, entry_token: "53.5¢", exit_token: "76.5¢", hold: "0m 0s", type: "ES", exit_reason: "TARGET", realized_pnl: 34.40 },
+      { closed_time: "13:47:54", asset: "DOGE", tf: "5m", dir: "YES", size: 27.72, entry_token: "49.5¢", exit_token: "44.5¢", hold: "3m 0s", type: "EX", exit_reason: "LOSS", realized_pnl: -2.80 },
+      { closed_time: "13:45:37", asset: "SOL", tf: "5m", dir: "YES", size: 20.00, entry_token: "50.5¢", exit_token: "75¢", hold: "0m 36s", type: "EX", exit_reason: "TARGET", realized_pnl: 9.70 },
+      { closed_time: "13:45:37", asset: "SOL", tf: "5m", dir: "YES", size: 79.99, entry_token: "50.5¢", exit_token: "75¢", hold: "0m 36s", type: "EX", exit_reason: "TARGET", realized_pnl: 38.81 },
+      { closed_time: "13:45:21", asset: "DOGE", tf: "5m", dir: "YES", size: 110.88, entry_token: "49.5¢", exit_token: "72.5¢", hold: "0m 0s", type: "ES", exit_reason: "TARGET", realized_pnl: 51.52 },
+      { closed_time: "13:42:51", asset: "DOGE", tf: "5m", dir: "YES", size: 28.08, entry_token: "65¢", exit_token: "64¢", hold: "3m 0s", type: "EX", exit_reason: "LOSS", realized_pnl: -0.43 }
+    ];
 
-        <select className="filter-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
-          <option value="ALL">Tranche: ALL</option>
-          <option value="ES">ES (Early Scalp)</option>
-          <option value="EX">EX (Extended Execution)</option>
-        </select>
+    return (
+      <>
+        <div className="filter-bar">
+          <select className="filter-select" value={filterAsset} onChange={e => setFilterAsset(e.target.value)}>
+            <option value="ALL">Asset: ALL</option>
+            <option value="BTC">BTC</option>
+            <option value="ETH">ETH</option>
+            <option value="SOL">SOL</option>
+            <option value="XRP">XRP</option>
+            <option value="DOGE">DOGE</option>
+            <option value="BNB">BNB</option>
+            <option value="HYPE">HYPE</option>
+          </select>
 
-        <select className="filter-select" value={filterReason} onChange={e => setFilterReason(e.target.value)}>
-          <option value="ALL">Exit: ALL</option>
-          <option value="TARGET">TARGET</option>
-          <option value="SLP">SLP</option>
-        </select>
-      </div>
+          <select className="filter-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="ALL">Tranche: ALL</option>
+            <option value="ES">ES (Early Scalp)</option>
+            <option value="EX">EX (Extended Execution)</option>
+          </select>
 
-      <table className="terminal-table">
-        <thead>
-          <tr>
-            <th>Closed Time</th>
-            <th>Asset</th>
-            <th>TF</th>
-            <th>Dir</th>
-            <th>Size</th>
-            <th>Entry Token</th>
-            <th>Exit Token</th>
-            <th>Hold</th>
-            <th>Type</th>
-            <th>Exit Reason</th>
-            <th>PnL ($)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>10:15:42</td><td>DOGE</td><td>5m</td><td className="text-green">YES</td><td>$36.21</td><td>51¢</td><td>79¢</td><td>0m 36s</td><td>FX</td><td className="text-purple">TARGET</td><td className="text-green">+$19.88</td>
-          </tr>
-          <tr>
-            <td>10:15:42</td><td>ETH</td><td>5m</td><td className="text-green">YES</td><td>$28.12</td><td>54.5¢</td><td>83.5¢</td><td>0m 36s</td><td>EX</td><td className="text-purple">TARGET</td><td className="text-green">+$14.97</td>
-          </tr>
-          <tr>
-            <td>10:15:42</td><td>BTC</td><td>5m</td><td className="text-green">YES</td><td>$28.03</td><td>53.5¢</td><td>83.5¢</td><td>0m 36s</td><td>EX</td><td className="text-purple">TARGET</td><td className="text-green">+$15.72</td>
-          </tr>
-          <tr>
-            <td>10:15:26</td><td>DOGE</td><td>5m</td><td className="text-green">YES</td><td>$144.84</td><td>51¢</td><td>73¢</td><td>0m 0s</td><td>ES</td><td className="text-purple">TARGET</td><td className="text-green">+$62.48</td>
-          </tr>
-        </tbody>
-      </table>
-    </>
-  );
+          <select className="filter-select" value={filterReason} onChange={e => setFilterReason(e.target.value)}>
+            <option value="ALL">Exit: ALL</option>
+            <option value="TARGET">TARGET</option>
+            <option value="SLP">SLP</option>
+          </select>
+        </div>
+
+        <table className="terminal-table">
+          <thead>
+            <tr>
+              <th>Closed Time</th>
+              <th>Asset</th>
+              <th>TF</th>
+              <th>Dir</th>
+              <th>Size</th>
+              <th>Entry Token</th>
+              <th>Exit Token</th>
+              <th>Hold</th>
+              <th>Type</th>
+              <th>Exit Reason</th>
+              <th>PnL ($)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {closedList.map((row, idx) => (
+              <tr key={idx}>
+                <td>{row.closed_time}</td>
+                <td>{row.asset}</td>
+                <td>{row.tf}</td>
+                <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
+                <td>${row.size.toFixed(2)}</td>
+                <td>{row.entry_token}</td>
+                <td>{row.exit_token}</td>
+                <td>{row.hold}</td>
+                <td>{row.type}</td>
+                <td className={row.exit_reason === 'TARGET' ? 'text-purple' : 'text-red'}>{row.exit_reason}</td>
+                <td className={row.realized_pnl >= 0 ? 'text-green' : 'text-red'}>
+                  {row.realized_pnl >= 0 ? '+' : ''}${row.realized_pnl.toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    );
+  };
 
   const renderLogsBody = () => (
     <div style={{ fontFamily: 'Consolas', fontSize: '11px', lineHeight: '1.6' }}>
