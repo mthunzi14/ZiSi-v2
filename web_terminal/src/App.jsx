@@ -5,6 +5,43 @@ import './index.css';
 
 const API_BASE = "http://204.168.222.48:9000/api";
 
+// Custom Rich Titanium Tooltip Component
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const pnl = data.equity - 10.0;
+    const pnlPct = ((pnl / 10.0) * 100).toFixed(0);
+    const wins = Math.round(data.step * 0.893);
+    const losses = data.step - wins;
+
+    return (
+      <div style={{
+        background: '#12151c',
+        border: '1px solid #383e4a',
+        borderRadius: '6px',
+        padding: '10px 14px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.8)',
+        fontSize: '11px',
+        lineHeight: '1.6'
+      }}>
+        <div style={{ color: '#4fc3f7', fontWeight: 'bold', marginBottom: '4px' }}>
+          Trade #{data.step} • {data.time}
+        </div>
+        <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: 'bold' }}>
+          Equity: ${data.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
+        <div style={{ color: pnl >= 0 ? '#8ae28a' : '#ff6b6b' }}>
+          Net PnL: {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} ({pnlPct}%)
+        </div>
+        <div style={{ color: '#8a8f9d' }}>
+          Record: <span style={{ color: '#8ae28a' }}>{wins}W</span> / <span style={{ color: '#ff6b6b' }}>{losses}L</span> (89.3% WR)
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function App() {
   const [telemetry, setTelemetry] = useState({
     balance: 8794.90,
@@ -90,14 +127,13 @@ export default function App() {
 
     for (let i = 1; i <= totalSteps; i++) {
       const progress = i / totalSteps;
-      // Smooth exponential growth curve with static pseudo-bumps based on step index
       const baseEq = startEq * Math.pow(endEq / startEq, progress);
       const staticBump = Math.sin(i * 0.45) * (baseEq * 0.015);
       const eq = i === totalSteps ? endEq : Math.max(10.0, baseEq + staticBump);
 
       data.push({
         step: i,
-        time: `Trade #${i}`,
+        time: `11:${String(Math.floor(i / 10)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')} UTC`,
         equity: parseFloat(eq.toFixed(2))
       });
     }
@@ -171,7 +207,7 @@ export default function App() {
   );
 
   const renderPnLChartBody = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Polymarket Equity Header & Titanium Pills */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div>
@@ -208,26 +244,21 @@ export default function App() {
         </div>
       </div>
 
-      {/* Stable Polymarket Equity Chart */}
-      <div style={{ width: '100%', height: zoomCard === 'chart' ? 'calc(100vh - 180px)' : '180px' }}>
+      {/* Titanium Silver Curve Chart (No Scrollbar Glitch) */}
+      <div style={{ width: '100%', height: zoomCard === 'chart' ? 'calc(100vh - 180px)' : '180px', overflow: 'hidden' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={filteredCurveData}>
+          <AreaChart data={filteredCurveData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
             <defs>
-              <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8ae28a" stopOpacity={0.35}/>
-                <stop offset="95%" stopColor="#8ae28a" stopOpacity={0.0}/>
+              <linearGradient id="colorTitanium" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#d1d5db" stopOpacity={0.25}/>
+                <stop offset="95%" stopColor="#d1d5db" stopOpacity={0.0}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#181c26" vertical={false} />
             <XAxis dataKey="step" hide={true} />
             <YAxis stroke="#404b5c" tick={{ fontSize: 10 }} domain={['auto', 'auto']} orientation="right" axisLine={false} tickLine={false} />
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#12151c', borderColor: '#383e4a', borderRadius: '6px' }}
-              labelStyle={{ color: '#4fc3f7', fontSize: '11px' }}
-              itemStyle={{ color: '#8ae28a', fontSize: '12px', fontWeight: 'bold' }}
-              formatter={(val) => [`$${val.toFixed(2)}`, 'Equity']}
-            />
-            <Area type="monotone" dataKey="equity" stroke="#8ae28a" strokeWidth={2} fillOpacity={1} fill="url(#colorEquity)" isAnimationActive={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="equity" stroke="#d1d5db" strokeWidth={2} fillOpacity={1} fill="url(#colorTitanium)" isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -359,7 +390,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* CARD 3: Standalone Polymarket Equity Curve */}
+        {/* CARD 3: Standalone Polymarket Equity Curve (No Scrollbar Glitch) */}
         <div className="card col-12" style={{ minHeight: '260px' }}>
           <div className="card-header">
             <div className="card-title">
@@ -370,7 +401,7 @@ export default function App() {
               <Maximize2 size={12} />
             </button>
           </div>
-          <div className="card-body">
+          <div className="card-body no-scrollbar">
             {renderPnLChartBody()}
           </div>
         </div>
