@@ -131,7 +131,7 @@ const CustomTooltip = ({ active, payload }) => {
       }}>
         <div style={{ marginBottom: '4px' }}>
           <span style={{ color: '#8a8f9d', fontWeight: 'bold' }}>Trade #{data.step}</span>
-          <span style={{ color: '#383e4a', margin: '0 6px' }}>•</span>
+          <span style={{ color: '#383e4a', margin: '0 6px' }}>|</span>
           <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{data.time}</span>
         </div>
         <div style={{ marginBottom: '3px' }}>
@@ -160,15 +160,16 @@ const CustomTooltip = ({ active, payload }) => {
 
 export default function App() {
   const [telemetry, setTelemetry] = useState({
-    balance: 8794.90,
+    balance: 9304.50,
     starting_balance: 10.0,
-    pnl: 8784.90,
-    trades_executed: 590,
+    pnl: 9294.50,
+    trades_executed: 604,
     status: 'running',
     phase: 'phase_1',
     mode: 'PAPER STAGING'
   });
 
+  const [matrixData, setMatrixData] = useState(null);
   const [positions, setPositions] = useState({ active: [], closed: [], summary: {} });
   const [logs, setLogs] = useState([]);
   const [zoomCard, setZoomCard] = useState(null);
@@ -180,20 +181,21 @@ export default function App() {
   const [filterReason, setFilterReason] = useState('ALL');
 
   // Dynamic Live Clocks & Engine State
-  const [sastDateTime, setSastDateTime] = useState('');
+  const [timeDateStr, setTimeDateStr] = useState('');
   const [candleCountdown, setCandleCountdown] = useState('04:59');
-  const [uptimeStr, setUptimeStr] = useState('1d 2h 45m');
+  const [uptimeStr, setUptimeStr] = useState('1d 2h 50m');
 
   useEffect(() => {
-    const startTime = Date.now() - (25 * 3600 * 1000 + 104 * 60 * 1000);
+    const startTime = Date.now() - (25 * 3600 * 1000 + 110 * 60 * 1000);
 
     const updateClocks = () => {
       const now = new Date();
       
-      // Combined SAST + Date & Location (No UTC)
-      const sastTime = now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Johannesburg' });
+      // UTC & SAST Clocks + Date & Location (No brackets around Johannesburg)
+      const utcTime = now.toUTCString().slice(17, 25) + ' UTC';
+      const sastTime = now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Johannesburg' }) + ' SAST';
       const dateStr = now.toISOString().slice(0, 10);
-      const sastCombined = `${sastTime} • ${dateStr} (Johannesburg)`;
+      const combined = `${utcTime} | ${sastTime} | ${dateStr} Johannesburg`;
       
       // 5m Candle Countdown
       const secIn5m = 300 - ((Math.floor(now.getTime() / 1000)) % 300);
@@ -208,7 +210,7 @@ export default function App() {
       const mins = Math.floor((diffMs / (1000 * 60)) % 60);
       const uptime = `${days}d ${hours}h ${mins}m`;
 
-      setSastDateTime(sastCombined);
+      setTimeDateStr(combined);
       setCandleCountdown(candleStr);
       setUptimeStr(uptime);
     };
@@ -216,10 +218,12 @@ export default function App() {
     updateClocks();
     const clockInterval = setInterval(updateClocks, 1000);
 
+    // INSTANT 250MS (4HZ) LIVE TICK-FOR-TICK STREAMING
     const fetchData = async () => {
       try {
-        const [telRes, posRes, logRes] = await Promise.all([
+        const [telRes, matRes, posRes, logRes] = await Promise.all([
           fetch(`${API_BASE}/telemetry`),
+          fetch(`${API_BASE}/matrix`),
           fetch(`${API_BASE}/positions`),
           fetch(`${API_BASE}/logs?limit=100`)
         ]);
@@ -227,6 +231,10 @@ export default function App() {
         if (telRes.ok) {
           const tData = await telRes.json();
           if (tData.balance) setTelemetry(tData);
+        }
+        if (matRes.ok) {
+          const mData = await matRes.json();
+          setMatrixData(mData);
         }
         if (posRes.ok) {
           const pData = await posRes.json();
@@ -237,12 +245,12 @@ export default function App() {
           if (lData.logs) setLogs(lData.logs);
         }
       } catch (err) {
-        console.warn("Using offline/cached telemetry state");
+        console.warn("Using offline telemetry stream");
       }
     };
 
     fetchData();
-    const dataInterval = setInterval(fetchData, 2000);
+    const dataInterval = setInterval(fetchData, 250);
 
     return () => {
       clearInterval(clockInterval);
@@ -281,10 +289,10 @@ export default function App() {
     };
 
     const multiplier = assetMultipliers[chartAssetFilter] || 1.0;
-    const totalSteps = Math.round((telemetry.trades_executed || 590) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
+    const totalSteps = Math.round((telemetry.trades_executed || 604) * (chartAssetFilter === 'ALL' ? 1 : 0.14));
     const data = [];
     const startEq = 10.0;
-    const endEq = (telemetry.balance || 8794.90) * multiplier;
+    const endEq = (telemetry.balance || 9304.50) * multiplier;
 
     for (let i = 1; i <= Math.max(20, totalSteps); i++) {
       const progress = i / Math.max(20, totalSteps);
@@ -350,29 +358,41 @@ export default function App() {
     </>
   );
 
-  const renderMatrixBody = () => (
-    <table className="terminal-table">
-      <thead>
-        <tr>
-          <th>Asset</th>
-          <th>Binance</th>
-          <th>Chainlink</th>
-          <th>YES</th>
-          <th>NO</th>
-          <th>Spread</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>BTC</td><td>$63,996.96</td><td>$63,996.85</td><td>51.5¢</td><td>48.5¢</td><td>1.0¢</td></tr>
-        <tr><td>ETH</td><td>$1,855.66</td><td>$1,855.66</td><td>50.5¢</td><td>49.5¢</td><td>1.0¢</td></tr>
-        <tr><td>SOL</td><td>$73.84</td><td>$73.84</td><td>49.0¢</td><td>51.0¢</td><td>2.0¢</td></tr>
-        <tr><td>XRP</td><td>$1.09</td><td>$1.09</td><td>49.5¢</td><td>50.5¢</td><td>5.0¢</td></tr>
-        <tr><td>DOGE</td><td>$0.06942</td><td>$0.06942</td><td>48.5¢</td><td>51.5¢</td><td>7.0¢</td></tr>
-        <tr><td>BNB</td><td>$565.21</td><td>$565.21</td><td>49.5¢</td><td>50.5¢</td><td>5.0¢</td></tr>
-        <tr><td>HYPE</td><td>$57.26</td><td>$57.26</td><td>50.0¢</td><td>50.0¢</td><td>6.0¢</td></tr>
-      </tbody>
-    </table>
-  );
+  const renderMatrixBody = () => {
+    const m = matrixData || {
+      BTC: { binance: 63996.96, chainlink: 63996.85, yes: 51.5, no: 48.5, spread: 1.0 },
+      ETH: { binance: 1855.66, chainlink: 1855.66, yes: 50.5, no: 49.5, spread: 1.0 },
+      SOL: { binance: 73.84, chainlink: 73.84, yes: 49.0, no: 51.0, spread: 2.0 },
+      XRP: { binance: 1.09, chainlink: 1.09, yes: 49.5, no: 50.5, spread: 5.0 },
+      DOGE: { binance: 0.06942, chainlink: 0.06942, yes: 48.5, no: 51.5, spread: 7.0 },
+      BNB: { binance: 565.21, chainlink: 565.21, yes: 49.5, no: 50.5, spread: 5.0 },
+      HYPE: { binance: 57.26, chainlink: 57.26, yes: 50.0, no: 50.0, spread: 6.0 }
+    };
+
+    return (
+      <table className="terminal-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Binance</th>
+            <th>Chainlink</th>
+            <th>YES</th>
+            <th>NO</th>
+            <th>Spread</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>BTC</td><td>${m.BTC.binance.toLocaleString()}</td><td>${m.BTC.chainlink.toLocaleString()}</td><td>{m.BTC.yes}¢</td><td>{m.BTC.no}¢</td><td>{m.BTC.spread}¢</td></tr>
+          <tr><td>ETH</td><td>${m.ETH.binance.toLocaleString()}</td><td>${m.ETH.chainlink.toLocaleString()}</td><td>{m.ETH.yes}¢</td><td>{m.ETH.no}¢</td><td>{m.ETH.spread}¢</td></tr>
+          <tr><td>SOL</td><td>${m.SOL.binance}</td><td>${m.SOL.chainlink}</td><td>{m.SOL.yes}¢</td><td>{m.SOL.no}¢</td><td>{m.SOL.spread}¢</td></tr>
+          <tr><td>XRP</td><td>${m.XRP.binance}</td><td>${m.XRP.chainlink}</td><td>{m.XRP.yes}¢</td><td>{m.XRP.no}¢</td><td>{m.XRP.spread}¢</td></tr>
+          <tr><td>DOGE</td><td>${m.DOGE.binance}</td><td>${m.DOGE.chainlink}</td><td>{m.DOGE.yes}¢</td><td>{m.DOGE.no}¢</td><td>{m.DOGE.spread}¢</td></tr>
+          <tr><td>BNB</td><td>${m.BNB.binance}</td><td>${m.BNB.chainlink}</td><td>{m.BNB.yes}¢</td><td>{m.BNB.no}¢</td><td>{m.BNB.spread}¢</td></tr>
+          <tr><td>HYPE</td><td>${m.HYPE.binance}</td><td>${m.HYPE.chainlink}</td><td>{m.HYPE.yes}¢</td><td>{m.HYPE.no}¢</td><td>{m.HYPE.spread}¢</td></tr>
+        </tbody>
+      </table>
+    );
+  };
 
   const renderPnLChartBody = () => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -388,8 +408,17 @@ export default function App() {
           <div style={{ fontSize: '11px', color: '#78909c' }}>{timeRange === 'ALL' ? 'All-Time' : timeRange}</div>
         </div>
 
-        {/* Asset Dropdown & Time Range Controls Container */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#0f1218', padding: '3px', borderRadius: '20px', border: '1px solid #262930' }}>
+        {/* Asset Dropdown & Time Range Controls Container with Permanent Subtle Silver Glow */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          background: '#0f1218',
+          padding: '3px',
+          borderRadius: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.16)',
+          boxShadow: '0 0 10px rgba(255, 255, 255, 0.08)'
+        }}>
           {/* Custom Glassmorphic Asset Dropdown Pill */}
           <AssetDropdownPill selected={chartAssetFilter} onSelect={setChartAssetFilter} />
 
@@ -528,7 +557,7 @@ export default function App() {
 
   return (
     <div className="terminal-container">
-      {/* Dynamic Sticky Top Home Panel (Combined SAST + Date/Location, No UTC) */}
+      {/* Dynamic Sticky Top Home Panel (Time/Date: UTC | SAST | Date Location Format) */}
       <header className="terminal-header">
         <div className="header-title">
           <Activity size={18} className="text-green" />
@@ -544,7 +573,7 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#8a8f9d', flexWrap: 'wrap' }}>
-          <span>SAST: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{sastDateTime}</span></span>
+          <span>Time/Date: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{timeDateStr}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
           <span>5m Candle: <span style={{ color: '#d8b4fe', fontWeight: 'bold' }}>{candleCountdown}</span></span>
           <span style={{ color: '#383e4a' }}>|</span>
