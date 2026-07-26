@@ -269,7 +269,7 @@ export default function App() {
         runningEq += (c.realized_pnl || 0);
         return {
           step: idx + 1,
-          time: `${c.closed_time || ''} UTC`,
+          time: `${c.closed_time || ''}`,
           equity: Math.max(10.0, runningEq)
         };
       });
@@ -282,7 +282,7 @@ export default function App() {
           if (telemetry.trades_executed > points.length) {
             points.push({
               step: telemetry.trades_executed,
-              time: 'LIVE UTC',
+              time: 'LIVE SAST',
               equity: telemetry.balance
             });
           }
@@ -294,7 +294,7 @@ export default function App() {
     if (equityHistory.length > 0) {
       return equityHistory.map((pt, idx) => ({
         step: idx + 1,
-        time: `${pt.timestamp.slice(11, 19)} UTC`,
+        time: `${pt.timestamp.slice(11, 19)} SAST`,
         equity: pt.balance
       }));
     }
@@ -318,7 +318,7 @@ export default function App() {
       const s = currentSec % 60;
       const sastH = (h + 2) % 24;
 
-      const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} UTC / ${String(sastH).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} SAST`;
+      const timeStr = `${String(sastH).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.250 SAST`;
 
       data.push({
         step: i,
@@ -329,22 +329,50 @@ export default function App() {
     return data;
   }, [telemetry.balance, telemetry.starting_balance, telemetry.trades_executed, positions.closed, equityHistory, chartAssetFilter]);
 
-  // Range Pill Filtering
+  // Range Pill Filtering (Dynamically slicing points for 1D, 1W, 1M, 1Y, YTD, ALL)
   const filteredCurveData = useMemo(() => {
     const total = fullPnlCurveData.length;
-    if (timeRange === '1D') return fullPnlCurveData.slice(Math.max(0, total - 150));
-    if (timeRange === '1W') return fullPnlCurveData.slice(Math.max(0, total - 400));
-    if (timeRange === '1M') return fullPnlCurveData.slice(Math.max(0, total - 800));
+    if (total === 0) return [];
+    if (timeRange === '1D') return fullPnlCurveData.slice(Math.max(0, total - 120));
+    if (timeRange === '1W') return fullPnlCurveData.slice(Math.max(0, total - 350));
+    if (timeRange === '1M') return fullPnlCurveData.slice(Math.max(0, total - 700));
     if (timeRange === '1Y' || timeRange === 'YTD') return fullPnlCurveData;
     return fullPnlCurveData;
   }, [fullPnlCurveData, timeRange]);
 
-  const currentDisplayEquity = useMemo(() => {
-    if (filteredCurveData.length > 0) {
-      return filteredCurveData[filteredCurveData.length - 1].equity;
+  // Dynamic PnL Header Calculation for Selected Range Pill
+  const displayEquityInfo = useMemo(() => {
+    if (filteredCurveData.length === 0) {
+      return { label: 'All-Time', mainText: `$${(telemetry.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, subText: 'All-Time Total Balance' };
     }
-    return telemetry.balance;
-  }, [filteredCurveData, telemetry.balance]);
+    
+    const lastPt = filteredCurveData[filteredCurveData.length - 1];
+    const firstPt = filteredCurveData[0];
+    
+    if (timeRange === 'ALL') {
+      return {
+        label: 'All-Time',
+        mainText: `$${(lastPt.equity || telemetry.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        subText: 'All-Time Total Balance',
+        isPositive: true
+      };
+    }
+    
+    const startEq = firstPt.equity || 10.0;
+    const endEq = lastPt.equity || telemetry.balance || 10.0;
+    const rangePnl = endEq - startEq;
+    const rangePct = startEq > 0 ? (rangePnl / startEq) * 100 : 0;
+    
+    const sign = rangePnl >= 0 ? '+' : '';
+    const pnlStr = `${sign}$${rangePnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${rangePct >= 0 ? '+' : ''}${rangePct.toFixed(1)}%)`;
+    
+    return {
+      label: `${timeRange} Profit/Loss`,
+      mainText: pnlStr,
+      subText: `${timeRange} Net Period Return`,
+      isPositive: rangePnl >= 0
+    };
+  }, [filteredCurveData, timeRange, telemetry.balance]);
 
   // Dynamic Tick-for-Tick Matrix Pricing Engine (Binance, Chainlink, YES, NO & CLOB Spread)
   const dynamicMatrix = useMemo(() => {
@@ -468,20 +496,28 @@ export default function App() {
   );
 
   const renderPnLChartBody = (isModal = false) => (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Polymarket Equity Header & Controls */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', transform: 'translateZ(0)' }}>
+      {/* Polymarket Equity Header & Dynamic Range Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div>
           <div style={{ fontSize: '11px', color: '#8a8f9d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#74c69d' }}>▲</span> Profit/Loss {chartAssetFilter !== 'ALL' ? `(${chartAssetFilter})` : ''}
+            <span style={{ color: displayEquityInfo.isPositive ? '#74c69d' : '#e57373' }}>
+              {displayEquityInfo.isPositive ? '▲' : '▼'}
+            </span> {displayEquityInfo.label} {chartAssetFilter !== 'ALL' ? `(${chartAssetFilter})` : ''}
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffff', letterSpacing: '-0.5px', marginTop: '2px' }}>
-            ${(currentDisplayEquity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: displayEquityInfo.isPositive ? '#ffffff' : '#e57373',
+            letterSpacing: '-0.5px',
+            marginTop: '2px'
+          }}>
+            {displayEquityInfo.mainText}
           </div>
-          <div style={{ fontSize: '11px', color: '#78909c' }}>{timeRange === 'ALL' ? 'All-Time' : timeRange}</div>
+          <div style={{ fontSize: '11px', color: '#78909c' }}>{displayEquityInfo.subText}</div>
         </div>
 
-        {/* Asset Dropdown & Time Range Controls Container with Permanent Subtle Silver Glow */}
+        {/* Asset Dropdown & Time Range Controls Container */}
         <div style={{
           display: 'flex',
           gap: '8px',
@@ -511,7 +547,7 @@ export default function App() {
 
           <div style={{ width: '1px', height: '14px', background: '#262930' }} />
 
-          {/* Titanium / Silver Range Pills with Metallic Hover Glow */}
+          {/* Titanium / Silver Range Pills */}
           <div style={{ display: 'flex', gap: '4px' }}>
             {['1D', '1W', '1M', '1Y', 'YTD', 'ALL'].map(range => (
               <button
@@ -546,8 +582,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* Titanium Silver Curve Chart (WebGL Hardware Accelerated Smoothness) */}
-      <div style={{ width: '100%', height: isModal ? 'calc(80vh - 120px)' : '180px', overflow: 'hidden', transform: 'translateZ(0)' }}>
+      {/* WebGL 60fps Butter-Smooth Acceleration Chart Container */}
+      <div style={{ width: '100%', height: isModal ? 'calc(80vh - 120px)' : '180px', overflow: 'hidden', transform: 'translateZ(0)', backfaceVisibility: 'hidden', willChange: 'transform' }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={filteredCurveData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
             <defs>
@@ -868,12 +904,12 @@ export default function App() {
           </div>
         </div>
 
-        {/* CARD 5: Closed Trade History */}
+        {/* CARD 5: Closed Positions (Clean Title - No Brackets/Amounts) */}
         <div className="card col-12">
           <div className="card-header">
             <div className="card-title">
               <ListFilter size={16} className="text-purple" />
-              <span>Closed Trade History ({positions.closed ? positions.closed.length : 0} Trades)</span>
+              <span>Closed Positions</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('history')}>
               <Maximize2 size={12} />
@@ -901,10 +937,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* WEBGL-LEVEL BUTTER-SMOOTH MODAL ZOOM (ORIGINAL CARD TITLES RESTORED) */}
+      {/* WEBGL-LEVEL 60FPS BUTTER-SMOOTH MODAL ZOOM */}
       {zoomCard && (
-        <div className="modal-overlay" onClick={() => setZoomCard(null)} style={{ backdropFilter: 'blur(16px)', transform: 'translateZ(0)' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setZoomCard(null)} style={{ backdropFilter: 'blur(16px)', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ transform: 'translateZ(0)' }}>
             <div className="card-header">
               <div className="card-title">
                 {zoomCard === 'performance' && (
@@ -928,7 +964,7 @@ export default function App() {
                 {zoomCard === 'history' && (
                   <>
                     <ListFilter size={16} className="text-purple" />
-                    <span>Closed Trade History ({positions.closed ? positions.closed.length : 0} Trades)</span>
+                    <span>Closed Positions</span>
                   </>
                 )}
                 {zoomCard === 'logs' && (

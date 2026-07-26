@@ -3,6 +3,7 @@
 app/web_api.py — ZiSi-v2 Read-Only Dynamic Dashboard Telemetry API
 Runs isolated on Port 9000. Serves 100% real-time data directly from ZiSi-v2 engine state files.
 Parses trade_history_report.md + positions_state.json + balance_history.jsonl for complete accuracy.
+SAST Timestamps down to the millisecond + Hold Time down to the millisecond.
 """
 
 import os
@@ -12,7 +13,7 @@ import time
 import math
 import logging
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -50,6 +51,8 @@ PM2_LOG_FILE = Path("/root/.pm2/logs/ZiSi-Core-Engine-error.log")
 LOCAL_LOG_FILE = PROJECT_ROOT / "zisi_bot_console.log"
 LOG_FILE = PM2_LOG_FILE if PM2_LOG_FILE.exists() else LOCAL_LOG_FILE
 
+SAST_TZ = timezone(timedelta(hours=2))
+
 
 def safe_float(val, default=0.0) -> float:
     if val is None:
@@ -79,10 +82,63 @@ def format_cents_str(val: float) -> str:
     return f"{cents}¢"
 
 
+def format_sast_timestamp(raw_time_str: str) -> str:
+    """Format raw ISO time string into SAST YYYY-MM-DD HH:MM:SS.mmm SAST format."""
+    if not raw_time_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(raw_time_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        sast_dt = dt.astimezone(SAST_TZ)
+        return sast_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + " SAST"
+    except Exception:
+        clean = raw_time_str[:23].replace("T", " ")
+        return f"{clean} SAST"
+
+
+def format_hold_time_ms(hold_val) -> str:
+    """Format hold duration down to exact milliseconds e.g. 1m 12s 450ms or 0s 250ms."""
+    if not hold_val:
+        return "0s 000ms"
+    secs = 0.0
+    if isinstance(hold_val, str):
+        if 'm' in hold_val:
+            try:
+                mins = float(hold_val.replace('m', ''))
+                secs = mins * 60.0
+            except Exception:
+                secs = 0.0
+        elif 's' in hold_val:
+            try:
+                secs = float(hold_val.replace('s', ''))
+            except Exception:
+                secs = 0.0
+        else:
+            secs = safe_float(hold_val)
+    else:
+        secs = safe_float(hold_val)
+
+    if secs <= 0:
+        return "0s 000ms"
+
+    m = int(secs // 60)
+    s_rem = secs % 60
+    s_int = int(s_rem)
+    ms_int = int(round((s_rem - s_int) * 1000))
+    if ms_int >= 1000:
+        s_int += 1
+        ms_int = 0
+
+    if m > 0:
+        return f"{m}m {s_int}s {ms_int:03d}ms"
+    return f"{s_int}s {ms_int:03d}ms"
+
+
 def load_closed_trades() -> list:
     """
     Parse closed trades from trade_history_report.md + positions_state.json.
-    Returns newest-first sorted list of standardized trade dicts.
+    Returns newest-first sorted list of standardized trade dicts with SAST timestamps & millisecond hold times.
     """
     trades_dict = {}
 
@@ -115,7 +171,7 @@ def load_closed_trades() -> list:
                             if exit_p > 1.0: exit_p /= 100.0
                         except Exception:
                             exit_p = 0.5
-                        hold = parts[7]
+                        hold_raw = parts[7]
                         exit_reason = parts[8]
                         try:
                             pnl_str = parts[9].replace("$", "").replace("+", "").replace(",", "")
@@ -125,18 +181,19 @@ def load_closed_trades() -> list:
 
                         tranche_type = "EX" if "EX" in exit_reason.upper() or "RUNNER" in exit_reason.upper() or "EXTENDED" in exit_reason.upper() else "ES"
 
-                        closed_time_clean = raw_time[:19].replace("T", " ")
+                        sast_time_str = format_sast_timestamp(raw_time)
+                        hold_ms_str = format_hold_time_ms(hold_raw)
 
                         key = f"{raw_time}_{asset}_{size}_{realized_pnl}"
                         trades_dict[key] = {
-                            "closed_time": closed_time_clean,
+                            "closed_time": sast_time_str,
                             "asset": asset,
                             "tf": tf,
                             "dir": direction,
                             "size": size,
                             "entry_token": format_cents_str(entry_p),
                             "exit_token": format_cents_str(exit_p),
-                            "hold": hold,
+                            "hold": hold_ms_str,
                             "type": tranche_type,
                             "exit_reason": exit_reason.upper(),
                             "realized_pnl": realized_pnl,
@@ -156,22 +213,25 @@ def load_closed_trades() -> list:
                     asset = parse_asset_from_str(p.get("event_title", "") or p.get("asset", ""))
                     size = safe_float(p.get("size", 0.0))
                     realized_pnl = safe_float(p.get("realized_pnl", 0.0))
-                    closed_time_clean = raw_time[:19].replace("T", " ") if raw_time else ""
+                    sast_time_str = format_sast_timestamp(raw_time)
 
                     raw_t = str(p.get("pillar") or p.get("type") or "EX").upper()
                     tranche_type = "EX" if "EX" in raw_t or "EXTENDED" in raw_t else "ES"
 
+                    hold_val = p.get("hold_seconds") or (safe_float(p.get("hold_minutes", 0)) * 60.0) or (safe_float(p.get("hold_hours", 0)) * 3600.0)
+                    hold_ms_str = format_hold_time_ms(hold_val)
+
                     key = f"{raw_time}_{asset}_{size}_{realized_pnl}"
                     if key not in trades_dict:
                         trades_dict[key] = {
-                            "closed_time": closed_time_clean,
+                            "closed_time": sast_time_str,
                             "asset": asset,
                             "tf": p.get("timeframe") or "5m",
                             "dir": p.get("direction") or "YES",
                             "size": size,
                             "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
                             "exit_token": format_cents_str(safe_float(p.get("exit_price", 0.0))),
-                            "hold": f"{int(safe_float(p.get('hold_hours', 0) * 60))}m",
+                            "hold": hold_ms_str,
                             "type": tranche_type,
                             "exit_reason": (p.get("exit_reason") or "TARGET").upper(),
                             "realized_pnl": realized_pnl,
@@ -312,15 +372,21 @@ def get_positions():
                         raw_t = str(p.get("pillar") or p.get("type") or "EX").upper()
                         tranche_type = "EX" if "EX" in raw_t or "EXTENDED" in raw_t else "ES"
 
+                        raw_time = p.get("entry_time") or ""
+                        sast_entry_str = format_sast_timestamp(raw_time)
+
+                        hold_val = p.get("hold_seconds") or (safe_float(p.get("hold_minutes", 0)) * 60.0) or (safe_float(p.get("hold_hours", 0)) * 3600.0)
+                        hold_ms_str = format_hold_time_ms(hold_val)
+
                         active_list.append({
-                            "entry_time": (p.get("entry_time") or "")[:19].replace("T", " "),
+                            "entry_time": sast_entry_str,
                             "asset": asset,
                             "tf": p.get("timeframe") or "5m",
                             "dir": p.get("direction") or "YES",
                             "size": round(safe_float(p.get("size", 0.0)), 2),
                             "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
                             "mark_token": format_cents_str(safe_float(p.get("current_price", 0.0))),
-                            "hold": f"{int(safe_float(p.get('hold_minutes', 0)))}m",
+                            "hold": hold_ms_str,
                             "type": tranche_type,
                             "unrealized_pnl": round(safe_float(p.get("unrealized_pnl", 0.0)), 2)
                         })
