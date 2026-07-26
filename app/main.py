@@ -750,7 +750,8 @@ def log_unified_sig_lifecycle(
         bet_usd = details.get("bet_usd", 2.50)
         es_usd = round(bet_usd * 0.80, 2)
         ex_usd = round(bet_usd * 0.20, 2)
-        cb = current_balance if 'current_balance' in locals() else 100.0
+        from core.engine.state_manager import get_current_balance
+        cb = get_current_balance()
         if cb < 300.0: tier_num = 1
         elif cb < 1000.0: tier_num = 2
         elif cb < 3000.0: tier_num = 3
@@ -779,7 +780,8 @@ def log_unified_sig_lifecycle(
         bet_usd = details.get("bet_usd", 2.50)
         es_usd = round(bet_usd * 0.80, 2)
         ex_usd = round(bet_usd * 0.20, 2)
-        cb = current_balance if 'current_balance' in locals() else 100.0
+        from core.engine.state_manager import get_current_balance
+        cb = get_current_balance()
         if cb < 300.0: tier_num = 1
         elif cb < 1000.0: tier_num = 2
         elif cb < 3000.0: tier_num = 3
