@@ -5,21 +5,10 @@ import './index.css';
 
 const API_BASE = "http://204.168.222.48:9000/api";
 
-// Custom Glassmorphic Asset Dropdown Component with Silver Metallic Glow
-function AssetDropdownPill({ selected, onSelect }) {
+// Reusable Custom Glassmorphic Dropdown Component with Silver Metallic Glow & Backdrop Blur
+function CustomPillDropdown({ options, selected, onSelect, prefix = "", align = "left" }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
-
-  const assets = [
-    { id: 'ALL', label: 'ALL ASSETS' },
-    { id: 'BTC', label: 'BTC' },
-    { id: 'ETH', label: 'ETH' },
-    { id: 'SOL', label: 'SOL' },
-    { id: 'XRP', label: 'XRP' },
-    { id: 'DOGE', label: 'DOGE' },
-    { id: 'BNB', label: 'BNB' },
-    { id: 'HYPE', label: 'HYPE' }
-  ];
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -31,7 +20,8 @@ function AssetDropdownPill({ selected, onSelect }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const currentLabel = assets.find(a => a.id === selected)?.label || 'ALL ASSETS';
+  const currentOption = options.find(o => o.id === selected) || options[0];
+  const displayLabel = prefix ? `${prefix}: ${currentOption.label}` : currentOption.label;
 
   return (
     <div ref={dropdownRef} style={{ position: 'relative' }}>
@@ -40,9 +30,9 @@ function AssetDropdownPill({ selected, onSelect }) {
         style={{
           background: selected !== 'ALL' ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
           color: selected !== 'ALL' ? '#ffffff' : '#8a8f9d',
-          border: selected !== 'ALL' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid #262930',
+          border: 'none',
           borderRadius: '14px',
-          padding: '3px 12px',
+          padding: '3px 10px',
           fontSize: '11px',
           fontWeight: 'bold',
           cursor: 'pointer',
@@ -52,17 +42,13 @@ function AssetDropdownPill({ selected, onSelect }) {
           transition: 'all 0.2s ease-in-out'
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-          e.currentTarget.style.boxShadow = '0 0 12px rgba(209, 213, 219, 0.3)';
           e.currentTarget.style.color = '#ffffff';
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.borderColor = selected !== 'ALL' ? 'rgba(255, 255, 255, 0.25)' : '#262930';
-          e.currentTarget.style.boxShadow = 'none';
           e.currentTarget.style.color = selected !== 'ALL' ? '#ffffff' : '#8a8f9d';
         }}
       >
-        <span>{currentLabel}</span>
+        <span>{displayLabel}</span>
         <span style={{ fontSize: '8px', color: '#8a8f9d' }}>▼</span>
       </button>
 
@@ -70,21 +56,21 @@ function AssetDropdownPill({ selected, onSelect }) {
         <div style={{
           position: 'absolute',
           top: 'calc(100% + 6px)',
-          right: 0,
-          zIndex: 100,
+          [align]: 0,
+          zIndex: 1000,
           background: '#12151c',
           border: '1px solid #383e4a',
           borderRadius: '10px',
           padding: '4px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.8)',
-          minWidth: '120px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.9)',
+          minWidth: '150px',
           backdropFilter: 'blur(16px)'
         }}>
-          {assets.map(asset => (
+          {options.map(opt => (
             <div
-              key={asset.id}
+              key={opt.id}
               onClick={() => {
-                onSelect(asset.id);
+                onSelect(opt.id);
                 setOpen(false);
               }}
               style={{
@@ -93,14 +79,14 @@ function AssetDropdownPill({ selected, onSelect }) {
                 fontWeight: 'bold',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                color: selected === asset.id ? '#ffffff' : '#8a8f9d',
-                background: selected === asset.id ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                color: selected === opt.id ? '#ffffff' : '#8a8f9d',
+                background: selected === opt.id ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
                 transition: 'background 0.15s'
               }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
-              onMouseLeave={e => e.currentTarget.style.background = selected === asset.id ? 'rgba(255, 255, 255, 0.12)' : 'transparent'}
+              onMouseLeave={e => e.currentTarget.style.background = selected === opt.id ? 'rgba(255, 255, 255, 0.12)' : 'transparent'}
             >
-              {asset.label}
+              {opt.label}
             </div>
           ))}
         </div>
@@ -164,8 +150,8 @@ export default function App() {
     starting_balance: 10.0,
     pnl: 22191.85,
     pnl_pct: 221918.50,
-    trades_executed: 1142,
-    wins: 1025,
+    trades_executed: 1147,
+    wins: 1030,
     losses: 102,
     breakevens: 15,
     win_rate: 90.9,
@@ -313,7 +299,7 @@ export default function App() {
       }));
     }
 
-    const totalSteps = telemetry.trades_executed || 1142;
+    const totalSteps = telemetry.trades_executed || 1147;
     const data = [];
     const startEq = telemetry.starting_balance || 10.0;
     const endEq = telemetry.balance || 22201.85;
@@ -418,7 +404,9 @@ export default function App() {
           <div>Start Cap: <span className="text-muted">${(telemetry.starting_balance || 10).toFixed(2)}</span></div>
           <div>Live Cap: <span className="text-green" style={{ fontWeight: 'bold' }}>${(telemetry.balance || 0).toFixed(2)}</span></div>
           <div>Net PnL: <span className="text-green">${(telemetry.pnl || 0).toFixed(2)} ({(telemetry.pnl_pct || 0).toFixed(0)}%)</span></div>
-          <div>Total Trades: <span className="text-purple">{telemetry.trades_executed || 0}T ({telemetry.win_rate || 0}% WR)</span></div>
+          <div>
+            Total Trades: <span className="text-muted">{telemetry.trades_executed || 0}T</span> <span style={{ color: '#383e4a' }}>/</span> <span className="text-muted">{(telemetry.win_rate || 0).toFixed(1)}% WR</span>
+          </div>
         </div>
 
         <table className="terminal-table">
@@ -505,7 +493,21 @@ export default function App() {
           boxShadow: '0 0 10px rgba(255, 255, 255, 0.08)'
         }}>
           {/* Custom Glassmorphic Asset Dropdown Pill */}
-          <AssetDropdownPill selected={chartAssetFilter} onSelect={setChartAssetFilter} />
+          <CustomPillDropdown
+            options={[
+              { id: 'ALL', label: 'ALL ASSETS' },
+              { id: 'BTC', label: 'BTC' },
+              { id: 'ETH', label: 'ETH' },
+              { id: 'SOL', label: 'SOL' },
+              { id: 'XRP', label: 'XRP' },
+              { id: 'DOGE', label: 'DOGE' },
+              { id: 'BNB', label: 'BNB' },
+              { id: 'HYPE', label: 'HYPE' }
+            ]}
+            selected={chartAssetFilter}
+            onSelect={setChartAssetFilter}
+            align="right"
+          />
 
           <div style={{ width: '1px', height: '14px', background: '#262930' }} />
 
@@ -587,7 +589,7 @@ export default function App() {
             <th>Entry Token</th>
             <th>Mark Token</th>
             <th>Hold</th>
-            <th>Pillar</th>
+            <th>Type</th>
             <th>Unrealized PnL ($)</th>
           </tr>
         </thead>
@@ -638,9 +640,34 @@ export default function App() {
 
     const displayTrades = isModal ? closedList : closedList.slice(0, 15);
 
+    const assetOptions = [
+      { id: 'ALL', label: 'ALL' },
+      { id: 'BTC', label: 'BTC' },
+      { id: 'ETH', label: 'ETH' },
+      { id: 'SOL', label: 'SOL' },
+      { id: 'XRP', label: 'XRP' },
+      { id: 'DOGE', label: 'DOGE' },
+      { id: 'BNB', label: 'BNB' },
+      { id: 'HYPE', label: 'HYPE' }
+    ];
+
+    const trancheOptions = [
+      { id: 'ALL', label: 'ALL' },
+      { id: 'ES', label: 'ES (Early Scalp)' },
+      { id: 'EX', label: 'EX (Extended Execution)' }
+    ];
+
+    const exitOptions = [
+      { id: 'ALL', label: 'ALL' },
+      { id: 'TARGET', label: 'TARGET' },
+      { id: 'LOSS', label: 'LOSS' },
+      { id: 'LOSS MARKET EXPIRED', label: 'LOSS MARKET EXPIRED' },
+      { id: 'WIN MARKET EXPIRED', label: 'WIN MARKET EXPIRED' }
+    ];
+
     return (
       <>
-        {/* Single Incorporated Glassmorphic Control Pill Bar */}
+        {/* Unified Custom Glassmorphic Control Pill Bar */}
         <div style={{
           display: 'inline-flex',
           gap: '8px',
@@ -652,34 +679,30 @@ export default function App() {
           boxShadow: '0 0 10px rgba(255, 255, 255, 0.08)',
           marginBottom: '12px'
         }}>
-          <select className="filter-select-pill" value={filterAsset} onChange={e => setFilterAsset(e.target.value)}>
-            <option value="ALL">Asset: ALL</option>
-            <option value="BTC">BTC</option>
-            <option value="ETH">ETH</option>
-            <option value="SOL">SOL</option>
-            <option value="XRP">XRP</option>
-            <option value="DOGE">DOGE</option>
-            <option value="BNB">BNB</option>
-            <option value="HYPE">HYPE</option>
-          </select>
+          <CustomPillDropdown
+            prefix="Asset"
+            options={assetOptions}
+            selected={filterAsset}
+            onSelect={setFilterAsset}
+          />
 
           <div style={{ width: '1px', height: '14px', background: '#262930' }} />
 
-          <select className="filter-select-pill" value={filterType} onChange={e => setFilterType(e.target.value)}>
-            <option value="ALL">Tranche: ALL</option>
-            <option value="ES">ES (Early Scalp)</option>
-            <option value="EX">EX (Extended Execution)</option>
-          </select>
+          <CustomPillDropdown
+            prefix="Tranche"
+            options={trancheOptions}
+            selected={filterType}
+            onSelect={setFilterType}
+          />
 
           <div style={{ width: '1px', height: '14px', background: '#262930' }} />
 
-          <select className="filter-select-pill" value={filterReason} onChange={e => setFilterReason(e.target.value)}>
-            <option value="ALL">Exit: ALL</option>
-            <option value="TARGET">TARGET</option>
-            <option value="LOSS">LOSS</option>
-            <option value="LOSS MARKET EXPIRED">LOSS MARKET EXPIRED</option>
-            <option value="WIN MARKET EXPIRED">WIN MARKET EXPIRED</option>
-          </select>
+          <CustomPillDropdown
+            prefix="Exit"
+            options={exitOptions}
+            selected={filterReason}
+            onSelect={setFilterReason}
+          />
         </div>
 
         <div style={{ maxHeight: isModal ? 'calc(80vh - 100px)' : '340px', overflowY: 'auto' }}>
