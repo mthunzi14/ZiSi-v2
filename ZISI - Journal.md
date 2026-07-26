@@ -1586,6 +1586,21 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Process Uptime reset to **0s**.
   * ZiSi-v2 active on VPS under **Tier 5 ($250.00 – $500.00 USDC)** with live command terminal log formatting for Tier level, 80/20 tranche split, and micro-burst fills.
 
+### Session 48 — 2026-07-26 (Antigravity)
+**Time:** 21:15 SAST | **Bot Status:** Active & Deployed ($25,205.25 USDC Paper Staging | PM2 PID 3149500 | Commit `64f39fd`)
+
+**DYNAMIC TIER 5 BALANCE EVALUATION LOG FIX & VPS REDEPLOYMENT:**
+- **Forensic Diagnosis of Command Terminal Log Output:**
+  * User screenshot at 21:07 SAST revealed trade size was $250.00 USDC, but logged `Tier 1 Sizer` because `cb = current_balance if 'current_balance' in locals() else 100.0` inside `_log_trade_signal()` in `app/main.py` was defaulting to 100.0 (where `current_balance` was not passed as a local parameter).
+- **The Fix (`app/main.py`):**
+  * Updated `_log_trade_signal()` to query live account balance directly via `cb = get_current_balance()`.
+  * For the active paper balance ($25,205.25), `cb < 50000.0` correctly evaluates to **Tier 5**.
+- **Verified Suite Integrity & Deployment:**
+  * 65/65 pytest unit tests **PASSED** in 1.93 seconds cleanly.
+  * Committed and pushed to GitHub `origin/main` at commit `64f39fd`.
+  * Remote-deployed to VPS (`204.168.222.48`) via Paramiko SSH (`git reset --hard origin/main` & `pm2 restart ZiSi-Core-Engine`). Process PID `3149500` is **online** printing **Tier 5 Sizer** logs!
+
+
 
 
 
