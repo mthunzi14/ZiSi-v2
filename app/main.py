@@ -571,28 +571,12 @@ async def _validate_trade_slot(
     # Calculate growth factor relative to $120.00 baseline to let sizing caps scale with balance growth
     growth_factor = max(1.0, current_balance / 120.0)
 
-    # ── P2: Global Bet Cap — differentiated by timeframe / entry conviction ──
-    # Bonereaper bets 13-50% of account per trade. ZiSi raised to match proportionally.
-    # REVERSAL_STREAK / 1h = highest conviction → 30% Kelly. Standard → 12%.
-    if timeframe == "1h" or _entry_source == "REVERSAL_STREAK":
-        global_max_bet = min(current_balance * 0.30, 50.0 * growth_factor)
-        _cap_label = "HIGH-CONV"
-    elif _entry_source == "FAIR_VAL" and entry_price < 0.40:
-        global_max_bet = min(current_balance * 0.30, 50.0 * growth_factor)
-        _cap_label = "FV-DEEP"
-    else:
-        global_max_bet = min(current_balance * 0.12, 20.0 * growth_factor)
-        _cap_label = "STANDARD"
-    if bet_usd > global_max_bet:
-        log.debug("[RISK] %s bet cap $%.2f -> $%.2f", _cap_label, bet_usd, global_max_bet)
-        bet_usd = global_max_bet
-
-    # ── P3: SIGNAL-specific Bet Cap ($10.0) ──
-    if _entry_source in ("SIG", "SIGNAL"):
-        sig_cap = 10.0 * growth_factor
-        if bet_usd > sig_cap:
-            log.debug("[RISK] SIGNAL trade size capped at $%.2f: $%.2f -> $%.2f", sig_cap, bet_usd, sig_cap)
-            bet_usd = sig_cap
+    # ── P2: Tiered Fixed-Tranche Compounding Position Sizer (7-Tier Master Ladder) ──
+    from core.risk.position_sizer import get_tiered_sizing_caps
+    min_cap, max_cap = get_tiered_sizing_caps(current_balance)
+    bet_usd = max(min_cap, min(max_cap, bet_usd))
+    _cap_label = "TIERED"
+    log.debug("[RISK] Tiered bet sizer ($%.2f balance): $%.2f (range: $%.2f - $%.2f)", current_balance, bet_usd, min_cap, max_cap)
 
     # ── Tier 0: FV 1h hard cap ──
     # Until FV probability is calibrated (Platt scaling), cap 1h FV at 10%/balance or $8.
@@ -764,9 +748,23 @@ def log_unified_sig_lifecycle(
 
     if signal and outcome == "ENTER" and details:
         bet_usd = details.get("bet_usd", 2.50)
+        es_usd = round(bet_usd * 0.80, 2)
+        ex_usd = round(bet_usd * 0.20, 2)
+        cb = current_balance if 'current_balance' in locals() else 100.0
+        if cb < 300.0: tier_num = 1
+        elif cb < 1000.0: tier_num = 2
+        elif cb < 3000.0: tier_num = 3
+        elif cb < 10000.0: tier_num = 4
+        elif cb < 50000.0: tier_num = 5
+        elif cb < 250000.0: tier_num = 6
+        else: tier_num = 7
+        
+        num_chunks = 1 if tier_num <= 2 else (2 if tier_num == 3 else (3 if tier_num == 4 else 5))
+        chunk_sz = round(bet_usd / num_chunks, 2)
+
         log.info(
-            "\033[37m[Confirm] \033[38;5;153m%s\033[37m [%s]: Score %.2f | Kelly Sizer: %.2f USDC\033[0m",
-            asset_display, dir_colored, score, bet_usd
+            "\033[37m[Confirm] \033[38;5;153m%s\033[37m [%s]: Score %.2f | Tier %d Sizer: %.2f USDC (ES 80%%: $%.2f | EX 20%%: $%.2f)\033[0m",
+            asset_display, dir_colored, score, tier_num, bet_usd, es_usd, ex_usd
         )
 
     if outcome == "ENTER" and details:
@@ -778,9 +776,24 @@ def log_unified_sig_lifecycle(
         else:
             tp_target = 0.72 if is_5m else 0.88
             
+        bet_usd = details.get("bet_usd", 2.50)
+        es_usd = round(bet_usd * 0.80, 2)
+        ex_usd = round(bet_usd * 0.20, 2)
+        cb = current_balance if 'current_balance' in locals() else 100.0
+        if cb < 300.0: tier_num = 1
+        elif cb < 1000.0: tier_num = 2
+        elif cb < 3000.0: tier_num = 3
+        elif cb < 10000.0: tier_num = 4
+        elif cb < 50000.0: tier_num = 5
+        elif cb < 250000.0: tier_num = 6
+        else: tier_num = 7
+        
+        num_chunks = 1 if tier_num <= 2 else (2 if tier_num == 3 else (3 if tier_num == 4 else 5))
+        chunk_sz = round(bet_usd / num_chunks, 2)
+
         log.info(
-            "\033[1;97m[Execution] \033[38;5;153m%s\033[1;97m [%s]: Entered at %.3f | RSI=%.1f CVD=%+.2f OBI=%+.2f | Size: %.2f USDC | TP: %.3f (%s)\033[0m",
-            asset_display, dir_colored, entry_price, rsi, cvd, obi, details.get("bet_usd", 2.50), tp_target, regime
+            "\033[1;97m[Execution] \033[38;5;153m%s\033[1;97m [%s]: Entered at %.3f | RSI=%.1f CVD=%+.2f OBI=%+.2f | Size: %.2f USDC [Tier %d: %d x $%.2f Burst Fills] | TP: %.3f (%s)\033[0m",
+            asset_display, dir_colored, entry_price, rsi, cvd, obi, bet_usd, tier_num, num_chunks, chunk_sz, tp_target, regime
         )
     else:
         reason = skip_reason if (skip_reason and skip_reason != "no_signal") else ((signal.get("skip_reason") if signal else None) or "no_signal")

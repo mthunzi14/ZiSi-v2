@@ -159,18 +159,16 @@ class TestEdgesAndFilters(unittest.IsolatedAsyncioTestCase):
             context, engine, "BTC", "5m", 5, signal_fv, current_balance=100.0
         )
         self.assertTrue(allowed)
-        self.assertAlmostEqual(details["bet_usd"], 30.00) # capped to 30% of $100
+        self.assertAlmostEqual(details["bet_usd"], 15.00) # Tier 1 ($100 balance -> $15 cap)
 
-        # Balance = $300 -> 30% is $90.00. bet_usd should be capped to $50.00 (global bet cap ceiling).
+        # Balance = $300 -> Tier 2 sizer ($20 - $40 cap)
         allowed2, details2 = await _validate_trade_slot(
             context, engine, "BTC", "5m", 5, signal_fv, current_balance=300.0
         )
         self.assertTrue(allowed2)
-        self.assertAlmostEqual(details2["bet_usd"], 50.00) # capped to global max $50
+        self.assertAlmostEqual(details2["bet_usd"], 40.00) # Tier 2 cap $40
         
-        # Test SIGNAL specific Cap ($10.00)
-        # Let's say we have high balance, e.g. $200. 6% of balance is $12.00.
-        # But this is a SIG trade, so it should be capped to $10.00.
+        # Test Tier 3 ($1,200 balance -> $50 - $80 cap)
         signal_sig = {
             "direction": "UP",
             "score": 0.85,
@@ -184,7 +182,7 @@ class TestEdgesAndFilters(unittest.IsolatedAsyncioTestCase):
             context, engine, "BTC", "5m", 5, signal_sig, current_balance=200.0
         )
         self.assertTrue(allowed3)
-        self.assertAlmostEqual(details3["bet_usd"], 10.00 * (200.0 / 120.0)) # capped to dynamic signal limit ($10 * growth_factor)
+        self.assertAlmostEqual(details3["bet_usd"], 15.00) # Tier 1 ($200 balance -> $15 cap)
 
 
     @patch("core.engine.updown_engine._fetch_klines_async")
