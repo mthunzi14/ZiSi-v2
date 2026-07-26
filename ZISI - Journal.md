@@ -1600,6 +1600,23 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Committed and pushed to GitHub `origin/main` at commit `64f39fd`.
   * Remote-deployed to VPS (`204.168.222.48`) via Paramiko SSH (`git reset --hard origin/main` & `pm2 restart ZiSi-Core-Engine`). Process PID `3149500` is **online** printing **Tier 5 Sizer** logs!
 
+### Session 49 — 2026-07-26 (Antigravity)
+**Time:** 21:25 SAST | **Bot Status:** Active & Deployed ($25,433.15 USDC Paper Staging | PM2 PID 3150537 | Commit `9f5f573`)
+
+**5-MINUTE CANDLE BOUNDARY TRADE HISTORY SEPARATOR LINES INTEGRATED:**
+- **Command Terminal Trade History Table (`zisi_terminal.py`):**
+  * Added `_parse_candle_key()` to track 5-minute candle boundary keys `(year, month, day, hour, min//5 * 5)` for each trade row.
+  * Dynamically invokes `table.add_section()` whenever adjacent trades cross a 5-minute candle boundary, drawing a clean horizontal separator rule across all table columns.
+- **React PWA Web Terminal (`web_terminal/src/App.jsx`):**
+  * Added candle boundary key evaluation in `renderHistoryBody()`.
+  * Renders a styled top border (`borderTop: 2px solid rgba(216, 180, 254, 0.35)`) on rows that transition into a new 5-minute candle block.
+- **Verification & Deployment:**
+  * 65/65 pytest unit tests **PASSED** in 2.17 seconds.
+  * Built React PWA bundle (`npm run build`).
+  * Committed & pushed to GitHub `origin/main` at commit `9f5f573`.
+  * Remote-deployed to VPS (`204.168.222.48`) via Paramiko SSH (`git reset --hard origin/main` & `pm2 restart ZiSi-Core-Engine`). PM2 PID `3150537` is **online**!
+
+
 
 
 
