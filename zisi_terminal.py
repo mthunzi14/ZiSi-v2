@@ -1009,31 +1009,10 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         except Exception:
             pass
 
+    # Build structured Breakdown Table
     breakdown_rows = []
 
-    if asset_stats:
-        breakdown_rows.append(("", ""))
-        breakdown_rows.append(("[bold grey70]Asset Breakdown:[/bold grey70]", ""))
-        for asset, stats in sorted(asset_stats.items()):
-            pnl_val = stats["pnl"]
-            pnl_color = COLOR_PASTEL_GREEN if pnl_val >= 0.01 else (COLOR_PASTEL_RED if pnl_val < -0.01 else COLOR_LABEL)
-            pnl_pct = (pnl_val / start_bal) * 100 if start_bal > 0.0 else 0.0
-            
-            # Average hold time
-            avg_hold_sec = int(sum(stats["hold_secs"]) / len(stats["hold_secs"])) if stats["hold_secs"] else 0
-            if avg_hold_sec >= 60:
-                avg_hold_str = f"{avg_hold_sec // 60}m {avg_hold_sec % 60}s"
-            else:
-                avg_hold_str = f"{avg_hold_sec}s"
-                
-            tot = stats['wins'] + stats['losses'] + stats['breakevens']
-            wr = (stats['wins'] / (stats['wins'] + stats['losses']) * 100) if (stats['wins'] + stats['losses']) > 0 else 0.0
-            breakdown_rows.append((
-                f"  [{COLOR_ASSET}]{asset}:[/{COLOR_ASSET}]",
-                f"[grey70]{tot}T[/grey70] | [#8ae28a]{stats['wins']}W[/#8ae28a] / [#ff746c]{stats['losses']}L[/#ff746c] / [grey50]{stats['breakevens']}BE[/grey50] ({wr:.1f}% WR) | ([{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}], [{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]) | avg hold: {avg_hold_str}"
-            ))
-
-    def format_breakdown_line(stats_dict):
+    def make_row_tuple(cat_label, stats_dict):
         w = stats_dict["wins"]
         l = stats_dict["losses"]
         be = stats_dict["breakevens"]
@@ -1049,38 +1028,50 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
         else:
             avg_hold_str = f"{avg_hold_sec}s"
 
-        return f"[grey70]{total}T[/grey70] | [#8ae28a]{w}W[/#8ae28a] / [#ff746c]{l}L[/#ff746c] / [grey50]{be}BE[/grey50] ({wr:.1f}% WR) | [{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}] ([{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]) | avg hold: {avg_hold_str}"
+        return (
+            cat_label,
+            f"[grey70]{total}T[/grey70]",
+            f"[#8ae28a]{w}W[/#8ae28a] / [#ff746c]{l}L[/#ff746c] / [grey50]{be}BE[/grey50]",
+            f"[{COLOR_LABEL}]{wr:.1f}%[/{COLOR_LABEL}]",
+            f"[{pnl_color}]${pnl_val:+,.2f}[/{pnl_color}]",
+            f"[{pnl_color}]{pnl_pct:+,.1f}%[/{pnl_color}]",
+            avg_hold_str
+        )
 
-    # Scale Breakdown Display
-    breakdown_rows.append(("", ""))
-    breakdown_rows.append(("[bold grey70]Scale Breakdown:[/bold grey70]", ""))
-    breakdown_rows.append((f"  Early Scalping ([bold {COLOR_ES}]ES[/bold {COLOR_ES}]):", format_breakdown_line(half_stats)))
-    breakdown_rows.append((f"  Extended Execution ([bold {COLOR_EX}]EX[/bold {COLOR_EX}]):", format_breakdown_line(runner_stats)))
+    # Asset Breakdown
+    if asset_stats:
+        breakdown_rows.append(("SECTION", "[bold #d8b4fe]── Asset Breakdown ──[/bold #d8b4fe]"))
+        for asset, stats in sorted(asset_stats.items()):
+            breakdown_rows.append(make_row_tuple(f"[{COLOR_ASSET}]{asset}[/{COLOR_ASSET}]", stats))
 
-    # Entry Bands Display
-    breakdown_rows.append(("", ""))
-    breakdown_rows.append(("[bold grey70]Entry Bands:[/bold grey70]", ""))
+    # Scale Breakdown
+    breakdown_rows.append(("SECTION", "[bold #d8b4fe]── Scale Breakdown ──[/bold #d8b4fe]"))
+    if (half_stats["wins"] + half_stats["losses"] + half_stats["breakevens"]) > 0:
+        breakdown_rows.append(make_row_tuple(f"Early Scalping ([bold {COLOR_ES}]ES[/bold {COLOR_ES}])", half_stats))
+    if (runner_stats["wins"] + runner_stats["losses"] + runner_stats["breakevens"]) > 0:
+        breakdown_rows.append(make_row_tuple(f"Extended Execution ([bold {COLOR_EX}]EX[/bold {COLOR_EX}])", runner_stats))
+
+    # Entry Bands
+    breakdown_rows.append(("SECTION", "[bold #d8b4fe]── Entry Bands ──[/bold #d8b4fe]"))
     for band_name in ["0-19¢", "20-39¢", "40-59¢", "60-79¢", "80-99¢"]:
         stats_b = band_stats[band_name]
-        if (stats_b["wins"] + stats_b["losses"]) > 0:
-            breakdown_rows.append((f"  {band_name}:", format_breakdown_line(stats_b)))
+        if (stats_b["wins"] + stats_b["losses"] + stats_b["breakevens"]) > 0:
+            breakdown_rows.append(make_row_tuple(band_name, stats_b))
 
-    # Session Breakdown Display
+    # Session Breakdown
     if session_stats:
-        breakdown_rows.append(("", ""))
-        breakdown_rows.append(("[bold grey70]Session Breakdown:[/bold grey70]", ""))
+        breakdown_rows.append(("SECTION", "[bold #d8b4fe]── Session Breakdown ──[/bold #d8b4fe]"))
         sess_order = ["Asian/Tokyo Session", "London Session", "London/NY Overlap", "New York Session", "Pacific/Sydney Session"]
         for sess_name in sess_order:
-            if sess_name in session_stats and (session_stats[sess_name]["wins"] + session_stats[sess_name]["losses"]) > 0:
-                breakdown_rows.append((f"  {sess_name}:", format_breakdown_line(session_stats[sess_name])))
+            if sess_name in session_stats and (session_stats[sess_name]["wins"] + session_stats[sess_name]["losses"] + session_stats[sess_name]["breakevens"]) > 0:
+                breakdown_rows.append(make_row_tuple(sess_name, session_stats[sess_name]))
 
-    # Hourly Breakdown Display
+    # Hourly Breakdown
     if hourly_stats:
-        breakdown_rows.append(("", ""))
-        breakdown_rows.append(("[bold grey70]Hourly Breakdown (SAST):[/bold grey70]", ""))
+        breakdown_rows.append(("SECTION", "[bold #d8b4fe]── Hourly Breakdown (SAST) ──[/bold #d8b4fe]"))
         for hr_key in sorted(hourly_stats.keys()):
-            if (hourly_stats[hr_key]["wins"] + hourly_stats[hr_key]["losses"]) > 0:
-                breakdown_rows.append((f"  {hr_key}:", format_breakdown_line(hourly_stats[hr_key])))
+            if (hourly_stats[hr_key]["wins"] + hourly_stats[hr_key]["losses"] + hourly_stats[hr_key]["breakevens"]) > 0:
+                breakdown_rows.append(make_row_tuple(hr_key, hourly_stats[hr_key]))
 
     # Read offset and console height to slice visible rows
     with g_state.lock:
@@ -1089,14 +1080,32 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
     h = console.height or 40
     max_lines = max(5, h - 10) if fullscreen else 14
     
-    # Append sliced rows to layout table
-    for r in breakdown_rows[offset : offset + max_lines]:
-        metrics_table.add_row(*r)
+    visible_rows = breakdown_rows[offset : offset + max_lines]
+
+    # Create structured Table for breakdowns
+    breakdown_table = Table(box=ROUNDED, expand=True, padding=(0, 1))
+    breakdown_table.add_column("Category", justify="left", header_style=f"bold {COLOR_LABEL}")
+    breakdown_table.add_column("Trades", justify="center", header_style=COLOR_LABEL)
+    breakdown_table.add_column("W / L / BE", justify="center", header_style=COLOR_LABEL)
+    breakdown_table.add_column("Win Rate", justify="right", header_style=COLOR_LABEL)
+    breakdown_table.add_column("Realized PnL ($)", justify="right", header_style=COLOR_LABEL)
+    breakdown_table.add_column("ROI (%)", justify="right", header_style=COLOR_LABEL)
+    breakdown_table.add_column("Avg Hold", justify="right", header_style=COLOR_LABEL)
+
+    for r in visible_rows:
+        if r[0] == "SECTION":
+            breakdown_table.add_section()
+            breakdown_table.add_row(r[1], "", "", "", "", "", "")
+        else:
+            breakdown_table.add_row(*r)
+
+    # Combine top metrics grid and breakdown table into a single renderable Group
+    renderable_group = Group(metrics_table, Text(""), breakdown_table)
 
     # Dynamic scroll indicator in panel title
     scroll_indicator = f" [Scroll: -{offset}]" if offset > 0 else ""
     title_str = f"Performance Summary{scroll_indicator} (K/J to Scroll, M or H to Minimize)" if fullscreen else f"Performance Summary{scroll_indicator} (K/J to Scroll, M to Fullscreen)"
-    return Panel(metrics_table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
+    return Panel(renderable_group, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
 def build_spot_prices_panel() -> Panel:
