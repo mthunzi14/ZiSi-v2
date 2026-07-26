@@ -798,23 +798,37 @@ export default function App() {
               </tr>
             </thead>
             <tbody>
-              {displayTrades.map((row, idx) => (
-                <tr key={idx}>
-                  <td>{row.closed_time}</td>
-                  <td>{row.asset}</td>
-                  <td>{row.tf}</td>
-                  <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
-                  <td>${row.size.toFixed(2)}</td>
-                  <td>{row.entry_token}</td>
-                  <td>{row.exit_token}</td>
-                  <td>{row.hold}</td>
-                  <td>{row.type}</td>
-                  <td className={getExitReasonClass(row.exit_reason)}>{row.exit_reason}</td>
-                  <td className={row.realized_pnl >= 0 ? 'text-green' : 'text-red'}>
-                    {row.realized_pnl >= 0 ? '+' : ''}${row.realized_pnl.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
+              {displayTrades.map((row, idx) => {
+                const getCandleKey = (tStr) => {
+                  if (!tStr) return '';
+                  const parts = tStr.trim().split(' ');
+                  if (parts.length >= 2) {
+                    const t = parts[1].split(':');
+                    const m = Math.floor(parseInt(t[1] || '0', 10) / 5) * 5;
+                    return `${parts[0]} ${t[0]}:${m < 10 ? '0' + m : m}`;
+                  }
+                  return tStr;
+                };
+                const isBoundary = idx > 0 && getCandleKey(row.closed_time) !== getCandleKey(displayTrades[idx - 1].closed_time);
+
+                return (
+                  <tr key={idx} style={isBoundary ? { borderTop: '2px solid rgba(216, 180, 254, 0.35)' } : {}}>
+                    <td>{row.closed_time}</td>
+                    <td>{row.asset}</td>
+                    <td>{row.tf}</td>
+                    <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
+                    <td>${row.size.toFixed(2)}</td>
+                    <td>{row.entry_token}</td>
+                    <td>{row.exit_token}</td>
+                    <td>{row.hold}</td>
+                    <td>{row.type}</td>
+                    <td className={getExitReasonClass(row.exit_reason)}>{row.exit_reason}</td>
+                    <td className={row.realized_pnl >= 0 ? 'text-green' : 'text-red'}>
+                      {row.realized_pnl >= 0 ? '+' : ''}${row.realized_pnl.toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

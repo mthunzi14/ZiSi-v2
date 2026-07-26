@@ -1494,6 +1494,25 @@ def build_active_positions_panel() -> Panel:
     return Panel(table, title=f"[bold {COLOR_LABEL}]{title_str}[/bold {COLOR_LABEL}]", box=ROUNDED, border_style=COLOR_BORDER)
 
 
+def _parse_candle_key(pos_dict: dict) -> Optional[tuple]:
+    raw_ts = pos_dict.get("exit_time") or pos_dict.get("timestamp") or pos_dict.get("placed_at") or pos_dict.get("closed_time") or ""
+    if not raw_ts:
+        return None
+    try:
+        ts_str = str(raw_ts).strip()
+        if " " in ts_str and not ("T" in ts_str or "Z" in ts_str):
+            parts = ts_str.split()
+            date_parts = [int(x) for x in parts[0].split("-")]
+            time_parts = [int(x) for x in parts[1].split(":")[0:2]]
+            c_min = (time_parts[1] // 5) * 5
+            return (date_parts[0], date_parts[1], date_parts[2], time_parts[0], c_min)
+        else:
+            dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            c_min = (dt.minute // 5) * 5
+            return (dt.year, dt.month, dt.day, dt.hour, c_min)
+    except Exception:
+        return None
+
 def build_closed_positions_panel(num_lines: int = 15) -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 1))
@@ -1517,7 +1536,13 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
 
     # Display sliced closed trades based on scroll offset
     visible_positions = closed_positions[offset : offset + num_lines]
-    for pos in visible_positions:
+    last_candle_key = None
+    for idx, pos in enumerate(visible_positions):
+        curr_candle_key = _parse_candle_key(pos)
+        if idx > 0 and curr_candle_key != last_candle_key and curr_candle_key is not None and last_candle_key is not None:
+            table.add_section()
+        last_candle_key = curr_candle_key
+
         title = pos.get("event_title", "Unknown")
         
         # Asset parse
