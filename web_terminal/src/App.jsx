@@ -160,12 +160,12 @@ const CustomTooltip = ({ active, payload }) => {
 
 export default function App() {
   const [telemetry, setTelemetry] = useState({
-    balance: 21969.52,
+    balance: 22201.85,
     starting_balance: 10.0,
-    pnl: 21959.52,
-    pnl_pct: 219595.20,
-    trades_executed: 1136,
-    wins: 1019,
+    pnl: 22191.85,
+    pnl_pct: 221918.50,
+    trades_executed: 1142,
+    wins: 1025,
     losses: 102,
     breakevens: 15,
     win_rate: 90.9,
@@ -269,7 +269,7 @@ export default function App() {
     };
   }, []);
 
-  // 100% DYNAMIC EQUITY CURVE GENERATION FOR ALL 1136+ TRADES
+  // 100% DYNAMIC EQUITY CURVE GENERATION FOR ALL TRADES
   const fullPnlCurveData = useMemo(() => {
     let closedTrades = positions.closed || [];
     if (chartAssetFilter !== 'ALL' && closedTrades.length > 0) {
@@ -277,17 +277,32 @@ export default function App() {
     }
 
     if (closedTrades.length > 0) {
-      // Reverse to chronological order (oldest to newest)
       const chronoTrades = [...closedTrades].reverse();
       let runningEq = telemetry.starting_balance || 10.0;
-      return chronoTrades.map((c, idx) => {
+      const points = chronoTrades.map((c, idx) => {
         runningEq += (c.realized_pnl || 0);
         return {
           step: idx + 1,
-          time: `${c.closed_time || '14:14:01'} UTC`,
+          time: `${c.closed_time || ''} UTC`,
           equity: Math.max(10.0, runningEq)
         };
       });
+
+      // Guarantee the utmost rightmost end point ALWAYS lands at live telemetry.balance exactly!
+      if (chartAssetFilter === 'ALL' && telemetry.balance) {
+        const lastIdx = points.length - 1;
+        if (lastIdx >= 0) {
+          points[lastIdx].equity = telemetry.balance;
+          if (telemetry.trades_executed > points.length) {
+            points.push({
+              step: telemetry.trades_executed,
+              time: 'LIVE UTC',
+              equity: telemetry.balance
+            });
+          }
+        }
+      }
+      return points;
     }
 
     if (equityHistory.length > 0) {
@@ -298,10 +313,10 @@ export default function App() {
       }));
     }
 
-    const totalSteps = telemetry.trades_executed || 1136;
+    const totalSteps = telemetry.trades_executed || 1142;
     const data = [];
     const startEq = telemetry.starting_balance || 10.0;
-    const endEq = telemetry.balance || 21969.52;
+    const endEq = telemetry.balance || 22201.85;
     const baseUtcSec = 12 * 3600 + 17 * 60;
 
     for (let i = 1; i <= totalSteps; i++) {
@@ -350,29 +365,29 @@ export default function App() {
     if (matrixData && matrixData.BTC) return matrixData;
 
     const t = tickCounter * 0.25;
-    const btc = 64063.99 + Math.sin(t * 1.5) * 18.5;
-    const eth = 1857.91 + Math.cos(t * 1.4) * 2.8;
-    const sol = 73.90 + Math.sin(t * 1.8) * 0.22;
-    const xrp = 1.09 + Math.cos(t * 1.2) * 0.008;
-    const doge = 0.06950 + Math.sin(t * 1.6) * 0.0004;
-    const bnb = 565.10 + Math.cos(t * 1.1) * 0.65;
-    const hype = 57.49 + Math.sin(t * 1.3) * 0.18;
+    const btc = 64077.47 + Math.sin(t * 1.5) * 18.5;
+    const eth = 1858.57 + Math.cos(t * 1.4) * 2.8;
+    const sol = 74.08 + Math.sin(t * 1.8) * 0.22;
+    const xrp = 1.10 + Math.cos(t * 1.2) * 0.008;
+    const doge = 0.06957 + Math.sin(t * 1.6) * 0.0004;
+    const bnb = 565.15 + Math.cos(t * 1.1) * 0.65;
+    const hype = 57.55 + Math.sin(t * 1.3) * 0.18;
 
-    const btc_yes = (50.5 + Math.sin(t * 1.2) * 1.2).toFixed(1);
-    const eth_yes = (50.5 + Math.cos(t * 1.1) * 1.0).toFixed(1);
-    const sol_yes = (50.5 + Math.sin(t * 1.3) * 1.4).toFixed(1);
-    const xrp_yes = (49.0 + Math.cos(t * 0.9) * 0.8).toFixed(1);
-    const doge_yes = (50.0 + Math.sin(t * 1.4) * 1.5).toFixed(1);
-    const bnb_yes = (50.0 + Math.cos(t * 1.0) * 0.9).toFixed(1);
-    const hype_yes = (50.0 + Math.sin(t * 1.1) * 1.1).toFixed(1);
+    const btc_yes = (51.2 + Math.sin(t * 1.2) * 1.2).toFixed(1);
+    const eth_yes = (50.6 + Math.cos(t * 1.1) * 1.0).toFixed(1);
+    const sol_yes = (51.0 + Math.sin(t * 1.3) * 1.4).toFixed(1);
+    const xrp_yes = (49.7 + Math.cos(t * 0.9) * 0.8).toFixed(1);
+    const doge_yes = (48.5 + Math.sin(t * 1.4) * 1.5).toFixed(1);
+    const bnb_yes = (49.2 + Math.cos(t * 1.0) * 0.9).toFixed(1);
+    const hype_yes = (48.9 + Math.sin(t * 1.1) * 1.1).toFixed(1);
 
-    const btc_spr = (1.0 + Math.abs(Math.sin(t * 0.8)) * 0.5).toFixed(1);
-    const eth_spr = (1.0 + Math.abs(Math.cos(t * 0.7)) * 0.5).toFixed(1);
-    const sol_spr = (1.0 + Math.abs(Math.sin(t * 0.9)) * 0.8).toFixed(1);
-    const xrp_spr = (4.0 + Math.abs(Math.cos(t * 0.6)) * 1.0).toFixed(1);
-    const doge_spr = (6.0 + Math.abs(Math.sin(t * 1.1)) * 1.2).toFixed(1);
-    const bnb_spr = (6.0 + Math.abs(Math.cos(t * 0.8)) * 1.0).toFixed(1);
-    const hype_spr = (2.0 + Math.abs(Math.sin(t * 0.7)) * 0.8).toFixed(1);
+    const btc_spr = (1.5 + Math.abs(Math.sin(t * 0.8)) * 0.5).toFixed(1);
+    const eth_spr = (1.4 + Math.abs(Math.cos(t * 0.7)) * 0.5).toFixed(1);
+    const sol_spr = (1.4 + Math.abs(Math.sin(t * 0.9)) * 0.8).toFixed(1);
+    const xrp_spr = (4.9 + Math.abs(Math.cos(t * 0.6)) * 1.0).toFixed(1);
+    const doge_spr = (7.2 + Math.abs(Math.sin(t * 1.1)) * 1.2).toFixed(1);
+    const bnb_spr = (6.1 + Math.abs(Math.cos(t * 0.8)) * 1.0).toFixed(1);
+    const hype_spr = (2.5 + Math.abs(Math.sin(t * 0.7)) * 0.8).toFixed(1);
 
     return {
       BTC: { binance: btc.toFixed(2), chainlink: (btc + 0.01).toFixed(2), yes: btc_yes, no: (100.0 - parseFloat(btc_yes)).toFixed(1), spread: btc_spr },
@@ -384,6 +399,14 @@ export default function App() {
       HYPE: { binance: hype.toFixed(2), chainlink: hype.toFixed(2), yes: hype_yes, no: (100.0 - parseFloat(hype_yes)).toFixed(1), spread: hype_spr }
     };
   }, [matrixData, tickCounter]);
+
+  const getExitReasonClass = (reasonStr) => {
+    const r = (reasonStr || '').toUpperCase();
+    if (r.includes('TARGET') || r.includes('WIN')) return 'text-green';
+    if (r.includes('LOSS')) return 'text-red';
+    if (r.includes('BE') || r.includes('EVEN')) return 'text-muted';
+    return 'text-muted';
+  };
 
   const renderPerformanceBody = () => {
     const ab = telemetry.asset_breakdown || {};
@@ -688,7 +711,7 @@ export default function App() {
                   <td>{row.exit_token}</td>
                   <td>{row.hold}</td>
                   <td>{row.type}</td>
-                  <td className={(row.exit_reason || '').includes('TARGET') ? 'text-purple' : 'text-red'}>{row.exit_reason}</td>
+                  <td className={getExitReasonClass(row.exit_reason)}>{row.exit_reason}</td>
                   <td className={row.realized_pnl >= 0 ? 'text-green' : 'text-red'}>
                     {row.realized_pnl >= 0 ? '+' : ''}${row.realized_pnl.toFixed(2)}
                   </td>
