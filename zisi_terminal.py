@@ -1541,6 +1541,20 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         curr_candle_key = _parse_candle_key(pos)
         if idx > 0 and curr_candle_key != last_candle_key and curr_candle_key is not None and last_candle_key is not None:
             table.add_section()
+            table.add_row(
+                "[grey35]──────────────────[/grey35]",
+                "[grey35]──────[/grey35]",
+                "[grey35]────[/grey35]",
+                "[grey35]────[/grey35]",
+                "[grey35]──────────[/grey35]",
+                "[grey35]───────────[/grey35]",
+                "[grey35]───────────[/grey35]",
+                "[grey35]────────[/grey35]",
+                "[grey35]──────[/grey35]",
+                "[grey35]────[/grey35]",
+                "[grey35]────────────────────[/grey35]",
+                "[grey35]──────────[/grey35]"
+            )
         last_candle_key = curr_candle_key
 
         title = pos.get("event_title", "Unknown")
