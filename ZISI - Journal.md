@@ -1633,6 +1633,19 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Committed and pushed to GitHub `origin/main` at commit `b648f6c`.
   * Remote-deployed to VPS (`204.168.222.48`) via Paramiko SSH (`git reset --hard origin/main` & `pm2 restart ZiSi-Core-Engine`). PM2 PID `3151740` is **online**!
 
+### Session 51 — 2026-07-26 (Antigravity)
+**Time:** 21:55 SAST | **Bot Status:** Active & Deployed ($25,433.15 USDC Paper Staging | PM2 PID 3151740 | Commit `7c3e919`)
+
+**REMOVED EXTRA CELL DASH TEXT / CLEAN FULL-WIDTH SECTION LINES INSTALLED:**
+- **Table Polish (`zisi_terminal.py`):**
+  * Removed the extra cell text dash rows (`[grey35]──────[/grey35]`) that were generating small dashed gray lines inside the Exit Reason / PnL cells.
+  * Kept strictly `table.add_section()`, allowing Rich Table to render a single, continuous, full-width section line across all 12 columns between 5-minute candle blocks.
+- **Verification & Deployment:**
+  * 65/65 pytest unit tests **PASSED** in 2.26 seconds cleanly.
+  * Committed and pushed to GitHub `origin/main` at commit `7c3e919`.
+  * Hard-reset VPS to `7c3e919`, restarted PM2 engine, and hot-reloaded `zisi_terminal.py` in tmux session `zisi`.
+
+
 
 
 
