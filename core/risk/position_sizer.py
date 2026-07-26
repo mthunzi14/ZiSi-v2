@@ -42,11 +42,14 @@ _MIN_POSITION_USD: float = 1.00
 
 def get_tiered_sizing_caps(balance: float) -> tuple[float, float]:
     """
-    Tiered Fixed-Tranche Compounding Position Sizer:
-    - Tier 1 ($50 - $300 balance): $5.00 - $15.00
+    Tiered Fixed-Tranche Compounding Position Sizer (7-Tier Master Ladder):
+    - Tier 1 ($0 - $300 balance): $5.00 - $15.00
     - Tier 2 ($300 - $1,000 balance): $20.00 - $40.00
     - Tier 3 ($1,000 - $3,000 balance): $50.00 - $80.00
-    - Tier 4 ($3,000+ balance): $100.00 - $150.00
+    - Tier 4 ($3,000 - $10,000 balance): $100.00 - $150.00
+    - Tier 5 ($10,000 - $50,000 balance): $250.00 - $500.00
+    - Tier 6 ($50,000 - $250,000 balance): $1,000.00 - $2,000.00
+    - Tier 7 ($250,000+ balance): $2,500.00 - $5,000.00
     """
     if balance < 300.0:
         min_s = min(5.00, max(1.00, balance * 0.05))
@@ -56,10 +59,16 @@ def get_tiered_sizing_caps(balance: float) -> tuple[float, float]:
         return 20.00, 40.00
     elif balance < 3000.0:
         return 50.00, 80.00
-    else:
+    elif balance < 10000.0:
         return 100.00, 150.00
+    elif balance < 50000.0:
+        return 250.00, 500.00
+    elif balance < 250000.0:
+        return 1000.00, 2000.00
+    else:
+        return 2500.00, 5000.00
 
-_MAX_POSITION_USD: float = 500.00
+_MAX_POSITION_USD: float = 5000.00
 _MAX_BANKROLL_FRACTION: float = 0.05  # Never risk >5% per trade
 
 # Kelly multipliers by signal type (backward compat)
