@@ -13,8 +13,34 @@ from pathlib import Path
 
 log = logging.getLogger("zisi.state")
 
-_STATE_FILE       = Path(__file__).parent.parent.parent / "data" / "account_state.json"
-_POSITIONS_FILE   = Path(__file__).parent.parent.parent / "data" / "positions_state.json"
+def get_state_file() -> Path:
+    """Return live_account_state.json or paper_account_state.json based on config.IS_LIVE."""
+    try:
+        import config
+        if getattr(config, "IS_LIVE", False):
+            return Path(__file__).parent.parent.parent / "data" / "live_account_state.json"
+    except Exception:
+        pass
+    paper_p = Path(__file__).parent.parent.parent / "data" / "paper_account_state.json"
+    if paper_p.exists():
+        return paper_p
+    return Path(__file__).parent.parent.parent / "data" / "account_state.json"
+
+def get_positions_file() -> Path:
+    """Return live_positions_state.json or paper_positions_state.json based on config.IS_LIVE."""
+    try:
+        import config
+        if getattr(config, "IS_LIVE", False):
+            return Path(__file__).parent.parent.parent / "data" / "live_positions_state.json"
+    except Exception:
+        pass
+    paper_p = Path(__file__).parent.parent.parent / "data" / "paper_positions_state.json"
+    if paper_p.exists():
+        return paper_p
+    return Path(__file__).parent.parent.parent / "data" / "positions_state.json"
+
+_STATE_FILE       = get_state_file()
+_POSITIONS_FILE   = get_positions_file()
 _DEFAULT_BALANCE  = 50.0
 _lock             = threading.RLock()
 GLOBAL_POSITIONS_LOCK = threading.Lock()

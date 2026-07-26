@@ -62,8 +62,32 @@ def safe_float(val, default=0.0) -> float:
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
 
-STATE_FILE = DATA_DIR / "account_state.json"
-POSITIONS_FILE = DATA_DIR / "positions_state.json"
+def get_terminal_state_file() -> Path:
+    try:
+        import config
+        if getattr(config, "IS_LIVE", False):
+            return DATA_DIR / "live_account_state.json"
+    except Exception:
+        pass
+    paper_p = DATA_DIR / "paper_account_state.json"
+    if paper_p.exists():
+        return paper_p
+    return DATA_DIR / "account_state.json"
+
+def get_terminal_positions_file() -> Path:
+    try:
+        import config
+        if getattr(config, "IS_LIVE", False):
+            return DATA_DIR / "live_positions_state.json"
+    except Exception:
+        pass
+    paper_p = DATA_DIR / "paper_positions_state.json"
+    if paper_p.exists():
+        return paper_p
+    return DATA_DIR / "positions_state.json"
+
+STATE_FILE = get_terminal_state_file()
+POSITIONS_FILE = get_terminal_positions_file()
 REGIME_FILE = DATA_DIR / "regime_status.json"
 SENTIMENT_FILE = DATA_DIR / "sentiment_state.json"
 CHAINLINK_FILE = DATA_DIR / "chainlink_prices.json"

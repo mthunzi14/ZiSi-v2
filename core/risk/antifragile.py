@@ -32,8 +32,33 @@ log = logging.getLogger("zisi.antifragile")
 # ── File paths ────────────────────────────────────────────────────────────────
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_STATE_PATH = _PROJECT_ROOT / "data" / "antifragile_state.json"
-_POSITIONS_PATH = _PROJECT_ROOT / "data" / "positions_state.json"
+
+def _get_antifragile_state_path() -> Path:
+    try:
+        import config
+        if getattr(config, "IS_LIVE", False):
+            return _PROJECT_ROOT / "data" / "live_antifragile_state.json"
+    except Exception:
+        pass
+    paper_p = _PROJECT_ROOT / "data" / "paper_antifragile_state.json"
+    if paper_p.exists():
+        return paper_p
+    return _PROJECT_ROOT / "data" / "antifragile_state.json"
+
+def _get_positions_path() -> Path:
+    try:
+        import config
+        if getattr(config, "IS_LIVE", False):
+            return _PROJECT_ROOT / "data" / "live_positions_state.json"
+    except Exception:
+        pass
+    paper_p = _PROJECT_ROOT / "data" / "paper_positions_state.json"
+    if paper_p.exists():
+        return paper_p
+    return _PROJECT_ROOT / "data" / "positions_state.json"
+
+_STATE_PATH = _get_antifragile_state_path()
+_POSITIONS_PATH = _get_positions_path()
 
 # ── Tier constants ────────────────────────────────────────────────────────────
 
