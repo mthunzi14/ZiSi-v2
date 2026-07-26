@@ -594,7 +594,16 @@ export default function App() {
     let closedList = positions.closed || [];
     if (filterAsset !== 'ALL') closedList = closedList.filter(r => r.asset === filterAsset);
     if (filterType !== 'ALL') closedList = closedList.filter(r => r.type === filterType);
-    if (filterReason !== 'ALL') closedList = closedList.filter(r => (r.exit_reason || '').includes(filterReason));
+    if (filterReason !== 'ALL') {
+      closedList = closedList.filter(r => {
+        const reason = (r.exit_reason || '').toUpperCase();
+        if (filterReason === 'TARGET') return reason.includes('TARGET');
+        if (filterReason === 'LOSS MARKET EXPIRED') return reason.includes('EXPIRED') && reason.includes('LOSS');
+        if (filterReason === 'WIN MARKET EXPIRED') return reason.includes('EXPIRED') && (reason.includes('WIN') || !reason.includes('LOSS'));
+        if (filterReason === 'LOSS') return reason.includes('LOSS') && !reason.includes('EXPIRED');
+        return reason.includes(filterReason);
+      });
+    }
 
     if (closedList.length === 0) {
       return (
@@ -644,8 +653,9 @@ export default function App() {
           <select className="filter-select-pill" value={filterReason} onChange={e => setFilterReason(e.target.value)}>
             <option value="ALL">Exit: ALL</option>
             <option value="TARGET">TARGET</option>
-            <option value="SLP">SLP</option>
             <option value="LOSS">LOSS</option>
+            <option value="LOSS MARKET EXPIRED">LOSS MARKET EXPIRED</option>
+            <option value="WIN MARKET EXPIRED">WIN MARKET EXPIRED</option>
           </select>
         </div>
 
