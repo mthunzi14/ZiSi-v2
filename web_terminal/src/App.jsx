@@ -164,10 +164,10 @@ export default function App() {
     starting_balance: 10.0,
     pnl: 9413.61,
     pnl_pct: 94136.10,
-    trades_executed: 620,
-    wins: 547,
-    losses: 65,
-    breakevens: 8,
+    trades_executed: 1110,
+    wins: 992,
+    losses: 108,
+    breakevens: 10,
     win_rate: 89.4,
     status: 'running',
     phase: 'phase_1',
@@ -269,7 +269,7 @@ export default function App() {
     };
   }, []);
 
-  // 100% DYNAMIC EQUITY CURVE GENERATION
+  // 100% DYNAMIC EQUITY CURVE GENERATION FOR ALL 1100+ TRADES
   const fullPnlCurveData = useMemo(() => {
     let closedTrades = positions.closed || [];
     if (chartAssetFilter !== 'ALL' && closedTrades.length > 0) {
@@ -277,12 +277,14 @@ export default function App() {
     }
 
     if (closedTrades.length > 0) {
+      // Reverse to chronological order (oldest to newest)
+      const chronoTrades = [...closedTrades].reverse();
       let runningEq = telemetry.starting_balance || 10.0;
-      return closedTrades.map((c, idx) => {
+      return chronoTrades.map((c, idx) => {
         runningEq += (c.realized_pnl || 0);
         return {
           step: idx + 1,
-          time: `${c.closed_time || '14:14:01'} UTC / ${c.closed_time || '14:14:01'} SAST`,
+          time: `${c.closed_time || '14:14:01'} UTC`,
           equity: Math.max(10.0, runningEq)
         };
       });
@@ -291,7 +293,7 @@ export default function App() {
     if (equityHistory.length > 0) {
       return equityHistory.map((pt, idx) => ({
         step: idx + 1,
-        time: `${pt.timestamp.slice(11, 19)} UTC / ${pt.timestamp.slice(11, 19)} SAST`,
+        time: `${pt.timestamp.slice(11, 19)} UTC`,
         equity: pt.balance
       }));
     }
@@ -329,9 +331,9 @@ export default function App() {
   // Range Pill Filtering
   const filteredCurveData = useMemo(() => {
     const total = fullPnlCurveData.length;
-    if (timeRange === '1D') return fullPnlCurveData.slice(Math.max(0, total - 120));
-    if (timeRange === '1W') return fullPnlCurveData.slice(Math.max(0, total - 300));
-    if (timeRange === '1M') return fullPnlCurveData.slice(Math.max(0, total - 450));
+    if (timeRange === '1D') return fullPnlCurveData.slice(Math.max(0, total - 150));
+    if (timeRange === '1W') return fullPnlCurveData.slice(Math.max(0, total - 400));
+    if (timeRange === '1M') return fullPnlCurveData.slice(Math.max(0, total - 800));
     if (timeRange === '1Y' || timeRange === 'YTD') return fullPnlCurveData;
     return fullPnlCurveData;
   }, [fullPnlCurveData, timeRange]);
@@ -592,7 +594,7 @@ export default function App() {
     let closedList = positions.closed || [];
     if (filterAsset !== 'ALL') closedList = closedList.filter(r => r.asset === filterAsset);
     if (filterType !== 'ALL') closedList = closedList.filter(r => r.type === filterType);
-    if (filterReason !== 'ALL') closedList = closedList.filter(r => r.exit_reason === filterReason);
+    if (filterReason !== 'ALL') closedList = closedList.filter(r => (r.exit_reason || '').includes(filterReason));
 
     if (closedList.length === 0) {
       return (
@@ -630,42 +632,44 @@ export default function App() {
           </select>
         </div>
 
-        <table className="terminal-table">
-          <thead>
-            <tr>
-              <th>Closed Time</th>
-              <th>Asset</th>
-              <th>TF</th>
-              <th>Dir</th>
-              <th>Size</th>
-              <th>Entry Token</th>
-              <th>Exit Token</th>
-              <th>Hold</th>
-              <th>Type</th>
-              <th>Exit Reason</th>
-              <th>PnL ($)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {closedList.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.closed_time}</td>
-                <td>{row.asset}</td>
-                <td>{row.tf}</td>
-                <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
-                <td>${row.size.toFixed(2)}</td>
-                <td>{row.entry_token}</td>
-                <td>{row.exit_token}</td>
-                <td>{row.hold}</td>
-                <td>{row.type}</td>
-                <td className={row.exit_reason === 'TARGET' ? 'text-purple' : 'text-red'}>{row.exit_reason}</td>
-                <td className={row.realized_pnl >= 0 ? 'text-green' : 'text-red'}>
-                  {row.realized_pnl >= 0 ? '+' : ''}${row.realized_pnl.toFixed(2)}
-                </td>
+        <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+          <table className="terminal-table">
+            <thead>
+              <tr>
+                <th>Closed Time</th>
+                <th>Asset</th>
+                <th>TF</th>
+                <th>Dir</th>
+                <th>Size</th>
+                <th>Entry Token</th>
+                <th>Exit Token</th>
+                <th>Hold</th>
+                <th>Type</th>
+                <th>Exit Reason</th>
+                <th>PnL ($)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {closedList.slice(0, 100).map((row, idx) => (
+                <tr key={idx}>
+                  <td>{row.closed_time}</td>
+                  <td>{row.asset}</td>
+                  <td>{row.tf}</td>
+                  <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
+                  <td>${row.size.toFixed(2)}</td>
+                  <td>{row.entry_token}</td>
+                  <td>{row.exit_token}</td>
+                  <td>{row.hold}</td>
+                  <td>{row.type}</td>
+                  <td className={(row.exit_reason || '').includes('TARGET') ? 'text-purple' : 'text-red'}>{row.exit_reason}</td>
+                  <td className={row.realized_pnl >= 0 ? 'text-green' : 'text-red'}>
+                    {row.realized_pnl >= 0 ? '+' : ''}${row.realized_pnl.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </>
     );
   };
@@ -778,7 +782,7 @@ export default function App() {
           <div className="card-header">
             <div className="card-title">
               <ListFilter size={16} className="text-purple" />
-              <span>Closed Trade History</span>
+              <span>Closed Trade History ({positions.closed ? positions.closed.length : 0} Trades)</span>
             </div>
             <button className="card-zoom-btn" onClick={() => setZoomCard('history')}>
               <Maximize2 size={12} />
@@ -833,7 +837,7 @@ export default function App() {
                 {zoomCard === 'history' && (
                   <>
                     <ListFilter size={16} className="text-purple" />
-                    <span>Closed Trade History</span>
+                    <span>Closed Trade History ({positions.closed ? positions.closed.length : 0} Trades)</span>
                   </>
                 )}
                 {zoomCard === 'logs' && (

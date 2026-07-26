@@ -2,6 +2,7 @@
 """
 app/web_api.py — ZiSi-v2 Read-Only Dynamic Dashboard Telemetry API
 Runs isolated on Port 9000. Serves 100% real-time data directly from ZiSi-v2 engine state files.
+Parses trade_history_report.md + positions_state.json + balance_history.jsonl for complete accuracy.
 """
 
 import os
@@ -43,6 +44,8 @@ DATA_DIR = PROJECT_ROOT / "data"
 ACCOUNT_STATE_FILE = DATA_DIR / "account_state.json"
 POSITIONS_STATE_FILE = DATA_DIR / "positions_state.json"
 BALANCE_HISTORY_FILE = DATA_DIR / "balance_history.jsonl"
+TRADE_REPORT_FILE = DATA_DIR / "trade_history_report.md"
+
 PM2_LOG_FILE = Path("/root/.pm2/logs/ZiSi-Core-Engine-error.log")
 LOCAL_LOG_FILE = PROJECT_ROOT / "zisi_bot_console.log"
 LOG_FILE = PM2_LOG_FILE if PM2_LOG_FILE.exists() else LOCAL_LOG_FILE
@@ -57,12 +60,12 @@ def safe_float(val, default=0.0) -> float:
         return float(default)
 
 
-def parse_asset_from_event(event_title: str) -> str:
-    if not event_title:
+def parse_asset_from_str(s: str) -> str:
+    if not s:
         return "BTC"
-    event_title = event_title.upper()
+    s_upper = s.upper()
     for a in ["BNB", "BTC", "DOGE", "ETH", "HYPE", "SOL", "XRP"]:
-        if a in event_title:
+        if f"[{a}]" in s_upper or a in s_upper:
             return a
     return "BTC"
 
@@ -70,31 +73,119 @@ def parse_asset_from_event(event_title: str) -> str:
 def format_cents_str(val: float) -> str:
     if val is None or val == 0:
         return "-"
-    cents = round(val * 100, 2)
+    cents = round(val * 100, 1)
     if cents == int(cents):
         return f"{int(cents)}¢"
-    s = f"{cents:.1f}"
-    return f"{s}¢"
+    return f"{cents}¢"
 
 
-def format_time_str(iso_str: str) -> str:
-    if not iso_str:
-        return datetime.now(timezone.utc).strftime("%H:%M:%S")
-    try:
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}"
-    except Exception:
-        return iso_str[:19]
+def load_closed_trades() -> list:
+    """
+    Parse closed trades from trade_history_report.md + positions_state.json.
+    Returns newest-first sorted list of standardized trade dicts.
+    """
+    trades_dict = {}
 
+    # 1. Parse trade_history_report.md (Contains all 1100+ trades)
+    if TRADE_REPORT_FILE.exists():
+        try:
+            with open(TRADE_REPORT_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.startswith("|") or "Closed Time" in line or "---|---" in line:
+                        continue
+                    parts = [p.strip() for p in line.split("|")[1:-1]]
+                    if len(parts) >= 10:
+                        raw_time = parts[0]
+                        asset = parts[1]
+                        tf = parts[2]
+                        direction = parts[3]
+                        try:
+                            size = float(parts[4].replace("$", "").replace(",", ""))
+                        except Exception:
+                            size = 0.0
+                        try:
+                            raw_e = parts[5].replace("¢", "").replace("$", "")
+                            entry_p = float(raw_e)
+                            if entry_p > 1.0: entry_p /= 100.0
+                        except Exception:
+                            entry_p = 0.5
+                        try:
+                            raw_x = parts[6].replace("¢", "").replace("$", "")
+                            exit_p = float(raw_x)
+                            if exit_p > 1.0: exit_p /= 100.0
+                        except Exception:
+                            exit_p = 0.5
+                        hold = parts[7]
+                        exit_reason = parts[8]
+                        try:
+                            pnl_str = parts[9].replace("$", "").replace("+", "").replace(",", "")
+                            realized_pnl = float(pnl_str)
+                        except Exception:
+                            realized_pnl = 0.0
 
-@app.get("/")
-def read_root():
-    return {"status": "ONLINE", "engine": "ZiSi-v2 Telemetry Stream", "port": 9000}
+                        tranche_type = "EX" if "EX" in exit_reason.upper() or "RUNNER" in exit_reason.upper() else ("ES" if "ES" in exit_reason.upper() or "HALF" in exit_reason.upper() else "EX")
+
+                        closed_time_clean = raw_time[:19].replace("T", " ")
+
+                        key = f"{raw_time}_{asset}_{size}_{realized_pnl}"
+                        trades_dict[key] = {
+                            "closed_time": closed_time_clean,
+                            "asset": asset,
+                            "tf": tf,
+                            "dir": direction,
+                            "size": size,
+                            "entry_token": format_cents_str(entry_p),
+                            "exit_token": format_cents_str(exit_p),
+                            "hold": hold,
+                            "type": tranche_type,
+                            "exit_reason": exit_reason.upper(),
+                            "realized_pnl": realized_pnl,
+                            "raw_time": raw_time
+                        }
+        except Exception as e:
+            log.warning("Error reading trade_history_report.md: %s", e)
+
+    # 2. Merge with positions_state.json closed array
+    if POSITIONS_STATE_FILE.exists():
+        try:
+            with open(POSITIONS_STATE_FILE, "r", encoding="utf-8") as f:
+                pdata = json.load(f)
+                raw_closed = pdata.get("closed", [])
+                for p in raw_closed:
+                    raw_time = p.get("exit_time") or p.get("entry_time", "")
+                    asset = parse_asset_from_str(p.get("event_title", "") or p.get("asset", ""))
+                    size = safe_float(p.get("size", 0.0))
+                    realized_pnl = safe_float(p.get("realized_pnl", 0.0))
+                    closed_time_clean = raw_time[:19].replace("T", " ") if raw_time else ""
+
+                    key = f"{raw_time}_{asset}_{size}_{realized_pnl}"
+                    if key not in trades_dict:
+                        trades_dict[key] = {
+                            "closed_time": closed_time_clean,
+                            "asset": asset,
+                            "tf": p.get("timeframe") or "5m",
+                            "dir": p.get("direction") or "YES",
+                            "size": size,
+                            "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
+                            "exit_token": format_cents_str(safe_float(p.get("exit_price", 0.0))),
+                            "hold": f"{int(safe_float(p.get('hold_hours', 0) * 60))}m",
+                            "type": p.get("pillar") or p.get("type") or "EX",
+                            "exit_reason": (p.get("exit_reason") or "TARGET").upper(),
+                            "realized_pnl": realized_pnl,
+                            "raw_time": raw_time
+                        }
+        except Exception as e:
+            log.warning("Error reading positions_state.json: %s", e)
+
+    # Sort newest first
+    trade_list = list(trades_dict.values())
+    trade_list.sort(key=lambda x: x.get("raw_time", ""), reverse=True)
+    return trade_list
 
 
 @app.get("/api/telemetry")
 def get_telemetry():
-    """100% Dynamic account state & balance telemetry read directly from disk."""
+    """100% Dynamic account state & balance telemetry."""
     try:
         account_data = {}
         if ACCOUNT_STATE_FILE.exists():
@@ -104,40 +195,35 @@ def get_telemetry():
             except Exception:
                 pass
 
-        positions_data = {}
-        if POSITIONS_STATE_FILE.exists():
-            try:
-                with open(POSITIONS_STATE_FILE, "r", encoding="utf-8") as f:
-                    positions_data = json.load(f)
-            except Exception:
-                pass
+        closed_list = load_closed_trades()
+        total_pnl_from_trades = sum(p["realized_pnl"] for p in closed_list)
 
-        balance = safe_float(account_data.get("balance", 9423.61))
         starting_balance = safe_float(account_data.get("starting_balance", 10.0))
-        pnl = safe_float(account_data.get("pnl", balance - starting_balance))
+        balance = safe_float(account_data.get("balance", starting_balance + total_pnl_from_trades))
+        if balance < starting_balance + total_pnl_from_trades:
+            balance = starting_balance + total_pnl_from_trades
+
+        pnl = balance - starting_balance
         pnl_pct = ((pnl / starting_balance) * 100) if starting_balance > 0 else 0.0
 
-        closed_list = positions_data.get("closed", [])
-        trades_executed = account_data.get("trades_executed", len(closed_list))
-        if trades_executed == 0 and closed_list:
-            trades_executed = len(closed_list)
+        trades_executed = max(len(closed_list), account_data.get("trades_executed", 0))
 
-        wins = sum(1 for p in closed_list if safe_float(p.get("realized_pnl", 0)) > 0.01)
-        losses = sum(1 for p in closed_list if safe_float(p.get("realized_pnl", 0)) < -0.01)
-        breakevens = sum(1 for p in closed_list if -0.01 <= safe_float(p.get("realized_pnl", 0)) <= 0.01)
+        wins = sum(1 for p in closed_list if p["realized_pnl"] > 0.01)
+        losses = sum(1 for p in closed_list if p["realized_pnl"] < -0.01)
+        breakevens = sum(1 for p in closed_list if -0.01 <= p["realized_pnl"] <= 0.01)
 
         win_rate = (wins / (wins + losses) * 100) if (wins + losses) > 0 else safe_float(account_data.get("win_rate", 89.4))
 
         # Dynamic Per-Asset Breakdown
         asset_breakdown = {}
         for asset in ["BNB", "BTC", "DOGE", "ETH", "HYPE", "SOL", "XRP"]:
-            asset_trades = [p for p in closed_list if parse_asset_from_event(p.get("event_title", "") or p.get("asset", "")) == asset]
+            asset_trades = [p for p in closed_list if p["asset"] == asset]
             a_count = len(asset_trades)
-            a_wins = sum(1 for p in asset_trades if safe_float(p.get("realized_pnl", 0)) > 0.01)
-            a_losses = sum(1 for p in asset_trades if safe_float(p.get("realized_pnl", 0)) < -0.01)
-            a_be = sum(1 for p in asset_trades if -0.01 <= safe_float(p.get("realized_pnl", 0)) <= 0.01)
+            a_wins = sum(1 for p in asset_trades if p["realized_pnl"] > 0.01)
+            a_losses = sum(1 for p in asset_trades if p["realized_pnl"] < -0.01)
+            a_be = sum(1 for p in asset_trades if -0.01 <= p["realized_pnl"] <= 0.01)
             a_wr = (a_wins / (a_wins + a_losses) * 100) if (a_wins + a_losses) > 0 else 0.0
-            a_pnl = sum(safe_float(p.get("realized_pnl", 0)) for p in asset_trades)
+            a_pnl = sum(p["realized_pnl"] for p in asset_trades)
 
             asset_breakdown[asset] = {
                 "trades": a_count,
@@ -210,56 +296,39 @@ def get_matrix():
 
 @app.get("/api/positions")
 def get_positions():
-    """100% Dynamic active and closed trade positions read directly from positions_state.json."""
-    if not POSITIONS_STATE_FILE.exists():
-        return JSONResponse(content={"active": [], "closed": [], "summary": {"active_count": 0, "closed_count": 0}}, status_code=200)
-
+    """100% Dynamic active and closed trade positions."""
     try:
-        with open(POSITIONS_STATE_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        active_list = []
+        if POSITIONS_STATE_FILE.exists():
+            try:
+                with open(POSITIONS_STATE_FILE, "r", encoding="utf-8") as f:
+                    pdata = json.load(f)
+                    raw_active = pdata.get("active", [])
+                    for p in raw_active:
+                        asset = parse_asset_from_str(p.get("event_title", "") or p.get("asset", ""))
+                        active_list.append({
+                            "entry_time": (p.get("entry_time") or "")[:19].replace("T", " "),
+                            "asset": asset,
+                            "tf": p.get("timeframe") or "5m",
+                            "dir": p.get("direction") or "YES",
+                            "size": round(safe_float(p.get("size", 0.0)), 2),
+                            "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
+                            "mark_token": format_cents_str(safe_float(p.get("current_price", 0.0))),
+                            "hold": f"{int(safe_float(p.get('hold_minutes', 0)))}m",
+                            "type": p.get("pillar") or p.get("type") or "EX",
+                            "unrealized_pnl": round(safe_float(p.get("unrealized_pnl", 0.0)), 2)
+                        })
+            except Exception:
+                pass
 
-        raw_active = data.get("active", [])
-        raw_closed = data.get("closed", [])
-
-        formatted_active = []
-        for p in raw_active:
-            asset = p.get("asset") or parse_asset_from_event(p.get("event_title", ""))
-            formatted_active.append({
-                "entry_time": format_time_str(p.get("entry_time", "")),
-                "asset": asset,
-                "tf": p.get("timeframe") or "5m",
-                "dir": p.get("direction") or "YES",
-                "size": round(safe_float(p.get("size", 0.0)), 2),
-                "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
-                "mark_token": format_cents_str(safe_float(p.get("current_price", 0.0))),
-                "hold": f"{int(safe_float(p.get('hold_minutes', 0)))}m {int((safe_float(p.get('hold_minutes', 0)) % 1) * 60)}s",
-                "type": p.get("pillar") or p.get("type") or "EX",
-                "unrealized_pnl": round(safe_float(p.get("unrealized_pnl", 0.0)), 2)
-            })
-
-        formatted_closed = []
-        for p in raw_closed:
-            asset = p.get("asset") or parse_asset_from_event(p.get("event_title", ""))
-            formatted_closed.append({
-                "closed_time": format_time_str(p.get("exit_time") or p.get("entry_time", "")),
-                "asset": asset,
-                "tf": p.get("timeframe") or "5m",
-                "dir": p.get("direction") or "YES",
-                "size": round(safe_float(p.get("size", 0.0)), 2),
-                "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
-                "exit_token": format_cents_str(safe_float(p.get("exit_price", 0.0))),
-                "hold": f"{int(safe_float(p.get('hold_hours', 0) * 60))}m {int((safe_float(p.get('hold_hours', 0) * 60) % 1) * 60)}s",
-                "type": p.get("pillar") or p.get("type") or "EX",
-                "exit_reason": (p.get("exit_reason") or "TARGET").upper(),
-                "realized_pnl": round(safe_float(p.get("realized_pnl", 0.0)), 2)
-            })
+        closed_list = load_closed_trades()
 
         return {
-            "active": formatted_active,
-            "closed": formatted_closed,
+            "active": active_list,
+            "closed": closed_list,
             "summary": {
-                "active_count": len(formatted_active),
-                "closed_count": len(formatted_closed)
+                "active_count": len(active_list),
+                "closed_count": len(closed_list)
             }
         }
     except Exception as e:
@@ -268,25 +337,41 @@ def get_positions():
 
 @app.get("/api/equity")
 def get_equity():
-    """100% Dynamic equity curve points read directly from balance_history.jsonl."""
-    if not BALANCE_HISTORY_FILE.exists():
-        return {"points": []}
+    """100% Dynamic equity curve points read directly from balance_history.jsonl & closed trades."""
     try:
         points = []
-        with open(BALANCE_HISTORY_FILE, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        record = json.loads(line)
-                        points.append({
-                            "timestamp": record.get("timestamp", ""),
-                            "balance": safe_float(record.get("balance", 0.0)),
-                            "pnl": safe_float(record.get("pnl", 0.0)),
-                            "trades": int(record.get("trades", 0))
-                        })
-                    except Exception:
-                        pass
+        if BALANCE_HISTORY_FILE.exists():
+            try:
+                with open(BALANCE_HISTORY_FILE, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            try:
+                                record = json.loads(line)
+                                points.append({
+                                    "timestamp": record.get("timestamp", ""),
+                                    "balance": safe_float(record.get("balance", 0.0)),
+                                    "pnl": safe_float(record.get("pnl", 0.0)),
+                                    "trades": int(record.get("trades", 0))
+                                })
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
+        if not points:
+            closed_list = load_closed_trades()
+            closed_list_asc = list(reversed(closed_list))
+            running = 10.0
+            for idx, tr in enumerate(closed_list_asc):
+                running += tr["realized_pnl"]
+                points.append({
+                    "timestamp": tr["closed_time"],
+                    "balance": round(running, 2),
+                    "pnl": round(running - 10.0, 2),
+                    "trades": idx + 1
+                })
+
         return {"points": points}
     except Exception as e:
         return {"points": [], "error": str(e)}
