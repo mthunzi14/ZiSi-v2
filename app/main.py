@@ -352,7 +352,7 @@ async def _validate_trade_slot(
 
     # Altcoin Market Leader Corroboration Guard
     # Altcoins correlate highly to BTC and ETH. Block if BOTH leaders are against our trade.
-    _ALTCOINS = {"SOL", "XRP", "DOGE", "ADA", "LINK", "AVAX", "SUI", "BNB", "HYPE"}
+    _ALTCOINS = {"SOL", "XRP", "DOGE", "BNB", "HYPE"}
     if asset in _ALTCOINS and _entry_source not in ("LATENCY_ARB", "T2_SWEEPER", "CERTAINTY_SNIPE", "LS"):
         tf_map = {"5m": ("5m", 2), "15m": ("15m", 2), "1h": ("1h", 2)}
         interval, limit = tf_map.get(timeframe, ("5m", 2))

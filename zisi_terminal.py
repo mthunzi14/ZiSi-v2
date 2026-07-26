@@ -96,7 +96,7 @@ class GlobalDashboardState:
     def __init__(self):
         self.lock = threading.Lock()
         # Live WebSocket data (added DOGE)
-        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0, "BNB": 0.0, "HYPE": 0.0, "LINK": 0.0}
+        self.spot_prices = {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0, "XRP": 0.0, "DOGE": 0.0, "BNB": 0.0, "HYPE": 0.0}
         self.clob_prices = {}  # token_id -> {"yes_price": float, "last_update": float}
         self.clob_spreads = {}  # token_id -> float
         
@@ -1371,7 +1371,7 @@ def build_active_positions_panel() -> Panel:
             
             # Asset parse (added DOGE)
             asset = "UNKNOWN"
-            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
+            for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
                 if f"[{possible}]" in title.upper() or possible in title.upper():
                     asset = possible
                     break
@@ -1547,7 +1547,7 @@ def build_closed_positions_panel(num_lines: int = 15) -> Panel:
         
         # Asset parse
         asset = "UNKNOWN"
-        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "LINK"]:
+        for possible in ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"]:
             if f"[{possible}]" in title.upper() or possible in title.upper():
                 asset = possible
                 break

@@ -76,10 +76,11 @@ class AntifragileRecovery:
         # Bootstrap from persisted state + positions_state.json
         self._load_state()
         self._bootstrap_from_positions()
+        tier_str = f"\033[1;38;2;193;225;193m{self._tier}\033[0m" if self._tier == "WINNING_STREAK" else self._tier
         log.info(
             "[Antifragile] initialised — aggression=%.2f tier=%s "
             "peak=$%.2f portfolio=$%.2f history=%d",
-            self._aggression, self._tier, self._peak_portfolio,
+            self._aggression, tier_str, self._peak_portfolio,
             self._current_portfolio, len(self._trade_history),
         )
 
@@ -236,10 +237,11 @@ class AntifragileRecovery:
             self._evaluate_tier()
             self._persist_state()
 
+            tier_str = f"\033[1;38;2;193;225;193m{self._tier}\033[0m" if self._tier == "WINNING_STREAK" else self._tier
             log.info(
                 "[Antifragile] bootstrapped from %d closed trades → "
                 "tier=%s aggression=%.2f",
-                len(closed), self._tier, self._aggression,
+                len(closed), tier_str, self._aggression,
             )
         except Exception as exc:
             log.warning("[Antifragile] bootstrap failed (non-fatal): %s", exc)
@@ -300,7 +302,7 @@ class AntifragileRecovery:
             for pnl in history[-_MAX_HISTORY:]:
                 self._trade_history.append(float(pnl))
 
-            log.info(
+            log.debug(
                 "[Antifragile] restored state — tier=%s aggression=%.2f "
                 "history=%d trades",
                 self._tier, self._aggression, len(self._trade_history),
