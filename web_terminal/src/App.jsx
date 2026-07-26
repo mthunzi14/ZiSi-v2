@@ -590,7 +590,7 @@ export default function App() {
     );
   };
 
-  const renderHistoryBody = () => {
+  const renderHistoryBody = (isModal = false) => {
     let closedList = positions.closed || [];
     if (filterAsset !== 'ALL') closedList = closedList.filter(r => r.asset === filterAsset);
     if (filterType !== 'ALL') closedList = closedList.filter(r => r.type === filterType);
@@ -604,10 +604,23 @@ export default function App() {
       );
     }
 
+    const displayTrades = isModal ? closedList : closedList.slice(0, 15);
+
     return (
       <>
-        <div className="filter-bar">
-          <select className="filter-select" value={filterAsset} onChange={e => setFilterAsset(e.target.value)}>
+        {/* Single Incorporated Glassmorphic Control Pill Bar */}
+        <div style={{
+          display: 'inline-flex',
+          gap: '8px',
+          alignItems: 'center',
+          background: '#0f1218',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.16)',
+          boxShadow: '0 0 10px rgba(255, 255, 255, 0.08)',
+          marginBottom: '12px'
+        }}>
+          <select className="filter-select-pill" value={filterAsset} onChange={e => setFilterAsset(e.target.value)}>
             <option value="ALL">Asset: ALL</option>
             <option value="BTC">BTC</option>
             <option value="ETH">ETH</option>
@@ -618,13 +631,17 @@ export default function App() {
             <option value="HYPE">HYPE</option>
           </select>
 
-          <select className="filter-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+          <div style={{ width: '1px', height: '14px', background: '#262930' }} />
+
+          <select className="filter-select-pill" value={filterType} onChange={e => setFilterType(e.target.value)}>
             <option value="ALL">Tranche: ALL</option>
             <option value="ES">ES (Early Scalp)</option>
             <option value="EX">EX (Extended Execution)</option>
           </select>
 
-          <select className="filter-select" value={filterReason} onChange={e => setFilterReason(e.target.value)}>
+          <div style={{ width: '1px', height: '14px', background: '#262930' }} />
+
+          <select className="filter-select-pill" value={filterReason} onChange={e => setFilterReason(e.target.value)}>
             <option value="ALL">Exit: ALL</option>
             <option value="TARGET">TARGET</option>
             <option value="SLP">SLP</option>
@@ -632,7 +649,7 @@ export default function App() {
           </select>
         </div>
 
-        <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+        <div style={{ maxHeight: isModal ? 'calc(80vh - 100px)' : '340px', overflowY: 'auto' }}>
           <table className="terminal-table">
             <thead>
               <tr>
@@ -650,7 +667,7 @@ export default function App() {
               </tr>
             </thead>
             <tbody>
-              {closedList.slice(0, 100).map((row, idx) => (
+              {displayTrades.map((row, idx) => (
                 <tr key={idx}>
                   <td>{row.closed_time}</td>
                   <td>{row.asset}</td>
@@ -789,7 +806,7 @@ export default function App() {
             </button>
           </div>
           <div className="card-body">
-            {renderHistoryBody()}
+            {renderHistoryBody(false)}
           </div>
         </div>
 
@@ -855,7 +872,7 @@ export default function App() {
               {zoomCard === 'performance' && renderPerformanceBody()}
               {zoomCard === 'matrix' && renderMatrixBody()}
               {zoomCard === 'chart' && renderPnLChartBody(true)}
-              {zoomCard === 'history' && renderHistoryBody()}
+              {zoomCard === 'history' && renderHistoryBody(true)}
               {zoomCard === 'logs' && renderLogsBody()}
             </div>
           </div>
