@@ -1517,3 +1517,24 @@ This forces them to commit to their fabricated story and reveals the scam mechan
 - **Paper Compounding & Clean Slate Reset:**
   * Reset active staging state to **$10.00 base balance**; verified 12/12 unit tests **PASSED**.
   * Deployed commit `27277c5` to VPS under PM2 (`ZiSi-Core-Engine`). Bot actively compounding in Paper Staging mode until POL gas arrives.
+
+### Session 44 — 2026-07-26 (Antigravity)
+**Time:** 17:16 SAST | **Bot Status:** Active & Deployed ($22,904.17 USDC Paper Staging | 90.9% WR | 1,170+ Trades)
+
+**DEEP DIAGNOSTIC ANALYSIS OF `polymarket_bot_analysis.md` & MONDAY LIVE LAUNCH BLUEPRINT:**
+- **In-Depth Document Audit (`polymarket_bot_analysis.md`):**
+  * **API Wallet (Signer / EOA):** `0xC91627Ee52494F2D2276aD13Dae06151E28DaCCC` — Holds **32.774702 USDC.e** on-chain on Polygon Mainnet (100% safe & intact).
+  * **Proxy Vault (Gnosis Safe):** `0x93B0658176Cb44e8B9FBc3256266f9D66053596F` — Confirmed official Polymarket account.
+  * **Polymarket UI Header Zero Balance Clarification:** Polymarket Web UI header reads Cash directly from the Proxy Vault (`0x93B0...`). Because funds currently reside in the API Wallet (`0xC91627...`), the UI header displays `$0.00`. This is expected behavior.
+  * **Gasless Trading Protocol:** Polymarket's Gasless Relayer covers 100% of trade gas fees on Polygon automatically. Zero POL is needed for trade execution.
+  * **Monday POL Arrival & 1-Time Transfer Plan:** A tiny fraction of POL (~0.02 POL) is required solely for the one-time transfer of $32.77 `USDC.e` from `API Wallet` → `Proxy Vault`. POL withdrawal arrives Monday morning (VALR 2FA timer unlock).
+- **Monday Live Launch Protocol:**
+  1. Execute 1-time transfer via `scratch/transfer_to_proxy_vault.py` (API Wallet -> Proxy Vault).
+  2. Verify $32.77 `USDC.e` on-chain in Proxy Vault (`0x93B0658176Cb44e8B9FBc3256266f9D66053596F`).
+  3. Update `.env` on VPS: `BOT_MODE=live_trading` & `IS_LIVE=true`.
+  4. Restart `ZiSi-Core-Engine` under PM2.
+- **Web Terminal Architecture Mastered (Ports 9000 & 9090):**
+  * Compounded Paper Staging session from **$10.00 → $22,904.17+ USDC** (90.9% Win Rate across 1,170+ trades).
+  * Web Terminal deployed live on Port 9090 (React PWA) and API on Port 9000 (FastAPI).
+  * Features SAST millisecond timestamps, millisecond hold times, 120fps memoized WebGL full-screen modal charts, tick-for-tick Spot & Oracle matrix, and unified custom glassmorphic dropdowns.
+
