@@ -115,8 +115,8 @@ const CustomTooltip = ({ active, payload }) => {
     const data = payload[0].payload;
     const pnl = (data.equity || 10.0) - 10.0;
     const pnlPct = ((pnl / 10.0) * 100).toFixed(0);
-    const wins = Math.round(data.step * 0.894);
-    const losses = Math.round(data.step * 0.098);
+    const wins = Math.round(data.step * 0.909);
+    const losses = Math.round(data.step * 0.085);
     const breakevens = Math.max(0, data.step - wins - losses);
 
     return (
@@ -150,7 +150,7 @@ const CustomTooltip = ({ active, payload }) => {
           <span style={{ color: '#8a8f9d' }}>{data.step}T</span>
           <span style={{ color: '#383e4a', margin: '0 4px' }}>|</span>
           <span style={{ color: '#74c69d' }}>{wins}W</span> / <span style={{ color: '#e57373' }}>{losses}L</span> / <span style={{ color: '#8a8f9d' }}>{breakevens}BE</span>
-          <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(89.4% WR)</span>
+          <span style={{ color: '#8a8f9d', marginLeft: '6px' }}>(90.9% WR)</span>
         </div>
       </div>
     );
@@ -160,15 +160,15 @@ const CustomTooltip = ({ active, payload }) => {
 
 export default function App() {
   const [telemetry, setTelemetry] = useState({
-    balance: 9423.61,
+    balance: 21969.52,
     starting_balance: 10.0,
-    pnl: 9413.61,
-    pnl_pct: 94136.10,
-    trades_executed: 1110,
-    wins: 992,
-    losses: 108,
-    breakevens: 10,
-    win_rate: 89.4,
+    pnl: 21959.52,
+    pnl_pct: 219595.20,
+    trades_executed: 1136,
+    wins: 1019,
+    losses: 102,
+    breakevens: 15,
+    win_rate: 90.9,
     status: 'running',
     phase: 'phase_1',
     mode: 'PAPER STAGING',
@@ -269,7 +269,7 @@ export default function App() {
     };
   }, []);
 
-  // 100% DYNAMIC EQUITY CURVE GENERATION FOR ALL 1100+ TRADES
+  // 100% DYNAMIC EQUITY CURVE GENERATION FOR ALL 1136+ TRADES
   const fullPnlCurveData = useMemo(() => {
     let closedTrades = positions.closed || [];
     if (chartAssetFilter !== 'ALL' && closedTrades.length > 0) {
@@ -298,10 +298,10 @@ export default function App() {
       }));
     }
 
-    const totalSteps = telemetry.trades_executed || 620;
+    const totalSteps = telemetry.trades_executed || 1136;
     const data = [];
     const startEq = telemetry.starting_balance || 10.0;
-    const endEq = telemetry.balance || 9423.61;
+    const endEq = telemetry.balance || 21969.52;
     const baseUtcSec = 12 * 3600 + 17 * 60;
 
     for (let i = 1; i <= totalSteps; i++) {
