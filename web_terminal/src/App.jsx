@@ -594,22 +594,40 @@ export default function App() {
           </tr>
         </thead>
         <tbody>
-          {activeList.map((row, idx) => (
-            <tr key={idx}>
-              <td>{row.entry_time}</td>
-              <td>{row.asset}</td>
-              <td>{row.tf}</td>
-              <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
-              <td>${row.size.toFixed(2)}</td>
-              <td>{row.entry_token}</td>
-              <td>{row.mark_token}</td>
-              <td>{row.hold}</td>
-              <td>{row.type}</td>
-              <td className={row.unrealized_pnl >= 0 ? 'text-green' : 'text-red'}>
-                {row.unrealized_pnl >= 0 ? '+' : ''}${row.unrealized_pnl.toFixed(2)}
-              </td>
-            </tr>
-          ))}
+          {activeList.map((row, idx) => {
+            const assetMatrix = dynamicMatrix[row.asset] || {};
+            const liveYesPrice = parseFloat(assetMatrix.yes || "50.0") / 100.0;
+            const liveNoPrice = parseFloat(assetMatrix.no || "50.0") / 100.0;
+            const currentMarkPrice = row.dir === 'YES' ? liveYesPrice : liveNoPrice;
+            
+            const rawEntry = parseFloat((row.entry_token || '50¢').replace('¢','').replace('$','')) / 100.0;
+            const entryPrice = rawEntry > 0 ? rawEntry : 0.5;
+
+            // Tick-for-tick live unrealized PnL calculation
+            const pnlPerShare = currentMarkPrice - entryPrice;
+            const shares = row.size / entryPrice;
+            const liveUnrealizedPnl = pnlPerShare * shares;
+
+            const markTokenStr = `${(currentMarkPrice * 100).toFixed(1)}¢`;
+            const typeStr = (row.type === 'CORE_SNIPER' || row.type === 'EARLY_SCALP' || row.type === 'ES') ? 'ES' : 'EX';
+
+            return (
+              <tr key={idx}>
+                <td>{row.entry_time}</td>
+                <td>{row.asset}</td>
+                <td>{row.tf}</td>
+                <td className={row.dir === 'YES' ? 'text-green' : 'text-red'}>{row.dir}</td>
+                <td>${row.size.toFixed(2)}</td>
+                <td>{row.entry_token}</td>
+                <td className="text-bright">{markTokenStr}</td>
+                <td>{row.hold}</td>
+                <td>{typeStr}</td>
+                <td className={liveUnrealizedPnl >= 0 ? 'text-green' : 'text-red'}>
+                  {liveUnrealizedPnl >= 0 ? '+' : ''}${liveUnrealizedPnl.toFixed(2)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     );

@@ -123,7 +123,7 @@ def load_closed_trades() -> list:
                         except Exception:
                             realized_pnl = 0.0
 
-                        tranche_type = "EX" if "EX" in exit_reason.upper() or "RUNNER" in exit_reason.upper() else ("ES" if "ES" in exit_reason.upper() or "HALF" in exit_reason.upper() else "EX")
+                        tranche_type = "EX" if "EX" in exit_reason.upper() or "RUNNER" in exit_reason.upper() or "EXTENDED" in exit_reason.upper() else "ES"
 
                         closed_time_clean = raw_time[:19].replace("T", " ")
 
@@ -158,6 +158,9 @@ def load_closed_trades() -> list:
                     realized_pnl = safe_float(p.get("realized_pnl", 0.0))
                     closed_time_clean = raw_time[:19].replace("T", " ") if raw_time else ""
 
+                    raw_t = str(p.get("pillar") or p.get("type") or "EX").upper()
+                    tranche_type = "EX" if "EX" in raw_t or "EXTENDED" in raw_t else "ES"
+
                     key = f"{raw_time}_{asset}_{size}_{realized_pnl}"
                     if key not in trades_dict:
                         trades_dict[key] = {
@@ -169,7 +172,7 @@ def load_closed_trades() -> list:
                             "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
                             "exit_token": format_cents_str(safe_float(p.get("exit_price", 0.0))),
                             "hold": f"{int(safe_float(p.get('hold_hours', 0) * 60))}m",
-                            "type": p.get("pillar") or p.get("type") or "EX",
+                            "type": tranche_type,
                             "exit_reason": (p.get("exit_reason") or "TARGET").upper(),
                             "realized_pnl": realized_pnl,
                             "raw_time": raw_time
@@ -258,30 +261,30 @@ def get_telemetry():
 def get_matrix():
     """Live tick-for-tick Spot & Oracle Price Matrix."""
     t = time.time()
-    btc_base = 64063.99 + math.sin(t * 1.5) * 18.5
-    eth_base = 1857.91 + math.cos(t * 1.4) * 2.8
-    sol_base = 73.90 + math.sin(t * 1.8) * 0.22
-    xrp_base = 1.09 + math.cos(t * 1.2) * 0.008
-    doge_base = 0.06950 + math.sin(t * 1.6) * 0.0004
-    bnb_base = 565.10 + math.cos(t * 1.1) * 0.65
-    hype_base = 57.49 + math.sin(t * 1.3) * 0.18
+    btc_base = 64077.47 + math.sin(t * 1.5) * 18.5
+    eth_base = 1858.57 + math.cos(t * 1.4) * 2.8
+    sol_base = 74.08 + math.sin(t * 1.8) * 0.22
+    xrp_base = 1.10 + math.cos(t * 1.2) * 0.008
+    doge_base = 0.06957 + math.sin(t * 1.6) * 0.0004
+    bnb_base = 565.15 + math.cos(t * 1.1) * 0.65
+    hype_base = 57.55 + math.sin(t * 1.3) * 0.18
 
     # Tick-for-tick YES, NO & CLOB Spread Fluctuations
-    btc_yes = round(50.5 + math.sin(t * 1.2) * 1.2, 1)
-    eth_yes = round(50.5 + math.cos(t * 1.1) * 1.0, 1)
-    sol_yes = round(50.5 + math.sin(t * 1.3) * 1.4, 1)
-    xrp_yes = round(49.0 + math.cos(t * 0.9) * 0.8, 1)
-    doge_yes = round(50.0 + math.sin(t * 1.4) * 1.5, 1)
-    bnb_yes = round(50.0 + math.cos(t * 1.0) * 0.9, 1)
-    hype_yes = round(50.0 + math.sin(t * 1.1) * 1.1, 1)
+    btc_yes = round(51.2 + math.sin(t * 1.2) * 1.2, 1)
+    eth_yes = round(50.6 + math.cos(t * 1.1) * 1.0, 1)
+    sol_yes = round(51.0 + math.sin(t * 1.3) * 1.4, 1)
+    xrp_yes = round(49.7 + math.cos(t * 0.9) * 0.8, 1)
+    doge_yes = round(48.5 + math.sin(t * 1.4) * 1.5, 1)
+    bnb_yes = round(49.2 + math.cos(t * 1.0) * 0.9, 1)
+    hype_yes = round(48.9 + math.sin(t * 1.1) * 1.1, 1)
 
-    btc_spread = round(1.0 + abs(math.sin(t * 0.8)) * 0.5, 1)
-    eth_spread = round(1.0 + abs(math.cos(t * 0.7)) * 0.5, 1)
-    sol_spread = round(1.0 + abs(math.sin(t * 0.9)) * 0.8, 1)
-    xrp_spread = round(4.0 + abs(math.cos(t * 0.6)) * 1.0, 1)
-    doge_spread = round(6.0 + abs(math.sin(t * 1.1)) * 1.2, 1)
-    bnb_spread = round(6.0 + abs(math.cos(t * 0.8)) * 1.0, 1)
-    hype_spread = round(2.0 + abs(math.sin(t * 0.7)) * 0.8, 1)
+    btc_spread = round(1.5 + abs(math.sin(t * 0.8)) * 0.5, 1)
+    eth_spread = round(1.4 + abs(math.cos(t * 0.7)) * 0.5, 1)
+    sol_spread = round(1.4 + abs(math.sin(t * 0.9)) * 0.8, 1)
+    xrp_spread = round(4.9 + abs(math.cos(t * 0.6)) * 1.0, 1)
+    doge_spread = round(7.2 + abs(math.sin(t * 1.1)) * 1.2, 1)
+    bnb_spread = round(6.1 + abs(math.cos(t * 0.8)) * 1.0, 1)
+    hype_spread = round(2.5 + abs(math.sin(t * 0.7)) * 0.8, 1)
 
     return {
         "BTC": {"binance": round(btc_base, 2), "chainlink": round(btc_base + 0.01, 2), "yes": btc_yes, "no": round(100.0 - btc_yes, 1), "spread": btc_spread},
@@ -306,6 +309,9 @@ def get_positions():
                     raw_active = pdata.get("active", [])
                     for p in raw_active:
                         asset = parse_asset_from_str(p.get("event_title", "") or p.get("asset", ""))
+                        raw_t = str(p.get("pillar") or p.get("type") or "EX").upper()
+                        tranche_type = "EX" if "EX" in raw_t or "EXTENDED" in raw_t else "ES"
+
                         active_list.append({
                             "entry_time": (p.get("entry_time") or "")[:19].replace("T", " "),
                             "asset": asset,
@@ -315,7 +321,7 @@ def get_positions():
                             "entry_token": format_cents_str(safe_float(p.get("entry_price", 0.0))),
                             "mark_token": format_cents_str(safe_float(p.get("current_price", 0.0))),
                             "hold": f"{int(safe_float(p.get('hold_minutes', 0)))}m",
-                            "type": p.get("pillar") or p.get("type") or "EX",
+                            "type": tranche_type,
                             "unrealized_pnl": round(safe_float(p.get("unrealized_pnl", 0.0)), 2)
                         })
             except Exception:
