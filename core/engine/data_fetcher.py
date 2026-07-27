@@ -24,9 +24,12 @@ def _fetch_market_details(market_id: str) -> Optional[dict]:
     # Determine if this is a token ID (usually a huge numeric string of >30 digits)
     is_token_id = market_id.isdigit() and len(market_id) > 20
 
-    if is_token_id:
+    if market_id.startswith("0x"):
         url = f"{POLY_GAMMA_API}/markets"
-        params = {"clob_token_ids": market_id}
+        params = {"condition_id": market_id}
+    elif is_token_id:
+        url = f"{POLY_GAMMA_API}/markets"
+        params = {"clob_token_ids_in": market_id}
     else:
         url = f"{POLY_GAMMA_API}/markets/{market_id}"
         params = {}

@@ -1418,7 +1418,8 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         if exit_price is None or exit_price <= 0.03 or exit_price >= 0.97:
             try:
                 from core.engine.data_fetcher import fetch_market_resolution as _fmr
-                _outcome = _fmr(_market_id) if _market_id else None
+                _cond_id = pos.get("conditionId") or _market_id
+                _outcome = _fmr(_cond_id) if _cond_id else None
                 if _outcome in ("YES", "UP"):
                     exit_price = 0.01 if pos.get("direction", "YES").upper() in ("NO", "DOWN") else 0.99
                     log.info("[LIVE-EXIT] Resolved %s → %.2f for %s", _outcome, exit_price, order_id)
