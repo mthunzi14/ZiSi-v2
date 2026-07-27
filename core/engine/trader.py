@@ -772,6 +772,12 @@ def place_order(
         log.warning("[TRADE] Blocking entry attempt on expired market: %s", event_title)
         return None
 
+    # Ensure bet size never exceeds available live balance
+    if mode != "paper_trading":
+        curr_bal = get_current_balance()
+        if curr_bal > 0 and amount_dollars > curr_bal * 0.85:
+            amount_dollars = max(1.00, round(curr_bal * 0.85, 2))
+
     # Shares-first sizing (ZiSi sovereign pattern): avoids USD→shares rounding drift at low prices.
     # Polymarket uses whole shares — round to nearest integer, minimum 1.
     shares = max(1, round(amount_dollars / entry_price)) if entry_price > 0 else 1
