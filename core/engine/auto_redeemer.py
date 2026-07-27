@@ -20,9 +20,12 @@ log = logging.getLogger("zisi.auto_redeemer")
 CTF_ADDRESS = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
 USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
 POLYGON_RPC_URLS = [
+    "https://polygon-bor-rpc.publicnode.com",
+    "https://polygon.meowrpc.com",
+    "https://polygon.drpc.org",
+    "https://1rpc.io/matic",
     "https://polygon-rpc.com",
-    "https://rpc.ankr.com/polygon",
-    "https://1rpc.io/matic"
+    "https://rpc.ankr.com/polygon"
 ]
 
 # Standard CTF redeemPositions ABI
