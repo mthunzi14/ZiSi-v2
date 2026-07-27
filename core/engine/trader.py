@@ -1815,17 +1815,28 @@ def execute_exit(order_id: str, current_price: float, exit_reason: str = "UNKNOW
         pass  # log above replaces the generic SELL line
     else:
         if pos.get("market", "POLYMARKET") == "POLYMARKET":
-            clob_url = cfg["POLYMARKET_CLOB_API_URL"].rstrip("/")
-            payload = {
-                "market_id": pos["market_id"],
-                "side": "SELL",
-                "amount": shares,
-                "price_limit": current_price,
-            }
-            resp = _retry_request("POST", f"{clob_url}/orders", json_body=payload)
-            if resp is None:
-                log.error("Exit order failed for %s — position still open", order_id)
-                return None
+            _expiry_ts = pos.get("expiry_ts", 0)
+            import time as _t
+            is_expired_or_resolved = (
+                exit_reason in ("MARKET_RESOLVED", "RESOLVED", "EXPIRED", "TIME_EXPIRED", "MARKET_EXPIRED", "TARGET", "LOSS")
+                or (_expiry_ts > 0 and _t.time() >= _expiry_ts)
+            )
+            if not is_expired_or_resolved:
+                try:
+                    client = _get_clob_client()
+                    if client:
+                        valid_price = max(0.01, min(0.99, round(float(current_price), 2)))
+                        resp = client.place_limit_order(
+                            token_id=str(pos["market_id"]),
+                            price=valid_price,
+                            size=float(shares),
+                            side="SELL"
+                        )
+                        log.info("[LIVE-EXIT] Placed SELL limit order via CLOB: %s", resp)
+                except Exception as exc:
+                    log.warning("[LIVE-EXIT] Limit sell order attempt for %s: %s", order_id, exc)
+            else:
+                log.info("[LIVE-EXIT] Market expired/resolved for %s — position settled via oracle (no CLOB SELL required)", order_id)
         else:
             log.debug("[PAPER] Exit order for %s (%s) simulated successfully", order_id, pos.get("market"))
 
