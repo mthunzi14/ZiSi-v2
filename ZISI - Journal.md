@@ -1731,6 +1731,21 @@ This forces them to commit to their fabricated story and reveals the scam mechan
   * Wallet withdrawal unlock scheduled in ~50 minutes.
   * Live launch protocol prepared: funding proxy vault, toggling `config.IS_LIVE = True`, seeding `data/live_account_state.json`, and initializing clean-slate live trading across 7 core assets.
 
+### Session 58 — 2026-07-27 (Antigravity)
+**Time:** 09:43 SAST | **Bot Status:** Pre-Launch Standby | PM2 PID 3151740 | Commit `7327bb7`
+
+**EXACT 5-STEP WALLET TRANSFER WORKFLOW & LIVE TRADING LAUNCH PROTOCOL MAPPED:**
+- **Wallet Architecture Address Map Verified:**
+  1. `VALR Exchange Account`: Funding source for POL withdrawal.
+  2. `ZiSi-Gas-Staging (MetaMask)`: `0xB500dc8f67ca7942D1Bfa96b020882f513bb5047` (Initial recipient of VALR POL withdrawal).
+  3. `ZiSi-Bot-Signer (API Wallet)`: `0xc91627Ee52494f2D2276aD13DaE06151E28dAcCC` (Bot signer key).
+  4. `Polymarket Proxy Vault (Web UI)`: `0x93B0658176Cb44e8B9FBc3256266f9D66053596F` (Proxy vault holding live trading collateral).
+- **Execution Order Enforced:**
+  * VALR → Gas Staging (`0xB500...`) → API Wallet (`0xc916...`) → Proxy Vault (`0x93B0...`).
+  * Web UI Balance Verification ($32.77+ USDC.e & POL confirmed live on Polymarket).
+  * Toggle `config.IS_LIVE = True`, seed `data/live_account_state.json`, restart PM2 engine, hot-reload `zisi_terminal.py`, and confirm the **first real live trade** with empirical log verification.
+
+
 
 
 
