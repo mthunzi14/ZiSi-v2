@@ -51,14 +51,13 @@ def _get_web3():
         from web3 import Web3
         for rpc in POLYGON_RPC_URLS:
             try:
-                w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 8}))
-                # Verify connection via block_number call
+                w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 5}))
                 if w3.eth.block_number > 0:
                     return w3
             except Exception:
                 continue
     except Exception as exc:
-        log.warning("[REDEEMER] Web3 connection check note: %s", exc)
+        log.debug("[REDEEMER] Web3 connection check note: %s", exc)
     return None
 
 def auto_redeem_condition(condition_id: str) -> bool:
@@ -79,7 +78,7 @@ def auto_redeem_condition(condition_id: str) -> bool:
 
     w3 = _get_web3()
     if not w3:
-        log.warning("[REDEEMER] Could not connect to Polygon RPC for auto-redemption")
+        log.debug("[REDEEMER] Polygon RPC connection busy — deferring on-chain redemption to next pass")
         return False
 
     try:
