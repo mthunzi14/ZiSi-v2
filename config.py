@@ -62,6 +62,9 @@ FAIR_VALUE_MODE: bool = False
 # Live Capital Safety Switch:
 # - False: Pure Paper Trading / Staging Stabled (Safe simulation mode)
 # - True: Live Capital Trading (Executes real transactions on Polymarket CLOB)
+# NOTE: load_dotenv early so IS_LIVE reads .env correctly at import time
+_early_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(_early_env_path)
 IS_LIVE: bool = os.getenv("BOT_MODE", "paper_trading").lower() == "live_trading" or os.getenv("IS_LIVE", "false").lower() == "true"
 
 # Strategy scope configurations

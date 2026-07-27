@@ -309,7 +309,7 @@ def get_telemetry():
             "win_rate": round(win_rate, 1),
             "status": account_data.get("status", "running"),
             "phase": account_data.get("phase", "phase_1"),
-            "mode": "PAPER STAGING",
+            "mode": "LIVE ACTIVE" if getattr(__import__("config"), "IS_LIVE", False) else "PAPER STAGING",
             "asset_breakdown": asset_breakdown,
             "last_updated": datetime.now(timezone.utc).isoformat()
         }

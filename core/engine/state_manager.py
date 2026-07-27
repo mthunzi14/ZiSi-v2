@@ -41,7 +41,8 @@ def get_positions_file() -> Path:
 
 _STATE_FILE       = get_state_file()
 _POSITIONS_FILE   = get_positions_file()
-_DEFAULT_BALANCE  = 50.0
+# Default balance read from env so it is never hardcoded — falls back to 10.0
+_DEFAULT_BALANCE  = float(os.getenv("ACCOUNT_BALANCE", "10.0"))
 _lock             = threading.RLock()
 GLOBAL_POSITIONS_LOCK = threading.Lock()
 _balance: float          = _DEFAULT_BALANCE
@@ -103,7 +104,10 @@ def _balance_from_positions() -> float | None:
 
 def initialize_state() -> float:
     """Load account balance from disk, then reconcile with positions_state.json."""
-    global _balance, _starting_balance
+    global _balance, _starting_balance, _STATE_FILE, _POSITIONS_FILE
+    # Re-resolve file paths at runtime — ensures IS_LIVE is read after dotenv loads
+    _STATE_FILE = get_state_file()
+    _POSITIONS_FILE = get_positions_file()
     with _lock:
         disk_balance = _DEFAULT_BALANCE
         if _STATE_FILE.exists():
