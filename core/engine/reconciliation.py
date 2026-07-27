@@ -32,9 +32,15 @@ def _run_reconcile_pass(state_mgr, telegram_fn=None) -> int:
         refresh_open_position_prices()
         closed_trades = check_and_close_paper_trades(max_hold_minutes=30)
         if closed_trades:
-            log.info("[RECONCILE] Closed %d expired paper positions.", len(closed_trades))
+            log.info("[RECONCILE] Closed %d expired positions.", len(closed_trades))
+
+        # Auto-redeem winning positions on-chain via Conditional Tokens Framework
+        from core.engine.auto_redeemer import scan_and_auto_redeem
+        redeemed = scan_and_auto_redeem()
+        if redeemed:
+            log.info("[RECONCILE] Auto-redeemed %d winning position(s) on-chain.", redeemed)
     except Exception as exc:
-        log.warning("[RECONCILE] Paper exit check failed: %s", exc)
+        log.warning("[RECONCILE] Position exit & auto-redemption pass note: %s", exc)
 
     corrected = 0
     try:

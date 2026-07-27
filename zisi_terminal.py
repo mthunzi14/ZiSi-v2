@@ -1675,7 +1675,7 @@ def build_logs_panel(num_lines: int = 8) -> Panel:
         fullscreen = g_state.fullscreen_mode == 'logs'
 
     log_lines = tail_log_file(LOG_FILE, num_lines=num_lines, offset=offset)
-    log_text = Text()
+    log_text = Text(no_wrap=True)
     for idx, line in enumerate(log_lines):
         if idx > 0:
             log_text.append("\n")
