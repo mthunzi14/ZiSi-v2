@@ -290,7 +290,7 @@ def log_config_startup(config: dict | None = None) -> None:
     mode_tag = "PAPER" if cfg["BOT_MODE"] == "paper_trading" else "LIVE"
     print(
         f"BOT STARTING: {cfg['BOT_NAME']} v{cfg['BOT_VERSION']} | "
-        f"Account: ${cfg['ACCOUNT_BALANCE']:.0f} | "
+        f"Account: ${cfg['ACCOUNT_BALANCE']:.2f} | "
         f"Risk: {cfg['RISK_PER_TRADE_PERCENT']:.0f}% | "
         f"Mode: {mode_tag} | "
         f"Max simultaneous positions: {cfg['MAX_SIMULTANEOUS_TRADES']} | "
