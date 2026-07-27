@@ -1249,9 +1249,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
     Returns a list of exit result dicts for each trade closed.
     """
     cfg = _get_config()
-    if cfg["BOT_MODE"] != "paper_trading":
-        return []
-
+    # Note: Evaluates both paper and live trading positions for candle expiry, TP/SL, and market resolution
     now = datetime.now(timezone.utc)
     closed = []
 
@@ -2199,12 +2197,15 @@ def persist_positions() -> None:
         # Newest closed trades first
         closed.sort(key=lambda p: p.get("exit_time", ""), reverse=True)
 
-        # Merge with existing positions file
-        out_path = (Path(__file__).parent.parent.parent / "data" / "positions_state.json").resolve()
+        # Merge with existing positions file dynamically resolved (live_positions_state.json in live mode)
+        from core.engine.state_manager import get_positions_file
+        out_path = get_positions_file().resolve()
+        fallback_path = (Path(__file__).parent.parent.parent / "data" / "positions_state.json").resolve()
         existing_poly_closed: list[dict] = []
         try:
-            if out_path.exists():
-                existing = json.loads(out_path.read_text(encoding="utf-8"))
+            target_read = out_path if out_path.exists() else fallback_path
+            if target_read.exists():
+                existing = json.loads(target_read.read_text(encoding="utf-8"))
                 in_mem_ids = {p["order_id"] for p in closed}
                 existing_poly_closed = [
                     p for p in existing.get("closed", [])
@@ -2284,10 +2285,15 @@ def persist_positions() -> None:
 
         with GLOBAL_POSITIONS_LOCK:
             try:
+                payload_str = json.dumps(data, indent=2, default=str)
                 tmp_path = out_path.with_name(f"positions_state_{uuid.uuid4().hex}.tmp")
-                tmp_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+                tmp_path.write_text(payload_str, encoding="utf-8")
                 import os as _os
                 _os.replace(tmp_path, out_path)
+                if out_path.resolve() != fallback_path.resolve():
+                    tmp_fb = fallback_path.with_name(f"positions_state_fb_{uuid.uuid4().hex}.tmp")
+                    tmp_fb.write_text(payload_str, encoding="utf-8")
+                    _os.replace(tmp_fb, fallback_path)
             except Exception as exc:
                 log.warning("[POSITIONS] Failed to persist: %s", exc)
 

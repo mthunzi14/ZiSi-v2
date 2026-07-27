@@ -447,8 +447,8 @@ _last_closed_count = -1
 def sync_file_states():
     """Load latest states from local files into global state."""
     global _last_closed_count
-    account = load_json_file(STATE_FILE)
-    positions = load_json_file(POSITIONS_FILE)
+    account = load_json_file(get_terminal_state_file())
+    positions = load_json_file(get_terminal_positions_file())
     regime = load_json_file(REGIME_FILE)
     sentiment = load_json_file(SENTIMENT_FILE)
     chainlink = load_json_file(CHAINLINK_FILE)
