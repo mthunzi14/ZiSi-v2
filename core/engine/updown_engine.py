@@ -1909,9 +1909,12 @@ class UpDownEngine:
                 # sizes these big with a strong read); otherwise keep them small.
                 if price < 0.35 and conf < 0.75:
                     _bk_frac = min(_bk_frac, 0.05)
-                # Scale unified max cap dynamically with balance growth factor
-                growth_factor = max(1.0, sizing_balance / 120.0)
-                unified_max_cap = max(5.00 * growth_factor, min(40.00 * growth_factor, (5.00 + (conf - 0.50) * 80.0) * growth_factor))
+                # Scale unified max cap dynamically: for small balances (< $50), risk max 15% per trade to prevent drawdown
+                if sizing_balance < 50.0:
+                    unified_max_cap = max(1.00, round(sizing_balance * 0.15, 2))
+                else:
+                    growth_factor = max(1.0, sizing_balance / 120.0)
+                    unified_max_cap = max(5.00 * growth_factor, min(40.00 * growth_factor, (5.00 + (conf - 0.50) * 80.0) * growth_factor))
                 usd_size = sizer.calculate_adaptive(
                     signal=sig_dict,
                     market=mkt_dict,
