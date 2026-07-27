@@ -51,13 +51,14 @@ def _get_web3():
         from web3 import Web3
         for rpc in POLYGON_RPC_URLS:
             try:
-                w3 = Web3(Web3.HTTPProvider(rpc, timeout=10))
-                if w3.is_connected():
+                w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 8}))
+                # Verify connection via block_number call
+                if w3.eth.block_number > 0:
                     return w3
             except Exception:
                 continue
-    except ImportError:
-        log.warning("[REDEEMER] web3 package not installed")
+    except Exception as exc:
+        log.warning("[REDEEMER] Web3 connection check note: %s", exc)
     return None
 
 def auto_redeem_condition(condition_id: str) -> bool:
