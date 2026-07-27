@@ -1369,12 +1369,13 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                 log.info("[LIVE-EXIT] Resolved %s → %.2f for %s", _outcome, exit_price, order_id)
             else:
                 # Oracle has not resolved yet (unresolved state).
-                # Defer the exit unless it's excessively dormant (to prevent gridlock).
+                # In live trading, ALWAYS wait for true oracle settlement without arbitrary force-settling
+                is_paper = (cfg.get("BOT_MODE", "paper_trading") == "paper_trading")
                 _stale_threshold = max(3 * effective_max_minutes, effective_max_minutes + 30)
-                if age_minutes < _stale_threshold:
+                if not is_paper or age_minutes < _stale_threshold:
                     if not pos.get("resolving_logged"):
-                        log.warning(
-                            "[RESOLVING-DEFER] Expired trade %s (%s) is unresolved by oracle. Deferring exit to wait for true settlement.",
+                        log.info(
+                            "[RESOLVING-DEFER] Expired trade %s (%s) is unresolved by oracle. Waiting for true settlement.",
                             order_id, _ev_title
                         )
                         pos["resolving_logged"] = True
@@ -1382,7 +1383,7 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
                     continue
                 else:
                     log.warning(
-                        "[RESOLVING-FORCE] Expired trade %s (%s) unresolved after %.1f min. Force-settling via fallback.",
+                        "[RESOLVING-FORCE] Expired paper trade %s (%s) unresolved after %.1f min. Force-settling via fallback.",
                         order_id, _ev_title, age_minutes
                     )
 
@@ -1431,21 +1432,24 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
         if exit_price is None:
             # Safety Gate (Sprint 11): Defer exit if expired and live pricing/resolution fetch failed (likely network-down/offline wake-up)
             if age_minutes >= effective_max_minutes:
+                is_paper = (cfg.get("BOT_MODE", "paper_trading") == "paper_trading")
                 _stale_threshold = max(3 * effective_max_minutes, effective_max_minutes + 30)
-                if age_minutes >= _stale_threshold:
+                if not is_paper or age_minutes < _stale_threshold:
+                    if not pos.get("resolving_logged"):
+                        log.info(
+                            "[RESOLVING-DEFER] Deferring exit for expired trade %s (%s). Waiting for true settlement.",
+                            order_id, _ev_title
+                        )
+                        pos["resolving_logged"] = True
+                    pos["status"] = "RESOLVING"  # Visible in dashboard while awaiting settlement
+                    continue
+                else:
                     _stored = float(pos.get("current_price", entry_price))
                     exit_price = round(_stored, 4)
                     log.warning(
-                        "[DORMANCY-SAFETY] Expired trade %s (%s) has been stale for %.1f min. Live fetch failed. Force-settling at stored price %.4f to prevent gridlock.",
+                        "[DORMANCY-SAFETY] Expired paper trade %s (%s) has been stale for %.1f min. Force-settling at stored price %.4f.",
                         order_id, _ev_title, age_minutes, exit_price
                     )
-                else:
-                    log.warning(
-                        "[DORMANCY-SAFETY] Deferring exit for expired trade %s (%s). Live prices/resolution fetch failed (likely offline/sleep wake-up). Waiting for network to recover to get true settlement.",
-                        order_id, _ev_title
-                    )
-                    pos["status"] = "RESOLVING"  # Visible in dashboard while awaiting settlement
-                    continue
             else:
                 _stored = float(pos.get("current_price", entry_price))
                 exit_price = round(_stored, 4)
