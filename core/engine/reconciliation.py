@@ -24,8 +24,13 @@ async def reconciliation_loop(state_mgr, telegram_fn=None) -> None:
             log.warning("[RECONCILE] Pass failed: %s", exc)
 
 
+_last_reconcile_ts = 0.0
+
 def _run_reconcile_pass(state_mgr, telegram_fn=None) -> int:
     """Check all open positions for ghost fills, and auto-close expired paper trades."""
+    global _last_reconcile_ts
+    import time
+    _last_reconcile_ts = time.time()
     # ── Auto-close expired paper trades ──
     try:
         from core.engine.trader import check_and_close_paper_trades, refresh_open_position_prices

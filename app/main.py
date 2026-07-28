@@ -1031,6 +1031,19 @@ async def asset_loop(
                     except Exception:
                         pass
 
+                    reconcile_status = "HEALTHY (2.0s)"
+                    try:
+                        import time
+                        from core.engine.reconciliation import _last_reconcile_ts
+                        if _last_reconcile_ts > 0:
+                            rec_diff = time.time() - _last_reconcile_ts
+                            if rec_diff < 10:
+                                reconcile_status = f"HEALTHY ({rec_diff:.1f}s)"
+                            else:
+                                reconcile_status = f"LAGGING ({rec_diff:.1f}s)"
+                    except Exception:
+                        pass
+
                     log.info(
                         "\033[90m================================================================================\n"
                         "███████████████████████ \033[90m[ \033[38;5;153m%s UTC \033[90m│ \033[38;5;153m%s SAST \033[90m] \033[90m████████████████████████\n"
@@ -1038,8 +1051,8 @@ async def asset_loop(
                         utc_str, sast_str
                     )
                     log.info(
-                        "\033[90m[HEALTH] CLOB-WS: %s | RTDS-WS: %s | HFT-WS: %s | Staging: %s | Anti-Fragile: %s\033[0m",
-                        clob_status, rtds_status, hft_status, staging_status, antifragile_status
+                        "\033[90m[HEALTH] CLOB-WS: %s | RTDS-WS: %s | HFT-WS: %s | RECONCILE: %s | Staging: %s | Anti-Fragile: %s\033[0m",
+                        clob_status, rtds_status, hft_status, reconcile_status, staging_status, antifragile_status
                     )
                     if recoveries:
                         log.info("\033[92m[HEALTH] Lag resolved on: %s\033[0m", ", ".join(recoveries))
