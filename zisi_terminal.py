@@ -617,9 +617,7 @@ def format_iso_timestamp(iso_str: str) -> str:
         return "-"
     try:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        # Add 2 hours for SAST (UTC+2)
-        sast_hour = (dt.hour + 2) % 24
-        return f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d} {sast_hour:02d}:{dt.minute:02d}:{dt.second:02d}"
+        return f"{dt.month:02d}-{dt.day:02d} {sast_hour:02d}:{dt.minute:02d}:{dt.second:02d}"
     except Exception:
         return iso_str[:19]
 
@@ -1140,11 +1138,11 @@ def build_spot_prices_panel() -> Panel:
     """Build pricing layout displaying spot, Chainlink, YES, NO, and Spread values."""
     table = Table(box=ROUNDED, expand=True, padding=(0, 0))
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
-    table.add_column("Binance", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
-    table.add_column("Chainlink", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("YES", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
-    table.add_column("NO", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL)
-    table.add_column("Spread", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
+    table.add_column("Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL, no_wrap=True)
+    table.add_column("Oracle", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("YES", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL, no_wrap=True)
+    table.add_column("NO", justify="right", header_style=COLOR_LABEL, style=COLOR_VAL, no_wrap=True)
+    table.add_column("Spread", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
 
     with g_state.lock:
         spot_copy = dict(g_state.spot_prices)
@@ -1377,21 +1375,21 @@ def format_regime_str(regime: str) -> str:
 
 def build_active_positions_panel() -> Panel:
     """Build the active open positions table with full attributes and live PnL."""
-    table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Entry Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET)
+    table = Table(box=ROUNDED, expand=True, padding=(0, 0))
+    table.add_column("Entry (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET, no_wrap=True)
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
     table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Dir", justify="center", header_style=COLOR_LABEL)
     table.add_column("Size", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Entry Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Mark Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Mark Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("TP/Target", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("SLP", justify="right", header_style=COLOR_LABEL)
-    table.add_column("Type", justify="center", header_style=COLOR_LABEL)
-    table.add_column("Unrealized PnL", justify="right", header_style=COLOR_LABEL)
+    table.add_column("Entry Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Mark Spot", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Entry", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Mark", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Target", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("SLP", justify="right", header_style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Type", justify="center", header_style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Unrealized", justify="right", header_style=COLOR_LABEL, no_wrap=True)
 
     with g_state.lock:
         active_positions = list(g_state.positions_state.get("active", []))
@@ -1552,19 +1550,19 @@ def _parse_candle_key(pos_dict: dict) -> Optional[tuple]:
 
 def build_closed_positions_panel(num_lines: int = 15) -> Panel:
     """Build the closed trade history table with full timestamps and exit reasons."""
-    table = Table(box=ROUNDED, expand=True, padding=(0, 1))
-    table.add_column("Closed Time (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET)
+    table = Table(box=ROUNDED, expand=True, padding=(0, 0))
+    table.add_column("Closed (SAST)", justify="center", header_style=COLOR_LABEL, style=COLOR_ASSET, no_wrap=True)
     table.add_column("Asset", header_style=f"bold {COLOR_LABEL}", style=f"bold {COLOR_ASSET}")
     table.add_column("TF", justify="center", header_style=COLOR_LABEL, style=COLOR_LABEL)
     table.add_column("Dir", justify="center", header_style=COLOR_LABEL)
     table.add_column("Size", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Entry Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Exit Token", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL)
-    table.add_column("SLP", justify="right", header_style=COLOR_LABEL)
-    table.add_column("Type", justify="center", header_style=COLOR_LABEL)
-    table.add_column("Exit Reason", justify="left", header_style=COLOR_LABEL)
-    table.add_column("PnL ($)", justify="right", header_style=COLOR_LABEL)
+    table.add_column("Entry", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Exit", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Hold", justify="right", header_style=COLOR_LABEL, style=COLOR_LABEL, no_wrap=True)
+    table.add_column("SLP", justify="right", header_style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Type", justify="center", header_style=COLOR_LABEL, no_wrap=True)
+    table.add_column("Exit Reason", justify="left", header_style=COLOR_LABEL, no_wrap=True)
+    table.add_column("PnL", justify="right", header_style=COLOR_LABEL, no_wrap=True)
 
     with g_state.lock:
         closed_positions = list(g_state.positions_state.get("closed", []))
