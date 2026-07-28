@@ -189,12 +189,42 @@ def decrement_gas(amount: float = 0.005) -> float:
         return gas
 
 
-def get_current_balance() -> float:
-    """Return the authoritative balance derived from positions_state.json.
+_last_live_balance_fetch_ts = 0.0
+_cached_live_balance = None
 
-    Falls back to the in-memory value only if positions_state.json is unavailable.
-    This prevents any caller from seeing the stale accumulated value.
-    """
+def get_live_clob_balance() -> float | None:
+    """Fetch exact live USDC cash balance directly from Polymarket CLOB API."""
+    global _last_live_balance_fetch_ts, _cached_live_balance
+    import time
+    now = time.time()
+    if _cached_live_balance is not None and (now - _last_live_balance_fetch_ts) < 10.0:
+        return _cached_live_balance
+    try:
+        from core.engine.trader import _get_clob_client
+        client = _get_clob_client()
+        if client:
+            from py_clob_client.clob_types import AssetType
+            info = client.get_balance_allowance(asset_type=AssetType.COLLATERAL)
+            bal_raw = getattr(info, "balance", None)
+            if bal_raw is not None:
+                bal = round(float(bal_raw) / 1e6, 2)
+                _cached_live_balance = bal
+                _last_live_balance_fetch_ts = now
+                return bal
+    except Exception as e:
+        log.debug("[STATE] Failed to fetch live CLOB balance: %s", e)
+    return None
+
+def get_current_balance() -> float:
+    """Return the authoritative balance: live CLOB API in live mode, or positions_state in paper mode."""
+    try:
+        import config
+        if getattr(config, "IS_LIVE", False):
+            live_bal = get_live_clob_balance()
+            if live_bal is not None:
+                return live_bal
+    except Exception:
+        pass
     computed = _balance_from_positions()
     return computed if computed is not None else _balance
 
@@ -220,11 +250,8 @@ def update_heartbeat(trades_executed: int = 0, paused: bool = False, reason: str
                 pass
         starting = float(existing.get("starting_balance", _DEFAULT_BALANCE))
 
-        # Always derive from positions_state.json — prevents stale in-memory drift
-        computed = _balance_from_positions()
-        if computed is not None:
-            _balance = computed
-
+        # Use get_current_balance() — fetches real-time CLOB balance in live mode
+        _balance = get_current_balance()
         existing["balance"]             = _balance
         existing["pnl"]                 = round(_balance - starting, 2)
         existing["trades_executed"]     = trades_executed
