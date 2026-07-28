@@ -791,6 +791,7 @@ def build_equity_chart(width: int = 34) -> str:
 def build_metrics_panel(fullscreen: bool = False) -> Panel:
     """Build performance summary showing real-time fluctuating unrealized stats."""
     with g_state.lock:
+        start_bal = safe_float(g_state.account_state.get("starting_balance", 10.14))
         try:
             from core.engine.state_manager import get_current_balance
             current_bal = get_current_balance()
