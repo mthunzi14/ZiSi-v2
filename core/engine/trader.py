@@ -1613,10 +1613,12 @@ def check_and_close_paper_trades(max_hold_minutes: int = 240) -> list[dict]:
 
 
 def update_trade_record(order_id: str, exit_data: dict) -> None:
-    """Merge exit details into the cached position record."""
+    """Merge exit details into the cached position record and remove from active memory."""
     if order_id in _open_positions:
         _open_positions[order_id].update(exit_data)
         _open_positions[order_id]["status"] = "CLOSED"
+        # Remove from active open positions memory map so position is never re-closed in reconciliation loop
+        _open_positions.pop(order_id, None)
 
 
 def attach_exit_targets(order_id: str, target_price: float, stop_loss: float) -> None:
