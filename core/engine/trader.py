@@ -772,15 +772,25 @@ def place_order(
         log.warning("[TRADE] Blocking entry attempt on expired market: %s", event_title)
         return None
 
-    # Ensure bet size never exceeds available live balance
+    # Shares-first sizing: Polymarket CLOB requires a minimum order size of 5 shares.
+    min_shares = 5 if mode != "paper_trading" else 1
+    shares = max(min_shares, round(amount_dollars / entry_price)) if entry_price > 0 else min_shares
+
+    # In live mode, verify required_cost against available cash balance
     if mode != "paper_trading":
         curr_bal = get_current_balance()
-        if curr_bal > 0 and amount_dollars > curr_bal * 0.85:
-            amount_dollars = max(1.00, round(curr_bal * 0.85, 2))
+        required_cost = round(shares * entry_price, 4)
+        if curr_bal > 0 and required_cost > curr_bal:
+            # Downscale shares to fit available balance, but enforce Polymarket's 5-share minimum
+            max_affordable_shares = int(curr_bal / entry_price) if entry_price > 0 else 0
+            if max_affordable_shares < 5:
+                log.warning(
+                    "[TRADE-SKIP] Cannot place order for %s: available balance $%.2f < cost of 5 shares ($%.2f @ %.2f¢)",
+                    event_title, curr_bal, 5 * entry_price, entry_price * 100
+                )
+                return None
+            shares = max_affordable_shares
 
-    # Shares-first sizing (ZiSi sovereign pattern): avoids USD→shares rounding drift at low prices.
-    # Polymarket uses whole shares — round to nearest integer, minimum 1.
-    shares = max(1, round(amount_dollars / entry_price)) if entry_price > 0 else 1
     actual_cost = round(shares * entry_price, 4)  # true cost derived from share count
     order_id = f"zisi_{uuid.uuid4().hex[:12]}"
     timestamp = datetime.now(timezone.utc).isoformat()
