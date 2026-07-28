@@ -834,10 +834,11 @@ def build_metrics_panel(fullscreen: bool = False) -> Panel:
     metrics_table.add_column("Value", justify="right")
 
     metrics_table.add_row("Start Capital:", f"[{COLOR_LABEL}]${start_bal:,.2f} USDC[/{COLOR_LABEL}]")
-    metrics_table.add_row("Live Capital:", f"[{COLOR_LABEL}]${live_balance:,.2f} USDC[/{COLOR_LABEL}]")
+    metrics_table.add_row("Portfolio Value:", f"[{COLOR_LABEL}]${live_balance:,.2f} USDC[/{COLOR_LABEL}]")
+    metrics_table.add_row("Cash Balance:", f"[{COLOR_LABEL}]${current_bal:,.2f} USDC[/{COLOR_LABEL}]")
     metrics_table.add_row("Realized P&L:", f"[{real_color}]${realized:+,.2f} ({realized_roi:+.2f}%)[/{real_color}]" if realized != 0 else f"[{COLOR_LABEL}]$0.00 (0.00%)[/{COLOR_LABEL}]")
     metrics_table.add_row("Live Unrealized P&L:", f"[{unreal_color}]${total_live_unrealized:+,.2f}[/{unreal_color}]" if total_live_unrealized != 0 else f"[{COLOR_LABEL}]$0.00[/{COLOR_LABEL}]")
-    metrics_table.add_row("Total Trades:", f"[grey70]{total_closed}T[/grey70] | [#8ae28a]{wins}W[/#8ae28a] / [#ff746c]{losses}L[/#ff746c] / [grey50]{breakevens}BE[/grey50] ([{COLOR_LABEL}]{win_rate:.1f}% WR[/{COLOR_LABEL}])")
+    metrics_table.add_row("Total Predictions:", f"[grey70]{total_closed}T[/grey70] | [#8ae28a]{wins}W[/#8ae28a] / [#ff746c]{losses}L[/#ff746c] / [grey50]{breakevens}BE[/grey50] ([{COLOR_LABEL}]{win_rate:.1f}% WR[/{COLOR_LABEL}])")
 
 
     # Win/Loss breakdown and P&L by asset
