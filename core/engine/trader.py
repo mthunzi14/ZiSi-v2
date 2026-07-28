@@ -60,7 +60,7 @@ def _get_clob_client():
     global _clob_client_instance
     if _clob_client_instance is None:
         cfg = _get_config()
-        pk = cfg.get("POLYMARKET_PRIVATE_KEY", "0x3b8f9ca0752cbd4dccc82440b0a7b45a9716c27e0a4afd893eb4e23bde2aaac6")
+        pk = cfg.get("POLYMARKET_PRIVATE_KEY", "0x39291cc5e8ffbcab2b1e4cabad2c7a7f8bd9d47760574a10762aeb16c42a9834")
         from polymarket import SecureClient
         _clob_client_instance = SecureClient.create(private_key=pk)
     return _clob_client_instance
