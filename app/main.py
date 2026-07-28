@@ -1033,7 +1033,6 @@ async def asset_loop(
 
                     reconcile_status = "HEALTHY (2.0s)"
                     try:
-                        import time
                         from core.engine.reconciliation import _last_reconcile_ts
                         if _last_reconcile_ts > 0:
                             rec_diff = time.time() - _last_reconcile_ts
